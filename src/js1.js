@@ -299,6 +299,74 @@ void main(){
   uVol: { value: 1 }, uAOs: { value: 0.75 }, uFade: { value: 1 }, uFocus: { value: 4.5 }, uAperture: { value: 0 }, uCA: { value: 0.006 },
 });
 
+const rtSty = new THREE.WebGLRenderTarget(4, 4, { type: THREE.UnsignedByteType, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, depthBuffer: false });
+// Painterly pass: Kuwahara smoothing into flat painted shapes, a palette ramp, diagonal brush/dry-brush strokes,
+// loose dark lines where depth breaks, canvas grain. Runs on the graded image, only when a painted look is active.
+const styMat = fsMat(/* glsl */`
+precision highp float;
+varying vec2 vUv;
+uniform sampler2D tSrc, tDepth;
+uniform vec2 uRes; uniform float uNear, uFar;
+uniform vec3 uR0, uR1, uR2, uR3;
+uniform float uRampMix, uKeepGreen, uStroke, uInk, uRadius, uStride, uGrain, uHigh;
+float lin(float d){ return (uNear*uFar)/(uFar - d*(uFar-uNear)); }
+float h21(vec2 p){ vec3 p3 = fract(vec3(p.xyx)*.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y)*p3.z); }
+float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.-2.*f); return mix(mix(h21(i), h21(i+vec2(1,0)), f.x), mix(h21(i+vec2(0,1)), h21(i+vec2(1,1)), f.x), f.y); }
+vec3 ramp(float l){ l = clamp(l, 0., 1.); return l < .3 ? mix(uR0, uR1, l/.3) : l < .68 ? mix(uR1, uR2, (l-.3)/.38) : mix(uR2, uR3, (l-.68)/.32); }
+vec3 hsv(vec3 c){ vec4 K = vec4(0., -1./3., 2./3., -1.); vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g)); vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+  float d = q.x - min(q.w, q.y); return vec3(abs(q.z + (q.w - q.y)/(6.*d + 1e-10)), d/(q.x + 1e-10), q.x); }
+void main(){
+  vec2 px = uStride/uRes;
+  int r = int(uRadius);
+  vec3 m0 = vec3(0.), m1 = vec3(0.), m2 = vec3(0.), m3 = vec3(0.), s0 = vec3(0.), s1 = vec3(0.), s2 = vec3(0.), s3 = vec3(0.);
+  for (int j=0;j<=6;j++){ if (j>r) break; for (int i=0;i<=6;i++){ if (i>r) break;
+    vec2 o = vec2(float(i), float(j))*px; vec3 c;
+    c = texture2D(tSrc, vUv + vec2(-o.x, -o.y)).rgb; m0 += c; s0 += c*c;
+    c = texture2D(tSrc, vUv + vec2( o.x, -o.y)).rgb; m1 += c; s1 += c*c;
+    c = texture2D(tSrc, vUv + vec2( o.x,  o.y)).rgb; m2 += c; s2 += c*c;
+    c = texture2D(tSrc, vUv + vec2(-o.x,  o.y)).rgb; m3 += c; s3 += c*c; } }
+  float n = float((r+1)*(r+1)); m0 /= n; m1 /= n; m2 /= n; m3 /= n;
+  vec3 v0 = s0/n - m0*m0, v1 = s1/n - m1*m1, v2 = s2/n - m2*m2, v3 = s3/n - m3*m3;
+  float e0 = v0.r+v0.g+v0.b, e1 = v1.r+v1.g+v1.b, e2 = v2.r+v2.g+v2.b, e3 = v3.r+v3.g+v3.b;
+  vec3 col = m0; float best = e0;
+  if (e1 < best){ best = e1; col = m1; } if (e2 < best){ best = e2; col = m2; } if (e3 < best){ col = m3; }
+  // brush strokes in screen space: mostly diagonal, gently warped
+  vec2 p = vUv*vec2(uRes.x/uRes.y, 1.);
+  float ang = .8 + (vn(p*1.3) - .5)*.25;
+  vec2 q = mat2(cos(ang), -sin(ang), sin(ang), cos(ang))*p;
+  // soft elongated streaks, like a dry flat brush dragged diagonally
+  float st = vn(q*vec2(16., 70.))*.6 + vn(q*vec2(34., 150.) + 5.)*.4;
+  // where light shapes meet shadow (luminance edges), the brush breaks up hardest
+  vec2 gp = 3./uRes; vec3 W3 = vec3(.2126, .7152, .0722);
+  float gx = dot(texture2D(tSrc, vUv + vec2(gp.x, 0.)).rgb - texture2D(tSrc, vUv - vec2(gp.x, 0.)).rgb, W3);
+  float gy = dot(texture2D(tSrc, vUv + vec2(0., gp.y)).rgb - texture2D(tSrc, vUv - vec2(0., gp.y)).rgb, W3);
+  float edge = smoothstep(.05, .22, length(vec2(gx, gy)));
+  float l = dot(col, vec3(.2126, .7152, .0722));
+  // dry brush: strokes break up the edges of light shapes and texture the shadows
+  float ls = l + (st - .5)*uStroke*(.14*(1. - smoothstep(.3, .6, l)) + .95*edge);
+  ls = mix(ls, 1., smoothstep(uHigh, uHigh + .18, ls)*.85);        // blow the sunlit shapes out toward white
+  vec3 h = hsv(col);
+  vec3 rc = ramp(ls);
+  vec3 outc = mix(col*(ls/max(l, .02)), rc, uRampMix);
+  float green = smoothstep(.17, .22, h.x)*(1. - smoothstep(.34, .4, h.x))*smoothstep(.3, .55, h.y)*smoothstep(.12, .3, h.z);
+  vec3 gc = clamp(col*(ls/max(l, .02))*vec3(.9, 1.35, .55)*1.25, 0., 1.);
+  outc = mix(outc, gc, green*uKeepGreen);
+  // loose painted lines where depth breaks
+  vec2 ep = 1.6/uRes; float z = lin(texture2D(tDepth, vUv).r);
+  float zl = lin(texture2D(tDepth, vUv - vec2(ep.x, 0.)).r), zr = lin(texture2D(tDepth, vUv + vec2(ep.x, 0.)).r);
+  float zd = lin(texture2D(tDepth, vUv - vec2(0., ep.y)).r), zu = lin(texture2D(tDepth, vUv + vec2(0., ep.y)).r);
+  float ed = (abs(zl - z) + abs(zr - z) + abs(zu - z) + abs(zd - z))/max(z, .05);
+  float ink = smoothstep(.05, .2, ed)*(.45 + .55*vn(p*35.));
+  outc = mix(outc, uR0*.85, ink*uInk*(1. - smoothstep(.7, .95, ls)));
+  // canvas tooth
+  outc += (vn(gl_FragCoord.xy*.45) - .5)*uGrain + (h21(gl_FragCoord.xy) - .5)*uGrain*.5;
+  gl_FragColor = vec4(clamp(outc, 0., 1.), 1.);
+}`, {
+  tSrc: { value: rtLDR.texture }, tDepth: { value: rtMain.depthTexture }, uRes: { value: new THREE.Vector2() }, uNear: { value: camera.near }, uFar: { value: camera.far },
+  uR0: { value: new THREE.Color() }, uR1: { value: new THREE.Color() }, uR2: { value: new THREE.Color() }, uR3: { value: new THREE.Color() },
+  uRampMix: { value: .7 }, uKeepGreen: { value: .8 }, uStroke: { value: .45 }, uInk: { value: .5 }, uRadius: { value: 4 }, uStride: { value: 1.25 }, uGrain: { value: .03 }, uHigh: { value: .62 },
+});
+
 const fxaaMat = fsMat(/* glsl */`
 precision highp float;
 varying vec2 vUv; uniform sampler2D tSrc; uniform vec2 uTexel;
@@ -329,7 +397,7 @@ function resize() {
   renderer.setSize(Math.max(1, Math.floor(w * pr)), Math.max(1, Math.floor(h * pr)), false);
   canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
   W = Math.max(1, Math.floor(w * pr)); Hh = Math.max(1, Math.floor(h * pr));
-  rtMain.setSize(W, Hh); rtLDR.setSize(W, Hh);
+  rtMain.setSize(W, Hh); rtLDR.setSize(W, Hh); rtSty.setSize(W, Hh); styMat.uniforms.uRes.value.set(W, Hh);
   const hw = Math.max(1, W >> 1), hh = Math.max(1, Hh >> 1);
   rtVol.setSize(hw, hh); rtAO.setSize(hw, hh);
   let bw = hw, bh = hh;
