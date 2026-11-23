@@ -1,0 +1,186 @@
+<title>As Is</title>
+<script>
+/* =====================================================================
+   PROJECTS: one entry per floor. Add people here and nothing else needs to change.
+   floor   whole number, 1 or higher (the lobby is L). Each floor once.
+   name    shown on the button tooltip, the landing wall and the floor list.
+   author  shown under the name.
+   url     opens in a new tab when a visitor steps out onto the landing.
+   sticker an emoji or up to 3 characters, or a data:image/... URI.
+           (The artifact host blocks images from other sites, so a plain https image URL will not load.)
+   These entries are placeholders: replace them with the real list.
+   ===================================================================== */
+const PROJECTS = [
+  { floor: 2,  name: 'Night Garden',     author: 'Your Name', url: 'https://example.com/night-garden',   sticker: '🌙' },
+  { floor: 3,  name: 'Paper Boats',      author: 'Your Name', url: 'https://example.com/paper-boats',    sticker: '⛵' },
+  { floor: 5,  name: 'Tidepool',         author: 'Your Name', url: 'https://example.com/tidepool',       sticker: '🐚' },
+  { floor: 6,  name: 'Static Choir',     author: 'Your Name', url: 'https://example.com/static-choir',   sticker: '📻' },
+  { floor: 8,  name: 'Slow Clock',       author: 'Your Name', url: 'https://example.com/slow-clock',     sticker: '⏳' },
+  { floor: 9,  name: 'Moth Lamp',        author: 'Your Name', url: 'https://example.com/moth-lamp',      sticker: '🦋' },
+  { floor: 11, name: 'Ink Weather',      author: 'Your Name', url: 'https://example.com/ink-weather',    sticker: '🌧' },
+  { floor: 13, name: 'Glass Orchard',    author: 'Your Name', url: 'https://example.com/glass-orchard',  sticker: '🍐' },
+  { floor: 14, name: 'Pocket Comet',     author: 'Your Name', url: 'https://example.com/pocket-comet',   sticker: '☄' },
+  { floor: 17, name: 'Low Tide Radio',   author: 'Your Name', url: 'https://example.com/low-tide-radio', sticker: '🎧' },
+  { floor: 20, name: 'Kite Theory',      author: 'Your Name', url: 'https://example.com/kite-theory',    sticker: '🪁' },
+  { floor: 22, name: 'Rooftop Cinema',   author: 'Your Name', url: 'https://example.com/rooftop-cinema', sticker: '🎞' },
+];
+const TITLE  = 'As Is';         // title card and start screen
+const STUDIO = 'Bermuda DPT';   // credit line: "<STUDIO> presents"
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@500;800&family=Cormorant+Garamond:ital,wght@0,500;1,500&family=IBM+Plex+Mono:wght@400;500&family=Saira+Condensed:wght@600&family=Saira+Stencil+One&display=swap">
+<style>
+/* Layout: full-bleed WebGL viewport; cinematic type sits over the live scene, captions low and centred, one small menu button in the corner. */
+:root{
+  --ink:#f6efe3;
+  --ink-dim:rgba(246,239,227,.66);
+  --ink-faint:rgba(246,239,227,.26);
+  --amber:#ffb24f;
+  --teal:#2c6a5f;
+  --bg:#050807;
+  --plate:rgba(8,12,10,.62);
+  --f-serif:"Shippori Mincho B1","Cormorant Garamond",Georgia,serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);overflow:hidden;font-family:var(--f-mono);-webkit-user-select:none;user-select:none}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none}
+[hidden]{display:none!important}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.ui{position:fixed;pointer-events:none;z-index:4}
+
+/* letterbox, credit, title card (same treatment as Updraft) */
+#lb{position:fixed;inset:0;pointer-events:none;z-index:5}
+#lb i{position:absolute;left:0;right:0;height:0;background:#000;transition:height 1.6s cubic-bezier(.6,0,.2,1)}
+#lbT{top:0} #lbB{bottom:0}
+body.letterbox #lb i{height:calc((100vh - 100vw/2.39)/2)}
+@media (max-aspect-ratio:1/1){ body.letterbox #lb i{height:12vh} }
+.cine{position:fixed;pointer-events:none;z-index:6;opacity:0;transition:opacity 1.4s ease, transform 2.4s ease;color:#fbf7ef;text-shadow:0 2px 18px rgba(0,0,0,.45)}
+.cine.on{opacity:1}
+#credit{right:11vw;top:46%;text-shadow:0 1px 2px rgba(0,0,0,.55),0 0 22px rgba(0,0,0,.55),0 0 48px rgba(0,0,0,.35);font-family:var(--f-serif);font-weight:500;font-size:clamp(13px,1.25vw,18px);letter-spacing:.42em;text-transform:uppercase;text-align:right;line-height:1.9;transform:translateY(6px)}
+#credit span{letter-spacing:.5em;opacity:.8;font-size:.82em}
+#credit.on{transform:none}
+#logo{left:9vw;top:40%;text-align:left;transform:translateX(-18px)}
+#logo.on{transform:none}
+#logo .word{font-family:var(--f-serif);font-weight:800;font-size:clamp(46px,7.4vw,118px);letter-spacing:.2em;line-height:.9;margin-right:-.2em;color:#fffbf3;text-shadow:0 2px 3px rgba(0,0,0,.35),0 6px 30px rgba(0,0,0,.45);white-space:nowrap}
+#logo .sub{display:flex;align-items:center;gap:14px;margin-top:18px;font-family:var(--f-serif);font-weight:500;font-size:clamp(12px,1.1vw,15px);letter-spacing:.32em;text-transform:uppercase;color:#fffbf3;text-shadow:0 1px 2px rgba(0,0,0,.6),0 2px 14px rgba(0,0,0,.5)}
+.seal{display:inline-grid;place-items:center;width:1.9em;height:1.9em;background:#b3261e;color:#f8e9dc;font-size:1.15em;letter-spacing:0;border-radius:50%;box-shadow:0 0 0 1px rgba(255,255,255,.08),0 4px 12px rgba(0,0,0,.35)}
+@media (max-width:640px){ #credit{right:6vw;top:40%} #logo{left:6vw;right:6vw;top:34%} #logo .sub{flex-wrap:wrap;gap:8px 10px;letter-spacing:.18em} #logo .word{font-size:15vw} }
+
+/* start screen: Updraft's card, set over the live lobby shot instead of black */
+#start{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;cursor:pointer;transition:opacity 1.6s ease;outline:none;
+  background:radial-gradient(ellipse 60% 46% at 50% 50%,rgba(3,6,5,.5),rgba(3,6,5,.18) 70%,rgba(3,6,5,0)),linear-gradient(180deg,rgba(3,6,5,.35),rgba(3,6,5,0) 30%,rgba(3,6,5,0) 70%,rgba(3,6,5,.45))}
+#start.gone{opacity:0;pointer-events:none}
+#start .mark{font-family:var(--f-serif);font-size:13px;letter-spacing:.6em;text-transform:uppercase;color:rgba(255,248,236,.62);margin-right:-.6em;text-shadow:0 1px 10px rgba(0,0,0,.6)}
+#start .word{font-family:var(--f-serif);font-weight:800;font-size:clamp(34px,4.6vw,64px);letter-spacing:.24em;margin-right:-.24em;color:#fffbf3;text-shadow:0 2px 3px rgba(0,0,0,.35),0 6px 30px rgba(0,0,0,.55);white-space:nowrap}
+#start .press{font-family:var(--f-serif);font-size:15px;letter-spacing:.3em;text-transform:uppercase;color:#f6efe3;animation:breathe 2.6s ease-in-out infinite;margin-right:-.3em;text-shadow:0 1px 10px rgba(0,0,0,.7)}
+#start .press.wait{animation:none;opacity:.4}
+#start .note{position:absolute;bottom:8vh;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,248,236,.4);text-shadow:0 1px 8px rgba(0,0,0,.6);text-align:center;padding:0 16px}
+@keyframes breathe{50%{opacity:.35}}
+#fade{position:fixed;inset:0;background:#000;z-index:20;pointer-events:none;opacity:1;transition:opacity 2.6s ease}
+#fade.out{opacity:0}
+
+/* captions, hint, typed floor, reticle, hover label */
+#cap{left:50%;bottom:calc(8vh + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:7;padding:18px 48px;background:radial-gradient(closest-side,rgba(6,8,6,.5),rgba(6,8,6,0));font-family:var(--f-serif);font-size:16px;letter-spacing:.14em;color:#fffaf1;text-shadow:0 1px 2px rgba(0,0,0,.7),0 0 14px rgba(0,0,0,.6);opacity:0;transition:opacity .7s;white-space:nowrap;text-align:center}
+#cap.on{opacity:1}
+#cap b{font-weight:500;color:var(--amber)}
+body.letterbox #cap{bottom:calc((100vh - 100vw/2.39)/2 + 2vh)}
+#hint{left:50%;bottom:calc(3vh + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font-family:var(--f-serif);font-size:13px;letter-spacing:.08em;color:var(--ink-dim);text-shadow:0 1px 6px rgba(0,0,0,.8);opacity:0;transition:opacity 1.2s;white-space:nowrap}
+#hint.on{opacity:1}
+#hint kbd{font-family:var(--f-mono);font-size:11px;color:var(--ink);border:1px solid var(--ink-faint);border-bottom-width:2px;border-radius:4px;padding:0 5px;background:rgba(0,0,0,.2)}
+@media (max-width:640px){ #cap,#hint{white-space:normal;width:86vw;text-align:center} #cap{padding:12px 16px;font-size:14px} }
+#ret{left:50%;top:50%;width:4px;height:4px;margin:-2px 0 0 -2px;border-radius:50%;background:rgba(255,248,236,.75);box-shadow:0 0 0 1.5px rgba(0,0,0,.35);opacity:0;transition:opacity .3s,transform .2s}
+#ret.on{opacity:1} #ret.hot{transform:scale(2.2);background:var(--amber)}
+#tip{left:0;top:0;transform:translate(14px,-50%);padding:8px 12px 9px;background:var(--plate);border:1px solid rgba(255,236,210,.14);border-radius:6px;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);opacity:0;transition:opacity .2s;min-width:120px;max-width:280px}
+#tip.on{opacity:1}
+#tip .fl{font-family:"Saira Condensed","Arial Narrow",sans-serif;font-weight:600;font-size:12px;letter-spacing:.2em;color:var(--amber);text-transform:uppercase}
+#tip b{display:block;font-family:var(--f-serif);font-weight:500;font-size:17px;letter-spacing:.04em;margin-top:2px}
+#tip span{display:block;font-size:11px;color:var(--ink-dim);letter-spacing:.06em;margin-top:2px}
+#typed{left:50%;top:58%;transform:translateX(-50%);font-family:"Saira Condensed","Arial Narrow",sans-serif;font-weight:600;font-size:30px;letter-spacing:.2em;color:var(--amber);text-shadow:0 0 18px rgba(255,160,60,.45),0 1px 2px rgba(0,0,0,.8);opacity:0;transition:opacity .25s}
+#typed.on{opacity:1}
+
+/* landing link: always a real link, so it works where pop-ups are blocked */
+#visit{position:fixed;z-index:8;right:calc(18px + env(safe-area-inset-right,0px));bottom:calc(18px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:2px;padding:11px 16px 12px;background:var(--plate);border:1px solid rgba(255,190,110,.45);border-radius:8px;color:var(--ink);text-decoration:none;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);opacity:0;transform:translateY(8px);transition:opacity .5s,transform .5s,border-color .3s;pointer-events:none;max-width:min(320px,calc(100vw - 36px))}
+#visit.on{opacity:1;transform:none;pointer-events:auto}
+#visit small{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--amber)}
+#visit b{font-family:var(--f-serif);font-weight:500;font-size:17px;letter-spacing:.04em}
+#visit:hover,#visit:focus-visible{border-color:var(--amber);outline:none}
+#visit.pulse{animation:pulse 1.2s ease 2}
+@keyframes pulse{50%{box-shadow:0 0 0 6px rgba(255,178,79,.25)}}
+
+/* menu button + floor list (also the fallback without WebGL, and for screen readers) */
+#menuBtn{position:fixed;z-index:11;top:calc(14px + env(safe-area-inset-top,0px));right:calc(14px + env(safe-area-inset-right,0px));font:inherit;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:rgba(255,248,236,.72);background:rgba(6,9,8,.38);border:1px solid rgba(255,248,236,.18);border-radius:16px;padding:7px 14px 6px;cursor:pointer;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);transition:color .3s,border-color .3s}
+#menuBtn:hover,#menuBtn:focus-visible{color:#fff;border-color:rgba(255,248,236,.5);outline:none}
+#menu{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:rgba(3,5,4,.55);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);padding:16px max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px))}
+#menu .panel{width:min(520px,100%);max-height:calc(100vh - 32px);overflow:auto;box-sizing:border-box;padding:22px 22px 18px;background:rgba(10,14,12,.86);border:1px solid rgba(255,236,210,.12);border-radius:10px;display:flex;flex-direction:column;gap:16px}
+#menu h2{margin:0;font-family:var(--f-serif);font-weight:500;font-size:22px;letter-spacing:.3em;text-transform:uppercase}
+#menu p{margin:0;font-size:12px;line-height:1.6;color:var(--ink-dim)}
+#list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+#list li{border-top:1px solid rgba(255,236,210,.08)}
+#list a{display:grid;grid-template-columns:3.2em 1fr;gap:2px 12px;align-items:baseline;padding:9px 4px;color:var(--ink);text-decoration:none;border-radius:4px}
+#list a:hover,#list a:focus-visible{background:rgba(255,236,210,.06);outline:none}
+#list a:focus-visible{box-shadow:inset 0 0 0 1px var(--amber)}
+#list .n{font-family:"Saira Condensed","Arial Narrow",sans-serif;font-weight:600;font-size:18px;letter-spacing:.1em;color:var(--amber);font-variant-numeric:tabular-nums;grid-row:span 2}
+#list .t{font-family:var(--f-serif);font-size:16px;letter-spacing:.03em;min-width:0;overflow-wrap:anywhere}
+#list .a{font-size:11px;color:var(--ink-dim);letter-spacing:.05em;min-width:0;overflow-wrap:anywhere}
+.row{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center}
+.tog{font:inherit;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);background:transparent;border:1px solid var(--ink-faint);border-radius:12px;padding:5px 12px;cursor:pointer}
+.tog[aria-pressed="true"]{border-color:var(--amber);color:var(--amber)}
+.tog:focus-visible,#closeMenu:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+#closeMenu{align-self:flex-start;font:inherit;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink);background:rgba(255,236,210,.08);border:1px solid var(--ink-faint);border-radius:4px;padding:8px 14px;cursor:pointer}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:11px;color:var(--ink-dim);align-items:center}
+.keys kbd{font-family:var(--f-mono);font-size:10px;color:var(--ink);border:1px solid var(--ink-faint);border-bottom-width:2px;border-radius:4px;padding:0 5px;white-space:nowrap;justify-self:start}
+#nogl{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:16px}
+#nogl .panel{width:min(520px,100%)}
+
+/* touch joystick */
+#stick{position:fixed;z-index:6;left:0;top:0;width:104px;height:104px;margin:-52px 0 0 -52px;border-radius:50%;border:1px solid var(--ink-faint);background:rgba(6,9,8,.22);display:none;pointer-events:none}
+#stick i{position:absolute;left:50%;top:50%;width:42px;height:42px;margin:-21px 0 0 -21px;border-radius:50%;background:rgba(246,239,227,.5)}
+@media (prefers-reduced-motion:reduce){ #start .press{animation:none} }
+body.rm #start .press{animation:none}
+body.rm .cine,body.rm #lb i{transition-duration:.01s}
+</style>
+
+<canvas id="c" aria-hidden="true" tabindex="-1"></canvas>
+<h1 class="sr" id="srTitle">As Is: a lift to the projects on each floor</h1>
+<div id="lb" aria-hidden="true"><i id="lbT"></i><i id="lbB"></i></div>
+<div id="credit" class="cine" aria-hidden="true"><span id="creditName"></span><br><span>presents</span></div>
+<div id="logo" class="cine" role="img" aria-label="">
+  <div class="word" id="logoWord"></div>
+  <div class="sub"><span class="seal" aria-hidden="true">↑</span><span id="logoSub"></span></div>
+</div>
+<div id="cap" class="ui" aria-live="polite"></div>
+<div id="hint" class="ui"></div>
+<div id="ret" class="ui" aria-hidden="true"></div>
+<div id="tip" class="ui" aria-hidden="true"><div class="fl" id="tipFl"></div><b id="tipName"></b><span id="tipBy"></span></div>
+<div id="typed" class="ui" aria-live="polite"></div>
+<div id="stick" aria-hidden="true"><i id="knob"></i></div>
+<a id="visit" href="#" target="_blank" rel="noopener"><small id="visitSmall">Step out to visit</small><b id="visitName"></b></a>
+<button id="menuBtn" type="button" aria-haspopup="dialog" aria-controls="menu">Floors</button>
+<div id="menu" role="dialog" aria-modal="true" aria-labelledby="menuH" hidden>
+  <div class="panel">
+    <h2 id="menuH">Floors</h2>
+    <p id="menuLede"></p>
+    <ul id="list"></ul>
+    <div class="row" id="menuToggles">
+      <button class="tog" id="togSound" type="button" aria-pressed="true">Sound on</button>
+      <button class="tog" id="togMotion" type="button" aria-pressed="false">Reduce motion</button>
+    </div>
+    <div class="keys" id="menuKeys">
+      <kbd>W A S D</kbd><span>walk</span>
+      <kbd>Mouse</kbd><span>look (click the view to capture the mouse, Esc to release)</span>
+      <kbd>Click</kbd><span>press the button you are looking at</span>
+      <kbd>0–9</kbd><span>type a floor number, then wait or press Enter. L for the lobby</span>
+      <kbd>F</kbd><span>this list</span>
+    </div>
+    <button id="closeMenu" type="button">Close</button>
+  </div>
+</div>
+<div id="start" role="button" tabindex="0" aria-label="Enter">
+  <div class="mark" id="startMark"></div>
+  <div class="press wait" id="pressTxt">Wiring the cab…</div>
+  <div class="note">Sound on · headphones recommended</div>
+</div>
+<div id="fade"></div>
+<div id="nogl" hidden><div class="panel" id="noglPanel"></div></div>
