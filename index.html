@@ -1764,7 +1764,49 @@ async function buildScene(progress) {
 /* ======================================================================
    AUDIO: procedural score (pad + electric piano), bell, doors, motor, room
    ====================================================================== */
-const A = { ctx: null };
+const A = { ctx: null, smp: {} };
+/* ---- recorded sounds (audio/ next to the page). If any fail to load, the generated sound is used instead. ---- */
+const SAMPLES = { song: 'audio/song.mp3', tile: 'audio/steps-tile.mp3', metal: 'audio/steps-metal.mp3', start: 'audio/lift-start.mp3', stop: 'audio/lift-stop.mp3', loop: 'audio/lift-loop.mp3' };
+const STEP_SLOT = { tile: [.5, .45, 8], metal: [1.0, .9, 8] };       // slot length, step length, steps per file
+const LOOP_IN = .5, LOOP_OUT = 27.5;                                    // seamless region of lift-loop.mp3
+const samplesReady = (async () => {
+  const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext; if (!OAC) return;
+  const dec = new OAC(2, 1, 48000);
+  await Promise.all(Object.entries(SAMPLES).map(async ([k, url]) => {
+    try { const r = await fetch(url); if (!r.ok) return; A.smp[k] = await dec.decodeAudioData(await r.arrayBuffer()); } catch (e) { console.warn('Sound not loaded:', url); }
+  }));
+})();
+function playBuf(buf, t, { gain = 1, rate = 1, offset = 0, dur, dest } = {}) {
+  const s = A.ctx.createBufferSource(); s.buffer = buf; s.playbackRate.value = rate; const g = A.ctx.createGain(); g.gain.value = gain;
+  s.connect(g).connect(dest || A.master); dur !== undefined ? s.start(t, offset, dur) : s.start(t, offset); return { s, g };
+}
+let lastStep = -1;
+function stepSample(surface) {
+  const buf = A.smp[surface]; if (!buf) return false;
+  const [slot, len, n] = STEP_SLOT[surface]; let i = Math.floor(Math.random() * n); if (i === lastStep) i = (i + 1) % n; lastStep = i;
+  playBuf(buf, now_(), { gain: (surface === 'metal' ? .42 : .5) * (.8 + Math.random() * .2), rate: .94 + Math.random() * .12, offset: i * slot, dur: len });
+  return true;
+}
+function liftStartSound() {
+  if (!A.ctx || !A.smp.start || !A.smp.loop) return;
+  const t = now_(); playBuf(A.smp.start, t, { gain: .9 });
+  if (A.loop) { try { A.loop.s.stop(); } catch (e) { } }
+  const s = A.ctx.createBufferSource(); s.buffer = A.smp.loop; s.loop = true; s.loopStart = LOOP_IN; s.loopEnd = LOOP_OUT;
+  const g = A.ctx.createGain(); g.gain.setValueAtTime(0, t); s.connect(g).connect(A.master);
+  s.start(t + .7, LOOP_IN + Math.random() * 20); g.gain.setValueAtTime(0, t + .7); g.gain.linearRampToValueAtTime(.5, t + 1.6);
+  A.loop = { s, g };
+}
+function liftStopSound() {
+  if (!A.ctx || !A.smp.stop) return;
+  const t = now_(); playBuf(A.smp.stop, t, { gain: .9 });
+  if (A.loop) { const { s, g } = A.loop; g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(0, t + .6); s.stop(t + .7); A.loop = null; }
+}
+function startSong() {
+  if (!A.ctx || !A.smp.song) return false;
+  const t = now_() + .05; const { s, g } = playBuf(A.smp.song, t, { gain: 0 }); s.loop = true;
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.8, t + 3); A.song = { s, g };
+  return true;
+}
 function initAudio() {
   if (A.ctx) return;
   const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
@@ -1837,7 +1879,7 @@ function sfxDoors(opening, dur) {
   if (Math.random() < .7) { const q = ctx.createOscillator(); q.type = 'sine'; const qt = t + .3 + Math.random() * (dur - .8); q.frequency.setValueAtTime(1900 + Math.random() * 600, qt); q.frequency.linearRampToValueAtTime(2500 + Math.random() * 500, qt + .35); const qe = ctx.createGain(); qe.gain.setValueAtTime(0, qt); qe.gain.linearRampToValueAtTime(.012, qt + .1); qe.gain.linearRampToValueAtTime(0, qt + .4); q.connect(qe).connect(A.master); q.start(qt); q.stop(qt + .5); }
   thump(t + dur - .02, opening ? 90 : 70, 38, opening ? .2 : .38, .3); noiseHit(t + dur - .02, 'lowpass', 900, .7, opening ? .12 : .25, .12);
 }
-function sfxStep(steel) { if (!A.ctx) return; const t = now_(); noiseHit(t, 'lowpass', steel ? 900 : 620, .8, .12, .09); thump(t, 95, 55, .1, .09); if (steel) noiseHit(t + .005, 'bandpass', 1700 + Math.random() * 400, 9, .035, .14); }
+function sfxStep(steel) { if (!A.ctx) return; if (stepSample(steel ? 'metal' : 'tile')) return; const t = now_(); noiseHit(t, 'lowpass', steel ? 900 : 620, .8, .12, .09); thump(t, 95, 55, .1, .09); if (steel) noiseHit(t + .005, 'bandpass', 1700 + Math.random() * 400, 9, .035, .14); }
 function sfxTick(g) { if (!A.ctx) return; const t = now_(); noiseHit(t, 'bandpass', 800, 2.5, .08 * g, .05); thump(t, 140, 80, .06 * g, .07); }
 function sfxAlarm() { if (!A.ctx) return; const ctx = A.ctx, t = now_(); const o = ctx.createOscillator(); o.type = 'square'; o.frequency.value = 1180; const am = ctx.createOscillator(); am.type = 'square'; am.frequency.value = 24; const ag = ctx.createGain(); ag.gain.value = .5; const g = ctx.createGain(); g.gain.value = .5; am.connect(ag).connect(g.gain);
   const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2200; bp.Q.value = 2; const e = ctx.createGain(); e.gain.setValueAtTime(0, t); e.gain.linearRampToValueAtTime(.07, t + .02); e.gain.setValueAtTime(.07, t + 1.5); e.gain.linearRampToValueAtTime(0, t + 1.6);
@@ -1846,7 +1888,9 @@ function sfxChirps() { if (!A.ctx) return; const ctx = A.ctx; let t = now_() + .
   for (let i = 0; i < n; i++) { const o = ctx.createOscillator(); o.frequency.setValueAtTime(base, t); o.frequency.exponentialRampToValueAtTime(base * (1.2 + Math.random() * .4), t + .05); o.frequency.exponentialRampToValueAtTime(base * .9, t + .09);
     const e = ctx.createGain(); e.gain.setValueAtTime(0, t); e.gain.linearRampToValueAtTime(.018, t + .01); e.gain.exponentialRampToValueAtTime(.0005, t + .1); o.connect(e).connect(pn || A.ambLP); o.start(t); o.stop(t + .12); t += .11 + Math.random() * .08; } }
 function scoreIntro() {
-  if (!A.ctx) return; const t0 = A.ctx.currentTime + .05;
+  if (!A.ctx) return;
+  if (startSong()) return;
+  const t0 = A.ctx.currentTime + .05;
   A.pad.g.gain.cancelScheduledValues(t0); A.pad.g.gain.setValueAtTime(0, t0); A.pad.g.gain.linearRampToValueAtTime(.05, t0 + 4);
   setChord(0, t0);
   const N = [[.8, 523.25, 1.6, .05, -.2], [1.5, 440, 1.2, .045, .1], [2.2, 392, 1.0, .045, -.1], [2.9, 329.63, 2.4, .05, .15],
@@ -1860,14 +1904,17 @@ function scoreIntro() {
 function audioTick(dt) {
   if (!A.ctx) return; const t = A.ctx.currentTime;
   const vN = clamp(Math.abs(lift.v) / 7, 0, 1.2), shut = lift.doors < .05 && P.inCab;
-  A.hum.gain.setTargetAtTime(lift.phase === 'riding' ? .05 + .12 * vN : 0, t, .25);
+  const rec = !!A.smp.loop, ride = lift.phase === 'riding';
+  if (A.loop) { A.loop.g.gain.setTargetAtTime(.3 + .45 * clamp(vN, 0, 1), t, .3); A.loop.s.playbackRate.setTargetAtTime(.88 + .16 * clamp(vN, 0, 1), t, .3); }
+  A.hum.gain.setTargetAtTime(ride && !rec ? .05 + .12 * vN : 0, t, .25);
   A.motorO.frequency.setTargetAtTime(90 + 220 * vN, t, .2); A.motorF.frequency.setTargetAtTime(180 + 420 * vN, t, .2);
-  A.motorG.gain.setTargetAtTime(lift.phase === 'riding' ? .012 + .03 * vN + .02 * clamp(Math.abs(lift.a) / 2, 0, 1) : 0, t, .2);
-  A.rush.g.gain.setTargetAtTime(.12 * vN * vN, t, .2); A.rush.fl.frequency.setTargetAtTime(400 + 900 * vN, t, .2);
+  A.motorG.gain.setTargetAtTime(ride && !rec ? .012 + .03 * vN + .02 * clamp(Math.abs(lift.a) / 2, 0, 1) : 0, t, .2);
+  A.rush.g.gain.setTargetAtTime(rec ? 0 : .12 * vN * vN, t, .2); A.rush.fl.frequency.setTargetAtTime(400 + 900 * vN, t, .2);
   A.ambLP.frequency.setTargetAtTime(shut ? 600 : 7000, t, .3);
   A.wind.g.gain.setTargetAtTime(shut ? .03 : .055, t, .5);
   // generative music once the intro has played
-  if (D.state === 'play') {
+  if (A.song) A.song.g.gain.setTargetAtTime(D.state === 'intro' ? .8 : lift.phase === 'riding' ? .4 : .55, t, 1.5);
+  if (D.state === 'play' && !A.song) {
     A.pad.g.gain.setTargetAtTime(lift.phase === 'riding' ? .028 : .036, t, 1.5);
     if (t > A.pad.next) { A.pad.next = t + 9; setChord((A.pad.chord + 1) % 4, t); }
     if (t > A.nextNote) { A.nextNote = t + 2.6 + Math.random() * 4.5; const tones = CHORD_TONES[A.pad.chord]; const f = tones[Math.floor(Math.random() * tones.length)];
@@ -1919,7 +1966,8 @@ function depart() {
   const f = lift.target; const D_ = Math.abs(f * H - lift.y);
   if (D_ < .01) { arrive(); return; }
   if (f > 0) dressLanding(f); else landing.visible = false;
-  lift.plan = plan(D_); lift.t = 0; lift.from = lift.y; lift.dir = Math.sign(f * H - lift.y); lift.phase = 'riding'; lift.capped = false;
+  lift.plan = plan(D_); lift.t = 0; lift.from = lift.y; lift.dir = Math.sign(f * H - lift.y); lift.phase = 'riding'; lift.capped = false; lift.stopSnd = false;
+  liftStartSound();
   caption(`${lift.dir > 0 ? 'Going up' : 'Going down'} · <b>${f === 0 ? 'Lobby' : 'Floor ' + f}</b>`, 3.2);
 }
 function arrive() {
@@ -1938,6 +1986,7 @@ function liftTick(dt) {
     const prevY = lift.y; lift.y = lift.from + lift.dir * s; lift.v = lift.dir * v; lift.a = lift.dir * a;
     const cf = Math.round(lift.y / H); if (cf !== lift.lamp) { setLamp(cf); sfxTick(clamp(v / 4, .3, 1)); if (!RM) P.jolt = .6 * clamp(v / 6, .2, 1); }
     if (!lift.capped && lift.t > lift.plan.T - 2.4) { lift.capped = true; const p = BY_FLOOR.get(lift.target); caption(`Arriving at <b>${esc(p ? p.name : 'the lobby')}</b>`, 2.8); }
+    if (!lift.stopSnd && lift.t > lift.plan.T - .35) { lift.stopSnd = true; liftStopSound(); }
     if (lift.t >= lift.plan.T) arrive();
   } else if (lift.phase === 'arrived') {
     lift.waitT += dt; if (lift.waitT > .75) doorsTo(1);
@@ -2450,7 +2499,7 @@ function loop(now) {
   camera.position.copy(CAM.s0.p); camera.lookAt(CAM.s0.l); camera.fov = CAM.s0.fov; camera.updateProjectionMatrix();
   setLook(heldPeriod() || periodAt(new Date()), true); lookTick(0);
   D.state = 'gate'; D.fade = 0;
-  if (window.__test) window.__dbg = { D, lift, P, camera, landing, dressLanding, setLook, setLamp, gradeMat };
+  if (window.__test) window.__dbg = { D, lift, P, camera, landing, dressLanding, setLook, setLamp, gradeMat, A, selectFloor };
   requestAnimationFrame(loop);
   // warm up a few frames (shader compile), then fade in from black
   await nextFrame(); await nextFrame(); await nextFrame();
