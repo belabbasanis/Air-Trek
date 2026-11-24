@@ -490,9 +490,9 @@ const LOOKS = {
   evening: { amount: 1, sun: [1, .62, .38], sunI: 9, hemiSky: [.75, .5, .55], hemiGround: [.3, .17, .14], hemiI: .55, exp: 1.08, vol: 1.3, ns: .3, ao: .5, bloom: .1,
     hor: [1.5, .7, .45], zen: [.35, .3, .5], glow: 1.2, stars: 0, lamps: 1.4, btnGlow: .15,
     ramp: ['#2b1a1d', '#7b4a42', '#e2a683', '#fff1da'], rampMix: .66, keepGreen: .55, stroke: .38, ink: .5, radius: 4, stride: 1.3, grain: .03, high: .86 },
-  night: { amount: 1, sun: [.55, .7, 1], sunI: 2.2, hemiSky: [.18, .3, .55], hemiGround: [.05, .06, .1], hemiI: .25, exp: 1.9, vol: 1.1, ns: .3, ao: .6, bloom: .16,
-    hor: [.05, .09, .18], zen: [.01, .02, .06], glow: .08, stars: 1, lamps: 2.6, btnGlow: .55,
-    ramp: ['#060b17', '#143049', '#3c8197', '#ffd59a'], rampMix: .7, keepGreen: .4, stroke: .34, ink: .6, radius: 4, stride: 1.3, grain: .035, high: .82 },
+  night: { amount: 1, sun: [.5, .66, 1], sunI: 1.5, hemiSky: [.14, .24, .45], hemiGround: [.04, .05, .08], hemiI: .14, exp: 1.3, vol: 1.2, ns: .3, ao: .6, bloom: .2,
+    hor: [.05, .09, .18], zen: [.01, .02, .06], glow: .08, stars: 1, lamps: 3.4, btnGlow: .9,
+    ramp: ['#050912', '#112842', '#356f86', '#ffd59a'], rampMix: .48, keepGreen: .4, stroke: .34, ink: .6, radius: 4, stride: 1.3, grain: .035, high: .82 },
 };
 const hexRGB = (h) => { const c = new THREE.Color(h).convertLinearToSRGB(); return [c.r, c.g, c.b]; };
 for (const k in LOOKS) LOOKS[k].rampRGB = LOOKS[k].ramp.map(hexRGB);
