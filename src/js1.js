@@ -292,7 +292,7 @@ void main(){
   col = clamp(col, 0., 1.);
   col += (hash(uv*uRes + fract(uTime*7.31)*91.7) - 0.5)*0.022;
   col *= 1. - uFade;
-  gl_FragColor = vec4(col, 1.);
+  gl_FragColor = vec4(col, texture2D(tScene, uv).a);
 }`, {
   tScene: { value: rtMain.texture }, tDepth: { value: rtMain.depthTexture }, tBloom: { value: rtBloom[0].texture }, tVol: { value: rtVol.texture }, tAO: { value: rtAO.texture },
   uRes: { value: new THREE.Vector2() }, uNear: { value: camera.near }, uFar: { value: camera.far }, uTime: { value: 0 }, uExposure: { value: 1 }, uBloom: { value: 0.05 },
@@ -308,7 +308,7 @@ varying vec2 vUv;
 uniform sampler2D tSrc, tDepth;
 uniform vec2 uRes; uniform float uNear, uFar;
 uniform vec3 uR0, uR1, uR2, uR3;
-uniform float uRampMix, uKeepGreen, uStroke, uInk, uRadius, uStride, uGrain, uHigh, uAmount;
+uniform float uRampMix, uKeepGreen, uStroke, uInk, uRadius, uStride, uGrain, uHigh, uAmount, uDetail;
 float lin(float d){ return (uNear*uFar)/(uFar - d*(uFar-uNear)); }
 float h21(vec2 p){ vec3 p3 = fract(vec3(p.xyx)*.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y)*p3.z); }
 float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.-2.*f); return mix(mix(h21(i), h21(i+vec2(1,0)), f.x), mix(h21(i+vec2(0,1)), h21(i+vec2(1,1)), f.x), f.y); }
@@ -330,6 +330,13 @@ void main(){
   float e0 = v0.r+v0.g+v0.b, e1 = v1.r+v1.g+v1.b, e2 = v2.r+v2.g+v2.b, e3 = v3.r+v3.g+v3.b;
   vec3 col = m0; float best = e0;
   if (e1 < best){ best = e1; col = m1; } if (e2 < best){ best = e2; col = m2; } if (e3 < best){ col = m3; }
+  // put back some of the original detail, sharpened, so the paint never goes soft
+  vec2 sp = 1./uRes; vec4 c0 = texture2D(tSrc, vUv);
+  vec3 a4 = (texture2D(tSrc, vUv + vec2(sp.x, 0.)).rgb + texture2D(tSrc, vUv - vec2(sp.x, 0.)).rgb + texture2D(tSrc, vUv + vec2(0., sp.y)).rgb + texture2D(tSrc, vUv - vec2(0., sp.y)).rgb)*.25;
+  vec3 sharp = clamp(c0.rgb + (c0.rgb - a4)*.8, 0., 1.);
+  col = mix(col, sharp, uDetail);
+  // surfaces flagged in the scene (buttons, stickers, signs, the landing wall text) stay unpainted
+  float keep = 1. - smoothstep(.55, .8, min(min(c0.a, texture2D(tSrc, vUv + vec2(2.*sp.x, 0.)).a), min(texture2D(tSrc, vUv - vec2(2.*sp.x, 0.)).a, min(texture2D(tSrc, vUv + vec2(0., 2.*sp.y)).a, texture2D(tSrc, vUv - vec2(0., 2.*sp.y)).a))));
   // brush strokes in screen space: mostly diagonal, gently warped
   vec2 p = vUv*vec2(uRes.x/uRes.y, 1.);
   float ang = .8 + (vn(p*1.3) - .5)*.25;
@@ -360,11 +367,12 @@ void main(){
   outc = mix(outc, uR0*.85, ink*uInk*(1. - smoothstep(.7, .95, ls)));
   // canvas tooth
   outc += (vn(gl_FragCoord.xy*.45) - .5)*uGrain + (h21(gl_FragCoord.xy) - .5)*uGrain*.5;
-  gl_FragColor = vec4(mix(texture2D(tSrc, vUv).rgb, clamp(outc, 0., 1.), uAmount), 1.);
+  vec3 base = mix(c0.rgb, sharp, .5);
+  gl_FragColor = vec4(mix(base, clamp(outc, 0., 1.), uAmount*(1. - keep)), 1.);
 }`, {
   tSrc: { value: rtLDR.texture }, tDepth: { value: rtMain.depthTexture }, uRes: { value: new THREE.Vector2() }, uNear: { value: camera.near }, uFar: { value: camera.far },
   uR0: { value: new THREE.Color() }, uR1: { value: new THREE.Color() }, uR2: { value: new THREE.Color() }, uR3: { value: new THREE.Color() },
-  uRampMix: { value: .7 }, uKeepGreen: { value: .8 }, uStroke: { value: .45 }, uInk: { value: .5 }, uRadius: { value: 4 }, uStride: { value: 1.25 }, uGrain: { value: .03 }, uHigh: { value: .62 }, uAmount: { value: 1 },
+  uRampMix: { value: .7 }, uKeepGreen: { value: .8 }, uStroke: { value: .45 }, uInk: { value: .5 }, uRadius: { value: 4 }, uStride: { value: 1.25 }, uGrain: { value: .03 }, uHigh: { value: .62 }, uAmount: { value: 1 }, uDetail: { value: .4 },
 });
 
 const fxaaMat = fsMat(/* glsl */`

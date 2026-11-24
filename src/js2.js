@@ -696,15 +696,29 @@ function buildShaft() {
   for (let f = 0; f <= TOP + 1; f += 1) if (f % 3 !== 1) ivy(world, { origin: new V3(S.x0 - .205, 0, 0), U: new V3(0, 0, 1), V: new V3(0, 1, 0), N: new V3(-1, 0, 0), u0: -2.2, u1: 0, v0: f * H, v1: f * H + 1.0, seed: 300 + f, starts: [[-1.2, f * H + .05, 1.4, 18]], leaf: .07 });
 }
 
+const KEEP_CHUNK = '#include <dithering_fragment>\n  gl_FragColor.a = 0.0;';
+function keepSharp(m) {
+  if (!m || m.userData.keepSharp) return m; m.userData.keepSharp = true;
+  if (m.transparent) {   // decals: colour blends as usual, the destination alpha drops to 0 under the decal
+    m.blending = THREE.CustomBlending; m.blendEquation = THREE.AddEquation; m.blendSrc = THREE.SrcAlphaFactor; m.blendDst = THREE.OneMinusSrcAlphaFactor;
+    m.blendSrcAlpha = THREE.ZeroFactor; m.blendDstAlpha = THREE.OneMinusSrcAlphaFactor;
+  } else {
+    const prev = m.onBeforeCompile;
+    m.onBeforeCompile = (sh, r) => { if (prev) prev.call(m, sh, r); sh.fragmentShader = sh.fragmentShader.replace('#include <dithering_fragment>', KEEP_CHUNK); };
+    m.customProgramCacheKey = () => 'keepSharp';
+  }
+  m.needsUpdate = true; return m;
+}
 function makeButton(parent, label, pos, rot, act) {
   const g = new THREE.Group(); g.position.copy(pos); g.rotation.copy(rot); parent.add(g);
   const prof = [[.0185, 0], [.026, 0], [.027, .003], [.0265, .007], [.024, .0095], [.0205, .0095], [.0185, .008]].map(p => new THREE.Vector2(p[0], p[1]));
-  const bez = new THREE.Mesh(new THREE.LatheGeometry(prof, 32).rotateX(Math.PI / 2), M.chrome); bez.castShadow = true; bez.receiveShadow = true; g.add(bez);
+  const bez = new THREE.Mesh(new THREE.LatheGeometry(prof, 32).rotateX(Math.PI / 2), M.chromeKeep || (M.chromeKeep = keepSharp(M.chrome.clone()))); bez.castShadow = true; bez.receiveShadow = true; g.add(bez);
   const cell = TEX.btn.cell(label);
   const fm = new THREE.MeshPhysicalMaterial({ map: TEX.btn.map.clone(), normalMap: TEX.btn.nm.clone(), emissiveMap: TEX.btn.em.clone(), emissive: new THREE.Color(1, .42, .1), emissiveIntensity: 0,
     roughness: .32, metalness: label === 'ALARM' ? 0 : .15, clearcoat: .7, clearcoatRoughness: .28, envMapIntensity: .9, normalScale: new THREE.Vector2(.7, .7) });
   for (const t of [fm.map, fm.normalMap, fm.emissiveMap]) { t.repeat.set(cell.s, cell.s); t.offset.set(cell.x, cell.y); t.needsUpdate = true; }
   if (label === 'ALARM') fm.emissive.setRGB(1, .12, .05);
+  keepSharp(fm);
   const fg = new THREE.CylinderGeometry(.0182, .0182, .005, 32, 1).rotateX(Math.PI / 2);
   // cap UVs: CylinderGeometry caps are disc mapped in 0..1 already; flip for facing +z
   { const uv = fg.attributes.uv, p = fg.attributes.position; for (let i = 0; i < uv.count; i++) { uv.setXY(i, p.getX(i) / .0364 + .5, p.getY(i) / .0364 + .5); } }
@@ -945,6 +959,8 @@ async function buildScene(progress) {
     instance(parent, flGeo, M.flower, flowerM, null, false);
   }
   scene.traverse(o => { if ((o.isMesh || o.isInstancedMesh) && o !== sky) o.receiveShadow = true; });
+  // signage stays crisp in the painted looks: every canvas-drawn surface except the ivy leaves
+  scene.traverse(o => { const m = o.material; if (m && !Array.isArray(m) && m.map && m.map.isCanvasTexture && m !== M.leaf && m !== M.dry) keepSharp(m); });
   motes(world, 900, [LOBBY.x0 + .1, LOBBY.x1 - .1, .05, LOBBY.h - .1, WALL_Z + .05, LOBBY.z1 - .1], 5);
   motes(cab, 260, [CAB.x0 + .02, CAB.x1 - .02, .05, CAB.h - .05, CAB.z0 + .02, CAB.z1 - .02], 6);
   motes(landing, 260, [LAND.x0 + .05, LAND.x1 - .05, .05, LAND.h - .1, WALL_Z + .05, LAND.z1 - .1], 7);

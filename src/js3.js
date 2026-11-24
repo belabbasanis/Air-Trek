@@ -481,18 +481,18 @@ D.lantern = 0;
    or #night to the URL to hold one period (for reviewing a look).
    ====================================================================== */
 const PERIODS = [['night', 0], ['morning', 5], ['afternoon', 11], ['evening', 17], ['night', 21]];
-const PAINT_COOL = { ramp: ['#0d2627', '#245e5e', '#78cfc3', '#f2fffa'], rampMix: .74, keepGreen: .95, stroke: .38, ink: .55, radius: 4, stride: 1.3, grain: .03, high: .86 };
+const PAINT_COOL = { ramp: ['#0d2627', '#245e5e', '#78cfc3', '#f2fffa'], rampMix: .74, keepGreen: .95, stroke: .38, ink: .55, radius: 2, stride: 1.0, grain: .03, high: .86 };
 const LOOKS = {
-  morning: Object.assign({ amount: 1, sun: [1, .93, .8], sunI: 10.5, hemiSky: [.35, .8, .78], hemiGround: [.16, .3, .28], hemiI: .7, exp: 1.0, vol: 1.7, ns: .3, ao: .45, bloom: .08,
+  morning: Object.assign({ amount: 1, sun: [1, .93, .8], sunI: 10.5, hemiSky: [.35, .8, .78], hemiGround: [.16, .3, .28], hemiI: .7, exp: 1.0, vol: 1.7, ns: .8, ao: .45, bloom: .08,
     hor: [1.0, 1.05, .95], zen: [.3, .55, .75], glow: .6, stars: 0, lamps: .4, btnGlow: 0 }, PAINT_COOL),
   afternoon: Object.assign({ amount: 0, sun: [1, .71, .43], sunI: 9.5, hemiSky: [.45, .62, .66], hemiGround: [.32, .22, .13], hemiI: .3, exp: 1, vol: 1, ns: 1, ao: .75, bloom: .05,
     hor: [1.25, .78, .44], zen: [.16, .3, .55], glow: 1, stars: 0, lamps: 1, btnGlow: 0 }, PAINT_COOL),
-  evening: { amount: 1, sun: [1, .62, .38], sunI: 9, hemiSky: [.75, .5, .55], hemiGround: [.3, .17, .14], hemiI: .55, exp: 1.08, vol: 1.3, ns: .3, ao: .5, bloom: .1,
+  evening: { amount: 1, sun: [1, .62, .38], sunI: 9, hemiSky: [.75, .5, .55], hemiGround: [.3, .17, .14], hemiI: .55, exp: 1.08, vol: 1.3, ns: .8, ao: .5, bloom: .1,
     hor: [1.5, .7, .45], zen: [.35, .3, .5], glow: 1.2, stars: 0, lamps: 1.4, btnGlow: .15,
-    ramp: ['#2b1a1d', '#7b4a42', '#e2a683', '#fff1da'], rampMix: .66, keepGreen: .55, stroke: .38, ink: .5, radius: 4, stride: 1.3, grain: .03, high: .86 },
-  night: { amount: 1, sun: [.5, .66, 1], sunI: 1.5, hemiSky: [.14, .24, .45], hemiGround: [.04, .05, .08], hemiI: .14, exp: 1.3, vol: 1.2, ns: .3, ao: .6, bloom: .2,
+    ramp: ['#2b1a1d', '#7b4a42', '#e2a683', '#fff1da'], rampMix: .66, keepGreen: .55, stroke: .38, ink: .5, radius: 2, stride: 1.0, grain: .03, high: .86 },
+  night: { amount: 1, sun: [.5, .66, 1], sunI: 1.5, hemiSky: [.14, .24, .45], hemiGround: [.04, .05, .08], hemiI: .14, exp: 1.3, vol: 1.2, ns: .8, ao: .6, bloom: .2,
     hor: [.05, .09, .18], zen: [.01, .02, .06], glow: .08, stars: 1, lamps: 3.4, btnGlow: .9,
-    ramp: ['#050912', '#112842', '#356f86', '#ffd59a'], rampMix: .48, keepGreen: .4, stroke: .34, ink: .6, radius: 4, stride: 1.3, grain: .035, high: .82 },
+    ramp: ['#050912', '#112842', '#356f86', '#ffd59a'], rampMix: .48, keepGreen: .4, stroke: .34, ink: .6, radius: 2, stride: 1.0, grain: .035, high: .82 },
 };
 const hexRGB = (h) => { const c = new THREE.Color(h).convertLinearToSRGB(); return [c.r, c.g, c.b]; };
 for (const k in LOOKS) LOOKS[k].rampRGB = LOOKS[k].ramp.map(hexRGB);
@@ -534,7 +534,7 @@ function applyLookParams(L) {
   }
   const u = styMat.uniforms;
   L.rampRGB.forEach((c, i) => u['uR' + i].value.setRGB(c[0], c[1], c[2], THREE.LinearSRGBColorSpace));
-  u.uRampMix.value = L.rampMix; u.uKeepGreen.value = L.keepGreen; u.uStroke.value = L.stroke; u.uInk.value = L.ink; u.uRadius.value = Math.round(L.radius); u.uStride.value = L.stride; u.uGrain.value = L.grain; u.uHigh.value = L.high; u.uAmount.value = L.amount;
+  u.uRampMix.value = L.rampMix; u.uKeepGreen.value = L.keepGreen; u.uStroke.value = L.stroke; u.uInk.value = L.ink; u.uRadius.value = Math.round(L.radius); u.uStride.value = L.stride; u.uGrain.value = L.grain; u.uHigh.value = L.high; u.uAmount.value = L.amount; u.uDetail.value = .4;
 }
 let clockCheck = 0;
 function lookTick(dt) {
@@ -653,6 +653,13 @@ function render(time) {
   else fxaaMat.uniforms.tSrc.value = rtLDR.texture;
   pass(fxaaMat, null);
 }
+const dbgEl = (() => { const d = document.createElement('div'); d.style.cssText = 'position:fixed;left:calc(10px + env(safe-area-inset-left,0px));top:calc(10px + env(safe-area-inset-top,0px));z-index:40;font:11px/1.5 ui-monospace,Menlo,monospace;color:#f6efe3;background:rgba(0,0,0,.55);padding:6px 9px;border-radius:6px;pointer-events:none;white-space:pre'; d.hidden = true; document.body.appendChild(d); return d; })();
+let dbgT = 0;
+function debugTick(dtMs) {
+  const on = location.hash === '#debug'; dbgEl.hidden = !on; if (!on) return;
+  dbgT += dtMs; if (dbgT < 250) return; dbgT = 0;
+  dbgEl.textContent = `${(1000 / ema).toFixed(0)} fps (${ema.toFixed(1)} ms)\nresolution ${W}×${Hh}  scale ${renderScale.toFixed(2)}\nlook ${lookKey}${lookT < 1 ? ' (blending)' : ''}`;
+}
 function adapt(dtMs) {
   ema = ema * .93 + dtMs * .07;
   if (ema > 24) { slowT += dtMs; fastT = 0; } else if (ema < 17.6) { fastT += dtMs; slowT = 0; } else { slowT = 0; fastT = 0; }
@@ -665,6 +672,7 @@ function loop(now) {
   if (document.hidden) return;
   tick(dt, now / 1000); render(now / 1000);
   if (D.state !== 'boot' && !window.__test) adapt(dtMs);
+  debugTick(dtMs);
 }
 
 /* ======================================================================
