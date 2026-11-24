@@ -2031,7 +2031,7 @@ function buildRoof() {
   const CP = { x: -5.85, z: 6.0 };
   b.add(M.plankBlue, wuv(bb(CP.x - .5, CP.x + .5, .3, 1.0, CP.z - .4, CP.z + .4), 1.2, 1));
   for (const [dx, dz] of [[-.45, -.35], [.45, -.35], [-.45, .35], [.45, .35]]) b.add(M.plankWood, wuv(bb(CP.x + dx - .03, CP.x + dx + .03, 0, .3, CP.z + dz - .03, CP.z + dz + .03), .3, 1));
-  const cr = new THREE.BoxGeometry(1.2, .05, 1.0); cr.rotateX(-.25); cr.translate(CP.x, 1.13, CP.z); b.add(M.corr, wuv(cr, 1, 1));
+  const cr = new THREE.BoxGeometry(1.25, .05, 1.05); cr.rotateX(.22); cr.translate(CP.x, 1.06, CP.z); b.add(M.corr, wuv(cr, 1, 1));
   b.add(M.rubber, bb(CP.x - .12, CP.x + .12, .32, .62, CP.z + .4, CP.z + .41));
   const ramp = new THREE.BoxGeometry(.24, .03, .6); ramp.rotateX(.55); ramp.translate(CP.x, .17, CP.z + .65); b.add(M.plankWood, wuv(ramp, .5, .5));
   PERCHES.push(new V3(CP.x, 1.27, CP.z));
@@ -2041,14 +2041,14 @@ function buildRoof() {
     for (const g of [bb(x0, x1, 0, .3, z0, z0 + .05), bb(x0, x1, 0, .3, z1 - .05, z1), bb(x0, x0 + .05, 0, .3, z0, z1), bb(x1 - .05, x1, 0, .3, z0, z1)]) b.add(M.plankWood, wuv(g, 1, .6));
     b.add(M.soil, wuv(bb(x0 + .05, x1 - .05, 0, .26, z0 + .05, z1 - .05), 1, 1));
     const nx = Math.floor((x1 - x0) / .32), nz = Math.floor((z1 - z0) / .32);
-    for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) { const x = x0 + .16 + (i + .5) * ((x1 - x0 - .32) / nx), z = z0 + .16 + (j + .5) * ((z1 - z0 - .32) / nz); rosette(x + (r() - .5) * .05, .27, z + (r() - .5) * .05, kind === 'cabbage' ? .14 + r() * .05 : .06 + r() * .04, kind === 'cabbage' ? 9 : 6, kind); }
+    for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) { const x = x0 + .16 + (i + .5) * ((x1 - x0 - .32) / nx), z = z0 + .16 + (j + .5) * ((z1 - z0 - .32) / nz); rosette(x + (r() - .5) * .05, .27, z + (r() - .5) * .05, kind === 'cabbage' ? .22 + r() * .07 : .1 + r() * .05, kind === 'cabbage' ? 11 : 7, kind); }
     ob(x0 - .05, x1 + .05, z0 - .05, z1 + .05, false);
   };
   const rosette = (x, y, z, s_, n, kind) => {
     const hue = kind === 'cabbage' ? .25 : .27;
     for (let k = 0; k < n; k++) { const a = k / n * 6.283 + r() * .4, up = kind === 'cabbage' ? .9 - (k % 3) * .25 : 1.2;
       leafM.push({ parent: roof, m: leafMatrix(new V3(x + Math.cos(a) * s_ * .15, y + .01, z + Math.sin(a) * s_ * .15), new V3(Math.cos(a) * .5, 1, Math.sin(a) * .5), new V3(Math.cos(a), up, Math.sin(a)), s_ * (.9 + r() * .3), new THREE.Matrix4()) });
-      leafC.push(new THREE.Color().setHSL(hue + r() * .04, kind === 'cabbage' ? .35 + r() * .2 : .55, kind === 'cabbage' ? .3 + r() * .14 : .3 + r() * .1)); }
+      leafC.push(new THREE.Color().setHSL(hue + r() * .04, kind === 'cabbage' ? .4 + r() * .2 : .6, kind === 'cabbage' ? .42 + r() * .14 : .4 + r() * .1)); }
   };
   bed(-2.75, -.7, 2.9, 4.25, 'cabbage'); bed(-2.75, -.7, 5.7, 7.05, 'seedling');
 
@@ -2172,7 +2172,7 @@ function buildGrass() {
   blade.setIndex([0, 1, 2, 1, 3, 2, 2, 3, 4]);
   const inside = (x, z, list, pad = 0) => list.some(q => x > q[0] - pad && x < q[1] + pad && z > q[2] - pad && z < q[3] + pad);
   const pts = [];
-  for (let i = 0; i < 60000 && pts.length < 16000; i++) {
+  for (let i = 0; i < 90000 && pts.length < 22000; i++) {
     const x = lerp(RF.x0 + .3, RF.x1 - .3, r()), z = lerp(RF.z0 + .3, RF.z1 - .3, r());
     if (inside(x, z, ROOF_NOGRASS) || (Math.abs(x) < SHAFT.x1 + .25 && z < .3)) continue;
     pts.push([x, z]);
@@ -2188,7 +2188,7 @@ function buildGrass() {
   const im = new THREE.InstancedMesh(blade, mat, pts.length);
   const q = new THREE.Quaternion(), e = new THREE.Euler(), sc = new V3(), pp = new V3(), m4 = new THREE.Matrix4(), c = new THREE.Color();
   pts.forEach(([x, z], i) => {
-    const h = .12 + r() * .22; e.set((r() - .5) * .5, r() * 6.283, (r() - .5) * .5); q.setFromEuler(e); sc.set(.8 + r() * .6, h, 1); pp.set(x, 0, z);
+    const h = .05 + r() * r() * .12; e.set((r() - .5) * .5, r() * 6.283, (r() - .5) * .5); q.setFromEuler(e); sc.set(.8 + r() * .6, h, 1); pp.set(x, 0, z);
     im.setMatrixAt(i, m4.compose(pp, q, sc)); im.setColorAt(i, c.setHSL(.22 + r() * .07, .55 + r() * .25, .2 + r() * .17));
   });
   im.receiveShadow = true; im.frustumCulled = false; roof.add(im); roofLive.grass = im;
@@ -2337,14 +2337,14 @@ function buildOutside() {
     float h21(vec2 p){ return fract(sin(dot(p, vec2(41.3,289.1)))*43758.5453); }
     void main(){
       float lit = max(dot(vN, uSun), 0.);
-      vec3 base = mix(vec3(.28,.36,.5), vec3(.62,.66,.72), lit)*mix(.35, 1., uGlow);
+      vec3 base = mix(vec3(.2,.28,.42), vec3(.55,.6,.68), lit)*mix(.35, 1., uGlow);
       vec2 cell = floor(vec2(vW.x*.9 + vW.z*.9, vW.y/3.4));
       float win = step(.5, fract(vW.y/3.4))*step(.3, fract(vW.x*.45 + vW.z*.45));
       base *= 1. - win*.18;
       base += vec3(1., .78, .45)*win*step(.72, h21(cell))*uStars*1.4;
       float d = length(vW.xz - cameraPosition.xz);
       vec3 haze = uHor*1.55;
-      gl_FragColor = vec4(mix(base, haze, clamp(.45 + d/900., 0., .85)), 1.);
+      gl_FragColor = vec4(mix(base, haze, clamp(.12 + d/1300., 0., .6)), 1.);
     }`,
   });
   const im = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1).translate(0, .5, 0), towerMat, n);
