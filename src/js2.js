@@ -979,6 +979,38 @@ function placeMoss() {
   hang(landing, D_.x0 + .1, D_.h - .02, 1.25, Math.PI / 2, .8, 550); hang(landing, D_.x0 + .1, D_.h - .02, 2.2, Math.PI / 2, .7, 551);  // over the landing window
   hang(landing, -1.35, D_.h - .02, D_.z1 - .05, 0, .55, 552); hang(landing, 1.35, D_.h - .02, D_.z1 - .05, 0, .5, 553);
 }
+/* ---- hanging ivy plants: models/hanging-ivy.glb (one 1 m trailing ivy, shape only), coloured here ---- */
+const IVY_PLANTS = [];   // [parent, x, topY, z, rotY, scale]
+function placeIvyPlants() {
+  const L = LOBBY, D_ = LAND;
+  IVY_PLANTS.push([world, -2.55, 2.99, 1.65, .4, 1.15], [world, -2.5, 2.99, 4.5, 2.2, 1.3], [world, L.x0 + .28, L.h, 3.15, 1.1, .95], [world, 2.75, L.h, .55, 4.0, 1.0]);
+  IVY_PLANTS.push([landing, D_.x0 + .3, D_.h, .85, .7, .9], [landing, D_.x1 - .35, D_.h, 2.75, 3.3, .8]);
+}
+function loadIvyPlants() {
+  new GLTFLoader().load('models/hanging-ivy.glb', (gltf) => {
+    let src = null; gltf.scene.traverse(o => { if (o.isMesh && !src) src = o; }); if (!src) return;
+    const g = src.geometry.clone(); g.applyMatrix4(src.matrixWorld);
+    g.computeBoundingBox(); const top = g.boundingBox.max.y;
+    // colour: each leaf cluster a slightly different green, darker in the dense top, a few yellowing leaves
+    const p = g.attributes.position, n = p.count, col = new Float32Array(n * 3);
+    const hsh = (x, y, z) => { const s_ = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453; return s_ - Math.floor(s_); };
+    for (let i = 0; i < n; i++) {
+      const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+      const h = hsh(Math.floor(x * 28), Math.floor(y * 28), Math.floor(z * 28)), t = clamp(y / top, 0, 1);
+      let r = lerp(.05, .17, h), gg = lerp(.11, .3, h), b = lerp(.03, .07, h);
+      if (h > .93) { r = .3; gg = .32; b = .07; }
+      const shade = lerp(1, .55, sstep(.75, 1, t)); col[i * 3] = r * shade; col[i * 3 + 1] = gg * shade; col[i * 3 + 2] = b * shade;
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .62, metalness: 0, side: THREE.DoubleSide, envMapIntensity: .35 });
+    const byParent = new Map(); for (const e of IVY_PLANTS) { if (!byParent.has(e[0])) byParent.set(e[0], []); byParent.get(e[0]).push(e); }
+    for (const [parent, list] of byParent) {
+      const im = new THREE.InstancedMesh(g, mat, list.length); im.castShadow = true; im.receiveShadow = true;
+      list.forEach(([, x, ty, z, ry, s_], k) => im.setMatrixAt(k, new THREE.Matrix4().compose(new V3(x, ty - top * s_, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, ry, 0)), new V3(s_, s_, s_))));
+      parent.add(im);
+    }
+  }, undefined, () => console.warn('Hanging ivy model not loaded'));
+}
 async function buildScene(progress) {
   await loadFonts();
   await preloadStickerImages();
@@ -999,7 +1031,7 @@ async function buildScene(progress) {
   scene.traverse(o => { if ((o.isMesh || o.isInstancedMesh) && o !== sky) o.receiveShadow = true; });
   // signage stays crisp in the painted looks: every canvas-drawn surface except the ivy leaves
   scene.traverse(o => { const m = o.material; if (m && !Array.isArray(m) && m.map && m.map.isCanvasTexture && m !== M.leaf && m !== M.dry) keepSharp(m); });
-  placeMoss(); buildMoss();
+  placeMoss(); buildMoss(); placeIvyPlants(); loadIvyPlants();
   motes(world, 900, [LOBBY.x0 + .1, LOBBY.x1 - .1, .05, LOBBY.h - .1, WALL_Z + .05, LOBBY.z1 - .1], 5);
   motes(cab, 260, [CAB.x0 + .02, CAB.x1 - .02, .05, CAB.h - .05, CAB.z0 + .02, CAB.z1 - .02], 6);
   motes(landing, 260, [LAND.x0 + .05, LAND.x1 - .05, .05, LAND.h - .1, WALL_Z + .05, LAND.z1 - .1], 7);
