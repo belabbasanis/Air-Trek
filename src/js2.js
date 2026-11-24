@@ -26,7 +26,7 @@ async function loadFonts() {
 }
 
 /* ---- button atlas: engraved numerals on aged ivory, a red ALARM face, door symbols ---- */
-const BTN_CELLS = ['L', ...FLOORS.map(p => String(p.floor)), 'ALARM', 'OPEN', 'CLOSE', 'CALL'];
+const BTN_CELLS = ['L', ...FLOORS.map(p => String(p.floor)), 'R', 'ALARM', 'OPEN', 'CLOSE', 'CALL'];
 const BTN_N = Math.ceil(Math.sqrt(BTN_CELLS.length));
 const BTN_PX = 128;
 function buttonAtlas() {
@@ -137,8 +137,9 @@ function directoryTex() {
   };
   letters('DIRECTORY', 300, 120, 52, .78);
   letters('FL   OCCUPANT', 70, 210, 30, .64);
-  const rows = FLOORS.slice().reverse(); const fs = rows.length > 22 ? 22 : 30, step = Math.min(52, 1080 / Math.max(1, rows.length));
-  rows.forEach((p, i) => { const y = 280 + i * step; letters(String(p.floor).padStart(2, ' '), 70, y, fs, .64); letters(p.name.toUpperCase().slice(0, 26), 70 + fs * .64 * 5, y, fs, .64); });
+  const rows = FLOORS.slice().reverse(); const fs = rows.length > 22 ? 22 : 30, step = Math.min(52, 1040 / Math.max(1, rows.length));
+  rows.forEach((p, i) => { const y = 300 + i * step; letters(String(p.floor).padStart(2, ' '), 70, y, fs, .64); letters(p.name.toUpperCase().slice(0, 26), 70 + fs * .64 * 5, y, fs, .64); });
+  letters('R    ROOF GARDEN', 70, 250, fs, .64);
   letters('L    LIFT LOBBY', 70, 280 + rows.length * step + 10, fs, .64);
   // a few letters that fell to the bottom of the case
   for (let i = 0; i < 9; i++) { x.save(); x.translate(80 + r() * 860, 1370 - r() * 18); x.rotate((r() - .5) * 2.4); x.font = `500 30px ${FONT_MONO}`; x.fillStyle = '#e2ddd2'; x.fillText('AEIRSTNO'[Math.floor(r() * 8)], 0, 0); x.restore(); }
@@ -153,30 +154,30 @@ function dialTex() {
   x.fillStyle = '#1a1209'; x.beginPath(); x.arc(512, 512, 470, Math.PI, 0); x.fill();
   x.fillStyle = '#d9c9a2'; x.beginPath(); x.arc(512, 512, 455, Math.PI, 0); x.fill();
   const g2 = x.createRadialGradient(512, 512, 40, 512, 512, 455); g2.addColorStop(0, 'rgba(255,250,230,0)'); g2.addColorStop(1, 'rgba(90,60,20,.35)'); x.fillStyle = g2; x.beginPath(); x.arc(512, 512, 455, Math.PI, 0); x.fill();
-  const n = TOP + 1;
-  for (let f = 0; f <= TOP; f++) {
-    const a = Math.PI + (f / TOP) * Math.PI * .86 + Math.PI * .07, ca = Math.cos(a), sa = Math.sin(a);
+  const n = ROOF + 1;
+  for (let f = 0; f <= ROOF; f++) {
+    const a = Math.PI + (f / ROOF) * Math.PI * .86 + Math.PI * .07, ca = Math.cos(a), sa = Math.sin(a);
     x.strokeStyle = '#2a1d0e'; x.lineWidth = f % 5 === 0 || f === 0 ? 4 : 2; x.beginPath(); x.moveTo(512 + ca * 440, 512 + sa * 440); x.lineTo(512 + ca * (f % 5 === 0 ? 395 : 412), 512 + sa * (f % 5 === 0 ? 395 : 412)); x.stroke();
-    if (n <= 24 || f % 2 === 0 || f === TOP) { x.save(); x.translate(512 + ca * 350, 512 + sa * 350); x.rotate(a + Math.PI / 2); x.font = `600 ${n > 16 ? 38 : 48}px ${FONT_ENG}`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = BY_FLOOR.has(f) ? '#6b1a10' : '#2a1d0e'; x.fillText(f === 0 ? 'L' : String(f), 0, 0); x.restore(); }
+    if (n <= 24 || f % 2 === 0 || f === ROOF) { x.save(); x.translate(512 + ca * 350, 512 + sa * 350); x.rotate(a + Math.PI / 2); x.font = `600 ${n > 16 ? 38 : 48}px ${FONT_ENG}`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = BY_FLOOR.has(f) || f === ROOF ? '#6b1a10' : '#2a1d0e'; x.fillText(floorTag(f), 0, 0); x.restore(); }
   }
   x.font = `500 30px ${FONT_SERIF}`; x.textAlign = 'center'; x.fillStyle = '#3a2a14'; if ('letterSpacing' in x) x.letterSpacing = '8px'; x.fillText('OTIS-PATTERN · No 1', 512, 470);
   return ctex(c);
 }
-const dialAngle = (f) => -((f / TOP) * Math.PI * .86 + Math.PI * .07) + Math.PI / 2;
+const dialAngle = (f) => -((f / ROOF) * Math.PI * .86 + Math.PI * .07) + Math.PI / 2;
 
 /* ---- cab floor indicator: a row of numbered lamps ---- */
-const LAMP_N = TOP + 1, LAMP_ROWS = LAMP_N > 26 ? 2 : 1, LAMP_COLS = Math.ceil(LAMP_N / LAMP_ROWS), LAMP_PX = 96;
+const LAMP_N = ROOF + 1, LAMP_ROWS = LAMP_N > 26 ? 2 : 1, LAMP_COLS = Math.ceil(LAMP_N / LAMP_ROWS), LAMP_PX = 96;
 const [lampC, lampX] = cv(LAMP_COLS * LAMP_PX, LAMP_ROWS * LAMP_PX), [lampEC, lampEX] = cv(LAMP_COLS * LAMP_PX, LAMP_ROWS * LAMP_PX);
 function drawLamps(lit) {
   for (const [x, emi] of [[lampX, false], [lampEX, true]]) {
     x.fillStyle = emi ? '#000' : '#18110a'; x.fillRect(0, 0, LAMP_COLS * LAMP_PX, LAMP_ROWS * LAMP_PX);
-    for (let f = 0; f <= TOP; f++) {
+    for (let f = 0; f <= ROOF; f++) {
       const cx = (f % LAMP_COLS) * LAMP_PX + LAMP_PX / 2, cy = Math.floor(f / LAMP_COLS) * LAMP_PX + LAMP_PX / 2, on = f === lit;
       if (!emi) { const g = x.createRadialGradient(cx - 8, cy - 10, 4, cx, cy, 36); g.addColorStop(0, '#6d4a22'); g.addColorStop(1, '#2c1a0a'); x.fillStyle = g; x.beginPath(); x.arc(cx, cy, 34, 0, 6.283); x.fill(); x.strokeStyle = '#8a6a3a'; x.lineWidth = 3; x.stroke(); }
       else if (on) { const g = x.createRadialGradient(cx, cy, 2, cx, cy, 36); g.addColorStop(0, '#fff1d0'); g.addColorStop(.6, '#ff9a3a'); g.addColorStop(1, '#7a3008'); x.fillStyle = g; x.beginPath(); x.arc(cx, cy, 34, 0, 6.283); x.fill(); }
       x.font = `600 ${f >= 10 ? 40 : 46}px ${FONT_ENG}`; x.textAlign = 'center'; x.textBaseline = 'middle';
       x.fillStyle = emi ? (on ? '#ffffff' : '#000') : (on ? '#fff5df' : '#c9a878');
-      x.fillText(f === 0 ? 'L' : String(f), cx, cy + 2);
+      x.fillText(floorTag(f), cx, cy + 2);
     }
   }
 }
@@ -192,7 +193,7 @@ function certificateTex() {
     x.fillStyle = '#2b241a'; x.textAlign = 'center';
     x.font = `800 30px ${FONT_SERIF}`; x.fillText('CERTIFICATE', w / 2, 96); x.font = `500 22px ${FONT_SERIF}`; x.fillText('OF OPERATION', w / 2, 128);
     x.font = `400 19px ${FONT_MONO}`; x.textAlign = 'left';
-    ['PASSENGER ELEVATOR  No. 1', 'CAPACITY    600 KG', 'PERSONS     8', 'RATED SPEED 2.5 M/S', `SERVES      L - ${TOP}`, 'INSPECTED   14.03.1986', 'NEXT DUE    14.03.1987'].forEach((s, i) => x.fillText(s, 60, 210 + i * 40));
+    ['PASSENGER ELEVATOR  No. 1', 'CAPACITY    600 KG', 'PERSONS     8', 'RATED SPEED 2.5 M/S', `SERVES      L - ${TOP}, R`, 'INSPECTED   14.03.1986', 'NEXT DUE    14.03.1987'].forEach((s, i) => x.fillText(s, 60, 210 + i * 40));
     x.strokeStyle = '#1f2a55'; x.lineWidth = 2.5; x.beginPath(); x.moveTo(250, 560); for (let i = 0; i < 12; i++) x.quadraticCurveTo(260 + i * 16, 530 + r() * 60, 270 + i * 16, 555 + (r() - .5) * 20); x.stroke();
     x.strokeStyle = 'rgba(150,30,25,.7)'; x.lineWidth = 4; x.beginPath(); x.arc(130, 580, 52, 0, 6.283); x.stroke(); x.beginPath(); x.arc(130, 580, 40, 0, 6.283); x.stroke();
     x.font = `600 16px ${FONT_MONO}`; x.fillStyle = 'rgba(150,30,25,.75)'; x.textAlign = 'center'; x.fillText('INSPECTED', 130, 586);
@@ -203,7 +204,7 @@ function shaftNumbersTex() {
   const n = TOP + 2, cols = 4, rows = Math.ceil(n / cols); const [c, x] = cv(cols * 256, rows * 128); const r = rng(13);
   for (let f = 0; f < n; f++) {
     const cx = (f % cols) * 256 + 128, cy = Math.floor(f / cols) * 128 + 64;
-    x.font = `400 104px ${FONT_STENCIL}`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#e7e0cf'; x.fillText(f === 0 ? 'L' : String(f), cx, cy + 4);
+    x.font = `400 104px ${FONT_STENCIL}`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#e7e0cf'; x.fillText(floorTag(f), cx, cy + 4);
   }
   x.globalCompositeOperation = 'destination-out';
   for (let i = 0; i < 9000; i++) { x.fillStyle = `rgba(0,0,0,${r() * .8})`; x.beginPath(); x.arc(r() * c.width, r() * c.height, r() * 3.5, 0, 6.283); x.fill(); }
@@ -499,6 +500,12 @@ async function buildMaterials(progress) {
   B.chrome = await bake(6, 256, { c1: [.92, .91, .88], c2: [.09, .07, .05], ns: 2, seed: .71 });
   B.brass = await bake(7, 256, { c1: [.78, .56, .26], c2: [.16, .1, .05], ns: 2, seed: .83 });
   B.yellow = await bake(0, 512, { c1: [.62, .4, .015], ns: 5, seed: .53, wear: .01 });
+  progress('Planting the roof…');
+  B.grass = await bake(9, 1024, { c1: [.07, .17, .03], c2: [.13, .09, .05], ns: 4, seed: .19, wear: 0 });
+  B.soil = await bake(9, 512, { c1: [.07, .12, .03], c2: [.11, .07, .04], ns: 5, seed: .29, wear: .9 });
+  B.corr = await bake(10, 512, { c1: [.45, .16, .07], ns: 6, seed: .37, wear: -.05 });
+  B.plankBlue = await bake(11, 512, { c1: [.12, .25, .42], ns: 5, seed: .43, wear: .02 });
+  B.plankWood = await bake(11, 512, { c1: [.24, .15, .08], ns: 5, seed: .57, wear: .3 });
   B.iron = await bake(8, 512, { c1: [.028, .032, .03], ns: 3, seed: .91 });
   const pbr = (b, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ map: b.map, normalMap: b.normal, roughnessMap: b.orm, metalnessMap: b.orm, aoMap: b.orm, roughness: 1, metalness: 1, envMapIntensity: .5 }, o));
   M.teal = pbr(B.teal); M.door = pbr(B.door); M.cream = pbr(B.cream); M.plaster = pbr(B.plaster); M.ceil = pbr(B.plaster, { color: new THREE.Color(.55, .55, .52) });
@@ -506,6 +513,8 @@ async function buildMaterials(progress) {
   M.brass = pbr(B.brass, { envMapIntensity: 1.1 }); M.iron = pbr(B.iron, { envMapIntensity: .4 }); M.ironM = pbr(B.iron, { metalness: .6, roughness: .8, envMapIntensity: .5 });
   M.landTeal = pbr(B.teal); M.landPlaster = pbr(B.plaster); M.landTile = pbr(B.tile, { envMapIntensity: .7 });
   M.rubber = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: .92, metalness: 0 });
+  M.grass = pbr(B.grass, { envMapIntensity: .3 }); M.soil = pbr(B.soil, { envMapIntensity: .2 }); M.corr = pbr(B.corr, { envMapIntensity: .5 });
+  M.plankBlue = pbr(B.plankBlue, { envMapIntensity: .3 }); M.plankWood = pbr(B.plankWood, { envMapIntensity: .3 });
   M.terracotta = new THREE.MeshStandardMaterial({ color: new THREE.Color(.36, .14, .07), roughness: .9, metalness: 0, normalMap: B.conc.normal, normalScale: new THREE.Vector2(.6, .6) });
   M.yellow = pbr(B.yellow, { envMapIntensity: .6 });
   M.vine = new THREE.MeshStandardMaterial({ color: new THREE.Color(.13, .09, .05), roughness: .9 });
@@ -655,7 +664,7 @@ function buildLobby() {
 }
 
 function buildShaft() {
-  const b = new Bucket(), bars = new Bucket(); const S = SHAFT; const yTop = (TOP + 1) * H + 1.2;
+  const b = new Bucket(), bars = new Bucket(); const S = SHAFT; const yTop = ROOF * H + 3.45;
   const wins = []; for (let f = 0; f <= TOP + 1; f++) wins.push([-1.95, -.05, f * H + 1.0, f * H + 3.1]);
   for (const g of holedWall('x', S.x0 - .2, S.x0, S.z0 - .2, 0, -1.6, yTop, wins)) b.add(M.conc, wuv(g, 2, 3.6, -1.6));
   for (const g of holedWall('x', S.x1, S.x1 + .2, S.z0 - .2, 0, -1.6, yTop, [])) b.add(M.conc, wuv(g, 2, 3.6, -1.6));
@@ -663,7 +672,7 @@ function buildShaft() {
   b.add(M.conc, wuv(bb(S.x0 - .2, S.x1 + .2, -1.8, -1.6, S.z0 - .2, WALL_Z), 2, 2));
   b.add(M.conc, wuv(bb(S.x0 - .2, S.x1 + .2, yTop, yTop + .3, S.z0 - .2, WALL_Z), 2, 2));
   // front wall above the lobby: one slab per floor, with the doorway
-  for (let f = 1; f <= TOP + 1; f++) for (const g of holedWall('z', 0, WALL_Z, S.x0 - .2, 1.85, Math.max(LOBBY.h, f * H - .0), Math.min(yTop, (f + 1) * H), [[-DOOR_W / 2, DOOR_W / 2, f * H - .01, f * H + DOOR_H]])) b.add(M.teal, wuv(g, 2.4, H, f * H));
+  for (let f = 1; f <= TOP; f++) for (const g of holedWall('z', 0, WALL_Z, S.x0 - .2, 1.85, Math.max(LOBBY.h, f * H - .0), Math.min(yTop, (f + 1) * H), [[-DOOR_W / 2, DOOR_W / 2, f * H - .01, f * H + DOOR_H]])) b.add(M.teal, wuv(g, 2.4, H, f * H));
   b.add(M.teal, wuv(bb(S.x0 - .2, 1.85, LOBBY.h, H - .002, 0, WALL_Z), 2.4, 1));
   // window frames and a diamond lattice in each window
   for (const [z0, z1, y0, y1] of wins) {
@@ -694,7 +703,7 @@ function buildShaft() {
   const nums = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: sn.tex, transparent: true, alphaTest: .3, roughness: .85, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
   nums.receiveShadow = true; world.add(nums);
   // outside the shaft windows: ivy on the outer wall face
-  for (let f = 0; f <= TOP + 1; f += 1) if (f % 3 !== 1) ivy(world, { origin: new V3(S.x0 - .205, 0, 0), U: new V3(0, 0, 1), V: new V3(0, 1, 0), N: new V3(-1, 0, 0), u0: -2.2, u1: 0, v0: f * H, v1: f * H + 1.0, seed: 300 + f, starts: [[-1.2, f * H + .05, 1.4, 18]], leaf: .07 });
+  for (let f = 0; f <= TOP; f += 1) if (f % 3 !== 1) ivy(world, { origin: new V3(S.x0 - .205, 0, 0), U: new V3(0, 0, 1), V: new V3(0, 1, 0), N: new V3(-1, 0, 0), u0: -2.2, u1: 0, v0: f * H, v1: f * H + 1.0, seed: 300 + f, starts: [[-1.2, f * H + .05, 1.4, 18]], leaf: .07 });
 }
 
 const KEEP_CHUNK = '#include <dithering_fragment>\n  gl_FragColor.a = 0.0;';
@@ -779,7 +788,7 @@ function buildCab() {
   const cg = new THREE.Mesh(new THREE.PlaneGeometry(.3, .4), M.glass); cg.position.set(C.x1 - .021, 1.51, -.96); cg.rotation.y = -Math.PI / 2; cab.add(cg);
 
   // ---- the button panel on the back wall ----
-  const n = FLOORS.length + 1;
+  const n = FLOORS.length + 2;
   const cols = n <= 16 ? 2 : n <= 36 ? 3 : 4, rows = Math.ceil(n / cols);
   const sp = Math.min(.082, .95 / rows);
   const colW = .135;
@@ -789,16 +798,16 @@ function buildCab() {
   b.add(M.cream, wuv(new RoundedBoxGeometry(pw, ph, .02, 2, .008).translate(PX, PY, PZ + .01), Math.max(pw, .5), ph, PY - ph / 2));
   for (const sx of [-1, 1]) for (const sy of [-1, 1]) b.add(M.chrome, new THREE.CylinderGeometry(.007, .007, .004, 12).rotateX(Math.PI / 2).translate(PX + sx * (pw / 2 - .02), PY + sy * (ph / 2 - .02), PZ + .021));
   const rot = new THREE.Euler(0, 0, 0);
-  const labels = ['L', ...FLOORS.map(p => String(p.floor))];
+  const labels = ['L', ...FLOORS.map(p => String(p.floor)), 'R'];
   const gx = (c) => PX - (cols - 1) * colW / 2 + c * colW;
   const top = PY + ph / 2 - .17;
   labels.forEach((lab, i) => {
     // fill column by column from the bottom (L at bottom-left), like a real panel
     const c = Math.floor(i / rows), r = i % rows;
     const x = gx(c) + (c % 2 ? -.018 : .018), y = top - (rows - 1 - r) * sp;
-    const f = lab === 'L' ? 0 : +lab;
+    const f = lab === 'L' ? 0 : lab === 'R' ? ROOF : +lab;
     makeButton(cab, lab, new V3(x, y, PZ + .02), rot, { type: 'floor', floor: f });
-    if (f > 0) {
+    if (f > 0 && f !== ROOF) {
       const k = FLOORS.findIndex(p => p.floor === f), cell = TEX.stk.cell(k), t = TEX.stk.tex.clone(); t.repeat.set(cell.s, cell.s); t.offset.set(cell.x, cell.y); t.needsUpdate = true;
       const s = new THREE.Mesh(new THREE.PlaneGeometry(.05, .05), new THREE.MeshStandardMaterial({ map: t, transparent: true, roughness: .42, metalness: 0, envMapIntensity: .8, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
       const sxo = c % 2 ? .05 : -.05;
@@ -1040,6 +1049,7 @@ async function buildScene(progress) {
   scene.traverse(o => { if ((o.isMesh || o.isInstancedMesh) && o !== sky) o.receiveShadow = true; });
   // signage stays crisp in the painted looks: every canvas-drawn surface except the ivy leaves
   scene.traverse(o => { const m = o.material; if (m && !Array.isArray(m) && m.map && m.map.isCanvasTexture && m !== M.leaf && m !== M.dry) keepSharp(m); });
+  buildRoof();
   placeMoss(); buildMoss(); placeIvyPlants(); loadIvyPlants();
   motes(world, 900, [LOBBY.x0 + .1, LOBBY.x1 - .1, .05, LOBBY.h - .1, WALL_Z + .05, LOBBY.z1 - .1], 5);
   motes(cab, 260, [CAB.x0 + .02, CAB.x1 - .02, .05, CAB.h - .05, CAB.z0 + .02, CAB.z1 - .02], 6);

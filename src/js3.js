@@ -149,7 +149,7 @@ function audioTick(dt) {
   A.motorG.gain.setTargetAtTime(ride && !rec ? .012 + .03 * vN + .02 * clamp(Math.abs(lift.a) / 2, 0, 1) : 0, t, .2);
   A.rush.g.gain.setTargetAtTime(rec ? 0 : .12 * vN * vN, t, .2); A.rush.fl.frequency.setTargetAtTime(400 + 900 * vN, t, .2);
   A.ambLP.frequency.setTargetAtTime(shut ? 600 : 7000, t, .3);
-  A.wind.g.gain.setTargetAtTime(shut ? .03 : .055, t, .5);
+  A.wind.g.gain.setTargetAtTime(shut ? .03 : lift.floor === ROOF && !P.inCab ? .14 : .055, t, .5);
   // generative music once the intro has played
   if (A.song) A.song.g.gain.setTargetAtTime(D.state === 'intro' ? .8 : lift.phase === 'riding' ? .4 : .55, t, 1.5);
   if (D.state === 'play' && !A.song) {
@@ -186,13 +186,13 @@ function doorsTo(o, then) {
   lift.dFrom = lift.doors; lift.dTo = o; lift.dT = 0; lift.dDur = Math.max(.4, (o ? 2.7 : 2.3) * Math.abs(o - lift.doors)); lift.phase = o ? 'opening' : 'closing'; lift.onDone = then || null;
   sfxDoors(!!o, lift.dDur);
 }
-function inCab() { return P.pos.z < CAB.z1 - .12; }
+function inCab() { return P.pos.z < CAB.z1 - .12 && Math.abs(P.pos.x) < CAB.x1 + .05; }
 function buttonFor(f) { return buttons.find(b => b.act && b.act.type === 'floor' && b.act.floor === f); }
 function selectFloor(f) {
   if (D.state !== 'play') return;
-  const label = f === 0 ? 'the lobby' : (BY_FLOOR.get(f)?.name || 'floor ' + f);
-  if (!(f === 0 || BY_FLOOR.has(f))) { caption(`No project on floor ${f}`); return; }
-  if (lift.phase === 'riding' || lift.phase === 'arrived') { if (f !== lift.target) caption(`On the way to <b>${esc(lift.target === 0 ? 'the lobby' : BY_FLOOR.get(lift.target).name)}</b>`); return; }
+  const label = f === 0 ? 'the lobby' : f === ROOF ? 'the roof' : (BY_FLOOR.get(f)?.name || 'floor ' + f);
+  if (!(f === 0 || f === ROOF || BY_FLOOR.has(f))) { caption(`No project on floor ${f}`); return; }
+  if (lift.phase === 'riding' || lift.phase === 'arrived') { if (f !== lift.target) caption(`On the way to <b>${esc(placeName(lift.target))}</b>`); return; }
   if (!inCab()) { caption('Step into the cab first'); return; }
   const b = buttonFor(f); if (b) { b.press = 1; sfxClick(); }
   if (f === lift.floor && lift.phase !== 'closing') { if (lift.doors < 1) doorsTo(1); caption(f === 0 ? 'You are in the lobby' : `You are on <b>${esc(label)}</b>`); return; }
@@ -206,7 +206,7 @@ function depart() {
   if (f > 0) dressLanding(f); else landing.visible = false;
   lift.plan = plan(D_); lift.t = 0; lift.from = lift.y; lift.dir = Math.sign(f * H - lift.y); lift.phase = 'riding'; lift.capped = false; lift.stopSnd = false;
   liftStartSound();
-  caption(`${lift.dir > 0 ? 'Going up' : 'Going down'} · <b>${f === 0 ? 'Lobby' : 'Floor ' + f}</b>`, 3.2);
+  caption(`${lift.dir > 0 ? 'Going up' : 'Going down'} · <b>${floorLabel(f)}</b>`, 3.2);
 }
 function arrive() {
   lift.phase = 'arrived'; lift.waitT = 0; lift.y = lift.target * H; lift.floor = lift.target; lift.v = 0; lift.a = 0; setLamp(lift.floor);
@@ -214,6 +214,7 @@ function arrive() {
   const b = buttonFor(lift.floor); if (b) b.lit = 0;
   P.visited = false;
 }
+function placeName(f) { return f === 0 ? 'the lobby' : f === ROOF ? 'the roof' : (BY_FLOOR.get(f)?.name || 'floor ' + f); }
 function setLamp(f) { if (f === lift.lamp) return; lift.lamp = f; drawLamps(f); if (TEX.lamp) { TEX.lamp.needsUpdate = true; TEX.lampE.needsUpdate = true; } }
 function liftTick(dt) {
   if (lift.phase === 'opening' || lift.phase === 'closing') {
@@ -223,7 +224,7 @@ function liftTick(dt) {
     lift.t += dt; const [s, v, a] = planAt(lift.plan, lift.t);
     const prevY = lift.y; lift.y = lift.from + lift.dir * s; lift.v = lift.dir * v; lift.a = lift.dir * a;
     const cf = Math.round(lift.y / H); if (cf !== lift.lamp) { setLamp(cf); sfxTick(clamp(v / 4, .3, 1)); if (!RM) P.jolt = .6 * clamp(v / 6, .2, 1); }
-    if (!lift.capped && lift.t > lift.plan.T - 2.4) { lift.capped = true; const p = BY_FLOOR.get(lift.target); caption(`Arriving at <b>${esc(p ? p.name : 'the lobby')}</b>`, 2.8); }
+    if (!lift.capped && lift.t > lift.plan.T - 2.4) { lift.capped = true; caption(`Arriving at <b>${esc(placeName(lift.target))}</b>`, 2.8); }
     if (!lift.stopSnd && lift.t > lift.plan.T - .35) { lift.stopSnd = true; liftStopSound(); }
     if (lift.t >= lift.plan.T) arrive();
   } else if (lift.phase === 'arrived') {
@@ -236,6 +237,7 @@ function liftTick(dt) {
   const lo = atLobby ? o : 0; doors.lobL.position.x = -.265 - lo; doors.lobR.position.x = .265 + lo;
   const atLand = landing.visible && lift.phase !== 'riding' && Math.abs(lift.y - landing.position.y) < .01;
   const la = atLand ? o : 0; doors.landL.position.x = -.265 - la; doors.landR.position.x = .265 + la;
+  if (doors.roofL) { const ra = lift.floor === ROOF && lift.phase !== 'riding' && Math.abs(lift.y - ROOF * H) < .01 ? o : 0; doors.roofL.position.x = -.265 - ra; doors.roofR.position.x = .265 + ra; }
   cab.position.y = lift.y;
   // hall dial follows the cab
   UI3.needle.rotation.z = damp(UI3.needle.rotation.z, dialAngle(clamp(lift.y / H, 0, TOP)), 6, dt);
@@ -245,6 +247,7 @@ function onDoorsOpen() {
   const p = BY_FLOOR.get(lift.floor);
   if (p) { caption(`<b>${esc(p.name)}</b>${p.author ? ' · by ' + esc(p.author) : ''}`, 4.5); showVisit(p); hint(isTouch ? 'Walk out, or tap the painted wall, to visit' : 'Walk out, click the painted wall, or press <kbd>Enter</kbd> to visit', 6); }
   else if (lift.floor === 0) caption('Lobby', 2.4);
+  else if (lift.floor === ROOF) { caption('<b>Roof garden</b>', 3.5); hint('Walk around the roof · take the lift back down when you are done', 6); }
 }
 
 /* ======================================================================
@@ -295,6 +298,7 @@ function rects() {
   if (lift.doors > .92 && lift.phase === 'open') {
     out.push([-DOOR_W / 2 + .19, DOOR_W / 2 - .19, CAB.z1 - .4, WALL_Z + .6]);
     if (lift.floor === 0) out.push([LOBBY.x0 + r, LOBBY.x1 - r, WALL_Z + r, LOBBY.z1 - r]);
+    else if (lift.floor === ROOF) { const e = .25 + r; out.push([RF.x0 + e, RF.x1 - e, .3 + r, RF.z1 - e], [RF.x0 + e, HH.x0 - .05 - r, RF.z0 + e, 1], [HH.x1 + .3 + r, RF.x1 - e, RF.z0 + e, 1]); }
     else out.push([LAND.x0 + r, LAND.x1 - r, WALL_Z + r, LAND.z1 - r]);
   }
   return out;
@@ -304,9 +308,10 @@ function moveTo(nx, nz) {
   const R = rects();
   if (!inRects(P.pos.x, P.pos.z, R)) { const q = R[0]; P.pos.x = clamp(P.pos.x, q[0], q[1]); P.pos.z = clamp(P.pos.z, q[2], q[3]); }
   if (lift.floor === 0 && nz > WALL_Z) { const dx = nx + .9, dz = nz - 4.05, d = Math.hypot(dx, dz); if (d < .42) { nx = -.9 + dx / d * .42; nz = 4.05 + dz / d * .42; } }
-  if (inRects(nx, nz, R)) { P.pos.x = nx; P.pos.z = nz; return; }
-  if (inRects(nx, P.pos.z, R)) { P.pos.x = nx; return; }
-  if (inRects(P.pos.x, nz, R)) { P.pos.z = nz; return; }
+  const ok = (x, z) => inRects(x, z, R) && !(lift.floor === ROOF && z > .2 && ROOF_OBST.some(q => x > q[0] - .2 && x < q[1] + .2 && z > q[2] - .2 && z < q[3] + .2));
+  if (ok(nx, nz)) { P.pos.x = nx; P.pos.z = nz; return; }
+  if (ok(nx, P.pos.z)) { P.pos.x = nx; return; }
+  if (ok(P.pos.x, nz)) { P.pos.z = nz; return; }
 }
 function updateHover() {
   if (D.state !== 'play' || !menu.hidden) { hover = null; return; }
@@ -335,7 +340,7 @@ function actOn(a) {
 }
 function tipFor(a) {
   switch (a.type) {
-    case 'floor': { if (a.floor === 0) return ['L', 'Lobby', 'Back to the ground floor']; const p = BY_FLOOR.get(a.floor); return ['Floor ' + a.floor, p.name, p.author ? 'by ' + p.author : '']; }
+    case 'floor': { if (a.floor === 0) return ['L', 'Lobby', 'Back to the ground floor']; if (a.floor === ROOF) return ['R', 'Roof garden', 'Up on the roof']; const p = BY_FLOOR.get(a.floor); return ['Floor ' + a.floor, p.name, p.author ? 'by ' + p.author : '']; }
     case 'alarm': return ['', 'Alarm', 'Rings the bell']; case 'stop': return ['', 'Stop', 'Key switch']; case 'open': return ['', 'Open doors', '']; case 'close': return ['', 'Close doors', ''];
     case 'call': return ['', 'Call the lift', '']; case 'directory': return ['', 'Directory', isTouch ? 'Tap for the floor list' : 'Click or press F for the floor list'];
     case 'visit': { const p = BY_FLOOR.get(lift.floor); return ['Floor ' + lift.floor, p.name + ' ↗', 'Opens in a new tab']; }
@@ -408,6 +413,7 @@ window.addEventListener('keydown', (e) => {
   if (k === 'Backspace' && typed) { typed = typed.slice(0, -1); typedT = 1.2; showTyped(); e.preventDefault(); return; }
   if (k === 'Enter') { if (typed) commitTyped(); else triggerVisit('key'); e.preventDefault(); return; }
   if (k === 'l' || k === 'L') { if (!e.ctrlKey && !e.metaKey) { selectFloor(0); return; } }
+  if (k === 'r' || k === 'R') { if (!e.ctrlKey && !e.metaKey) { selectFloor(ROOF); return; } }
   if (k === 'f' || k === 'F') { if (!e.ctrlKey && !e.metaKey) { openMenu(); e.preventDefault(); return; } }
   if (k === 'Escape') { if (document.pointerLockElement) document.exitPointerLock(); return; }
   keys.add(e.code);
@@ -604,6 +610,7 @@ let lastT = performance.now(), frameN = 0, ema = 16, slowT = 0, fastT = 0, sunTi
 let exposure = .95;
 function tick(dt, time) {
   lookTick(dt);
+  roofTick(dt, time);
   D.tick(dt, time);
   if (D.state === 'intro' || D.state === 'play') liftTick(dt);
   playerTick(dt, time);
@@ -625,8 +632,10 @@ function tick(dt, time) {
   sunDir.y = SUN_BASE.y + drift * .02 * Math.sin(sunTime * .045); sunDir.normalize();
   // what the sun's shadow camera frames: the lobby, the cab in the shaft, or a landing
   const inLobby = D.state !== 'play' || (lift.floor === 0 && lift.phase !== 'riding' && (lift.doors > 0 || !P.inCab));
-  const onLanding = D.state === 'play' && lift.floor > 0 && lift.phase !== 'riding' && lift.doors > 0;
+  const onRoof = D.state === 'play' && lift.floor === ROOF && lift.phase !== 'riding' && (lift.doors > 0 || !P.inCab);
+  const onLanding = !onRoof && D.state === 'play' && lift.floor > 0 && lift.phase !== 'riding' && lift.doors > 0;
   if (inLobby) { sunFocus.set(-.8, 1.5, 1.4); setShadowExtent(5.4); }
+  else if (onRoof) { sunFocus.set(clamp(P.pos.x, -3, 3), lift.y + 1.5, clamp(P.pos.z, 1, 7)); setShadowExtent(8.5); }
   else if (onLanding) { sunFocus.set(-.2, lift.y + 1.4, .6); setShadowExtent(3.3); }
   else { sunFocus.set(-.4, lift.y + 1.3, -1.0); setShadowExtent(2.3); }
   updateSun();
@@ -637,9 +646,10 @@ function tick(dt, time) {
   UI3.cabBounce.intensity = damp(UI3.cabBounce.intensity, 1.5 * ov * LOOK.sunI / 9.5, 12, dt);
   UI3.lobbyBounce.intensity = 2.2 * LOOK.sunI / 9.5;
   // exposure: open up a little inside the cab
-  exposure = damp(exposure, (inLobby ? .95 : onLanding ? 1.0 : 1.18)*LOOK.exp, 1.5, dt);
+  exposure = damp(exposure, (inLobby ? .95 : onRoof ? .72 : onLanding ? 1.0 : 1.18)*LOOK.exp, 1.5, dt);
+  if (onRoof) hemi.intensity *= 2.4;
   gradeMat.uniforms.uExposure.value = exposure;
-  volMat.uniforms.uDensity.value = (inLobby ? .32 : .45)*LOOK.vol;
+  volMat.uniforms.uDensity.value = (inLobby ? .32 : onRoof ? .03 : .45)*LOOK.vol;
   // buttons: press travel and amber glow
   for (const b of buttons) {
     b.press = Math.max(0, b.press - dt * 7); b.face.position.z = .006 - b.press * .0028;
@@ -737,7 +747,7 @@ function loop(now) {
   camera.position.copy(CAM.s0.p); camera.lookAt(CAM.s0.l); camera.fov = CAM.s0.fov; camera.updateProjectionMatrix();
   setLook(heldPeriod() || periodAt(new Date()), true); lookTick(0);
   D.state = 'gate'; D.fade = 0;
-  if (window.__test) window.__dbg = { D, lift, P, camera, landing, dressLanding, setLook, setLamp, gradeMat, A, selectFloor };
+  if (window.__test) window.__dbg = { D, lift, P, camera, landing, dressLanding, setLook, setLamp, gradeMat, A, selectFloor, ROOF, H };
   requestAnimationFrame(loop);
   // warm up a few frames (shader compile), then fade in from black
   await nextFrame(); await nextFrame(); await nextFrame();

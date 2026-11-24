@@ -36,10 +36,12 @@ const FLOORS = (() => {
 })();
 const BY_FLOOR = new Map(FLOORS.map(p => [p.floor, p]));
 const TOP = Math.max(3, ...FLOORS.map(p => p.floor));
+const ROOF = TOP + 1;            // the roof garden: a stop of its own above the top floor, not a project
+const floorTag = (f) => f === 0 ? 'L' : f === ROOF ? 'R' : String(f);
 const T_TITLE = (typeof TITLE !== 'undefined' && TITLE) ? String(TITLE) : 'As Is';
 const T_STUDIO = (typeof STUDIO !== 'undefined' && STUDIO) ? String(STUDIO) : '';
 const numWord = (n) => ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'][n] || String(n);
-const floorLabel = (f) => f === 0 ? 'Lobby' : 'Floor ' + f;
+const floorLabel = (f) => f === 0 ? 'Lobby' : f === ROOF ? 'Roof' : 'Floor ' + f;
 
 /* ---- DOM text that depends on the list ---- */
 document.title = T_TITLE;
@@ -564,6 +566,33 @@ S iron(vec2 uv){
   s.m = mix(.0, .0, s.m); s.r = mix(s.r, .55, .4);
   return s;
 }
+S ground(vec2 uv){
+  S s; float n1 = fbm(uv, vec2(4.,4.), 5), n2 = fbm(uv + .3, vec2(32.,32.), 4), n3 = fbm(uv + .7, vec2(96.,96.), 3);
+  float dirt = smoothstep(.56 - uWear*.6, .7 - uWear*.6, n1*.7 + n2*.3);
+  vec3 g = uC1*mix(.6, 1.3, n2)*mix(.85, 1.1, n3); vec3 d = uC2*mix(.7, 1.2, n3)*mix(.85, 1.1, n2);
+  s.a = mix(g, d, dirt); s.h = (n3 - .5)*.5 + (1. - dirt)*.25 + (n2 - .5)*.2; s.r = mix(.9, .97, dirt); s.m = 0.; s.o = 1. - (1. - n3)*.2; return s;
+}
+S corrugated(vec2 uv){
+  S s; float w = sin(uv.x*6.2832*24.);
+  float n1 = fbm(uv, vec2(6.,4.), 5), n2 = fbm(uv + .4, vec2(48.,32.), 4);
+  float st = fbm(vec2(uv.x, uv.y*.08) + .3, vec2(96.,2.), 4);
+  float rust = smoothstep(.5, .62, n1*.7 + n2*.3 + (1. - uv.y)*.12 + st*.15 - uWear);
+  vec3 paint = uC1*mix(.75, 1.15, n2);
+  vec3 rc = mix(vec3(.16,.05,.015), vec3(.48,.18,.05), n2);
+  s.a = mix(paint, rc, rust); s.a *= .85 + .15*(w*.5 + .5);
+  s.h = w*.5 + .5 - rust*.1; s.r = mix(.55, .9, rust); s.m = mix(.35, 0., rust); s.o = .8 + .2*(w*.5 + .5); return s;
+}
+S planks(vec2 uv){
+  S s; float fx = fract(uv.x*6.); float id = floor(uv.x*6.);
+  float gap = 1. - smoothstep(.0, .025, min(fx, 1. - fx));
+  float grain = fbm(vec2(uv.x*60. + h21(vec2(id, 1.))*9., uv.y*3.), vec2(360., 3.), 4);
+  float n1 = fbm(uv + .2, vec2(10.,8.), 5);
+  float chip = smoothstep(.6 - uWear, .64 - uWear, n1*.8 + grain*.2 + (1. - uv.y)*.08);
+  vec3 wood = mix(vec3(.2,.16,.11), vec3(.42,.36,.27), grain);
+  vec3 paint = uC1*mix(.82, 1.12, h21(vec2(id, 4.)))*mix(.9, 1.06, grain);
+  s.a = mix(paint, wood, chip); s.a *= 1. - gap*.75;
+  s.h = .6 - gap*.8 - chip*.2 + (grain - .5)*.15; s.r = mix(.7, .9, chip); s.m = 0.; s.o = 1. - gap*.6; return s;
+}
 S surf(vec2 uv){
   if (uKind == 0) return paint(uv, uC1, 4., uWear);
   if (uKind == 1) return cream(uv);
@@ -573,6 +602,9 @@ S surf(vec2 uv){
   if (uKind == 5) return concrete(uv);
   if (uKind == 6) return metalK(uv, uC1, uC2, .1);
   if (uKind == 7) return metalK(uv, uC1, uC2, .26);
+  if (uKind == 9) return ground(uv);
+  if (uKind == 10) return corrugated(uv);
+  if (uKind == 11) return planks(uv);
   return iron(uv);
 }
 void main(){
