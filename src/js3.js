@@ -19,11 +19,29 @@ function playBuf(buf, t, { gain = 1, rate = 1, offset = 0, dur, dest } = {}) {
   s.connect(g).connect(dest || A.master); dur !== undefined ? s.start(t, offset, dur) : s.start(t, offset); return { s, g };
 }
 let lastStep = -1;
-function stepSample(surface) {
-  const buf = A.smp[surface]; if (!buf) return false;
-  const [slot, len, n] = STEP_SLOT[surface]; let i = Math.floor(Math.random() * n); if (i === lastStep) i = (i + 1) % n; lastStep = i;
-  playBuf(buf, now_(), { gain: (surface === 'metal' ? .42 : .5) * (.8 + Math.random() * .2), rate: .94 + Math.random() * .12, offset: i * slot, dur: len });
+function stepSample(file, gain = 1, rate = 1) {
+  const buf = A.smp[file]; if (!buf) return false;
+  const [slot, len, n] = STEP_SLOT[file]; let i = Math.floor(Math.random() * n); if (i === lastStep) i = (i + 1) % n; lastStep = i;
+  playBuf(buf, now_(), { gain: (file === 'metal' ? .42 : .5) * gain * (.8 + Math.random() * .2), rate: rate * (.94 + Math.random() * .12), offset: i * slot, dur: len });
   return true;
+}
+// what is underfoot: the cab's steel floor, tile (lobby, landings), and on the roof stepping stones or grass
+function surfaceUnder() {
+  const x = P.pos.x, z = P.pos.z;
+  if (z < CAB.z1 + .02 && Math.abs(x) < CAB.x1 + .05) return 'metal';
+  if (lift.floor === ROOF && lift.phase !== 'riding') {
+    if (z < WALL_Z + .1 && Math.abs(x) < DOOR_W / 2 + .1) return 'tile';          // the brass sill
+    return ROOF_STONES.some(q => x > q[0] && x < q[1] && z > q[2] && z < q[3]) ? 'stone' : 'grass';
+  }
+  return 'tile';
+}
+function grassStep() {
+  const ctx = A.ctx, t = now_();
+  // soft blades brushing, a few dry ticks, and a muffled heel on turf
+  noiseHit(t, 'bandpass', 2600 + Math.random() * 900, .9, .05, .16);
+  noiseHit(t + .01, 'highpass', 4200, .7, .025, .1);
+  for (let i = 0; i < 3; i++) noiseHit(t + .02 + Math.random() * .08, 'bandpass', 3000 + Math.random() * 3000, 6, .012 + Math.random() * .01, .025);
+  noiseHit(t, 'lowpass', 300, .7, .09, .08); thump(t, 70, 45, .05, .08);
 }
 function liftStartSound() {
   if (!A.ctx || !A.smp.start || !A.smp.loop) return;
@@ -117,7 +135,10 @@ function sfxDoors(opening, dur) {
   if (Math.random() < .7) { const q = ctx.createOscillator(); q.type = 'sine'; const qt = t + .3 + Math.random() * (dur - .8); q.frequency.setValueAtTime(1900 + Math.random() * 600, qt); q.frequency.linearRampToValueAtTime(2500 + Math.random() * 500, qt + .35); const qe = ctx.createGain(); qe.gain.setValueAtTime(0, qt); qe.gain.linearRampToValueAtTime(.012, qt + .1); qe.gain.linearRampToValueAtTime(0, qt + .4); q.connect(qe).connect(A.master); q.start(qt); q.stop(qt + .5); }
   thump(t + dur - .02, opening ? 90 : 70, 38, opening ? .2 : .38, .3); noiseHit(t + dur - .02, 'lowpass', 900, .7, opening ? .12 : .25, .12);
 }
-function sfxStep(steel) { if (!A.ctx) return; if (stepSample(steel ? 'metal' : 'tile')) return; const t = now_(); noiseHit(t, 'lowpass', steel ? 900 : 620, .8, .12, .09); thump(t, 95, 55, .1, .09); if (steel) noiseHit(t + .005, 'bandpass', 1700 + Math.random() * 400, 9, .035, .14); }
+function sfxStep(surface) { if (!A.ctx) return; const steel = surface === 'metal';
+  if (surface === 'grass') { grassStep(); return; }
+  if (surface === 'stone' ? stepSample('tile', 1.15, .82) : stepSample(steel ? 'metal' : 'tile')) return;
+  const t = now_(); noiseHit(t, 'lowpass', steel ? 900 : 620, .8, .12, .09); thump(t, 95, 55, .1, .09); if (steel) noiseHit(t + .005, 'bandpass', 1700 + Math.random() * 400, 9, .035, .14); }
 function sfxTick(g) { if (!A.ctx) return; const t = now_(); noiseHit(t, 'bandpass', 800, 2.5, .08 * g, .05); thump(t, 140, 80, .06 * g, .07); }
 function sfxAlarm() { if (!A.ctx) return; const ctx = A.ctx, t = now_(); const o = ctx.createOscillator(); o.type = 'square'; o.frequency.value = 1180; const am = ctx.createOscillator(); am.type = 'square'; am.frequency.value = 24; const ag = ctx.createGain(); ag.gain.value = .5; const g = ctx.createGain(); g.gain.value = .5; am.connect(ag).connect(g.gain);
   const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2200; bp.Q.value = 2; const e = ctx.createGain(); e.gain.setValueAtTime(0, t); e.gain.linearRampToValueAtTime(.07, t + .02); e.gain.setValueAtTime(.07, t + 1.5); e.gain.linearRampToValueAtTime(0, t + 1.6);
@@ -444,7 +465,7 @@ function playerTick(dt, time) {
   const ox = P.pos.x, oz = P.pos.z;
   if (l > .01) moveTo(P.pos.x + vx * dt, P.pos.z + vz * dt);
   const moved = Math.hypot(P.pos.x - ox, P.pos.z - oz);
-  P.stepD += moved; if (P.stepD > .62) { P.stepD = 0; sfxStep(P.pos.z < CAB.z1); }
+  P.stepD += moved; if (P.stepD > .62) { P.stepD = 0; sfxStep(surfaceUnder()); }
   P.bob = RM ? 0 : damp(P.bob, moved > 1e-4 ? Math.sin(time * 9.5 * run) * .018 : 0, 10, dt);
   const was = P.inCab; P.inCab = inCab();
   if (P.inCab && !was) { P.visited = false; }
@@ -747,7 +768,7 @@ function loop(now) {
   camera.position.copy(CAM.s0.p); camera.lookAt(CAM.s0.l); camera.fov = CAM.s0.fov; camera.updateProjectionMatrix();
   setLook(heldPeriod() || periodAt(new Date()), true); lookTick(0);
   D.state = 'gate'; D.fade = 0;
-  if (window.__test) window.__dbg = { D, lift, P, camera, landing, dressLanding, setLook, setLamp, gradeMat, A, selectFloor, ROOF, H };
+  if (window.__test) window.__dbg = { D, lift, P, camera, landing, dressLanding, setLook, setLamp, gradeMat, A, selectFloor, ROOF, H, surfaceUnder, ROOF_STONES, sfxStep, initAudio };
   requestAnimationFrame(loop);
   // warm up a few frames (shader compile), then fade in from black
   await nextFrame(); await nextFrame(); await nextFrame();

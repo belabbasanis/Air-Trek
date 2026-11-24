@@ -12,7 +12,8 @@ const outside = new THREE.Group(); outside.visible = false; scene.add(outside);
 const RF = { x0: -7.2, x1: 7.2, z0: -3.2, z1: 11.2 };          // outer edge of the parapet
 const HH = { x0: -1.55, x1: 1.55, z0: -2.52, z1: WALL_Z, h: 3.45 };   // headhouse over the shaft
 const ROOF_OBST = [];          // [x0, x1, z0, z1] boxes the player can't walk into
-const ROOF_NOGRASS = [];       // [x0, x1, z0, z1] where no grass blades grow
+const ROOF_NOGRASS = [];
+const ROOF_STONES = [];         // [x0, x1, z0, z1] stepping stones, for footstep sounds       // [x0, x1, z0, z1] where no grass blades grow
 const PERCHES = [];            // V3 points birds can land on
 const CHICK_RUN = { x0: -6.6, x1: -3.55, z0: 4.95, z1: 9.75 };
 const roofLive = { chickens: [], birds: [], gulls: [], cloth: [], rotor: null, grass: null };
@@ -167,7 +168,7 @@ function buildRoof() {
   const stones = [];
   const path = (ax, az, bx, bz, step = .58) => { const L = Math.hypot(bx - ax, bz - az), n = Math.max(1, Math.round(L / step)); for (let i = 0; i <= n; i++) { const t = i / n; stones.push([lerp(ax, bx, t) + (r() - .5) * .06, lerp(az, bz, t) + (r() - .5) * .04, Math.atan2(bx - ax, bz - az) + (r() - .5) * .2]); } };
   path(0, .7, 0, 8.6); path(-.45, 1.9, -3.7, 2.15, .6); path(.45, 4.4, 2.05, 4.4, .6); path(.3, 8.9, .9, 9.0, .6);
-  for (const [x, z, a] of stones) { const g = new RoundedBoxGeometry(.5, .05, .34, 1, .02); g.rotateY(a); g.translate(x, .015, z); b.add(stoneMat, wuv(g, .8, .8)); ROOF_NOGRASS.push([x - .28, x + .28, z - .22, z + .22]); }
+  for (const [x, z, a] of stones) { const g = new RoundedBoxGeometry(.5, .05, .34, 1, .02); g.rotateY(a); g.translate(x, .015, z); b.add(stoneMat, wuv(g, .8, .8)); ROOF_NOGRASS.push([x - .28, x + .28, z - .22, z + .22]); ROOF_STONES.push([x - .33, x + .33, z - .27, z + .27]); }
 
   // ---- table and two chairs at the sea end of the path ----
   const T = new V3(1.15, 0, 9.55);
