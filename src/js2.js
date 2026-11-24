@@ -487,7 +487,7 @@ async function buildMaterials(progress) {
   const B = {};
   progress('Painting the steel…');
   B.teal = await bake(0, 1024, { c1: [.032, .125, .105], ns: 5, seed: .11 });
-  B.door = await bake(0, 1024, { c1: [.04, .15, .125], ns: 5, seed: .47, wear: .012 });
+  B.door = await bake(0, 1024, { c1: [.04, .15, .125], ns: 5, seed: .47, wear: .012, moss: .5 });
   progress('Rusting the edges…');
   B.cream = await bake(1, 512, { c1: [.5, .43, .3], ns: 5, seed: .23 });
   B.plaster = await bake(2, 1024, { c1: [.56, .52, .43], ns: 4, seed: .31 });
@@ -543,7 +543,7 @@ function buildLobby() {
   // hoistway wall: painted steel to 2.5 m, plaster above
   for (const g of holedWall('z', 0, WALL_Z, L.x0, L.x1, 0, 2.5, [[-DOOR_W / 2, DOOR_W / 2, -1, DOOR_H]])) b.add(M.teal, wuv(g, 2.4, 2.5));
   for (const g of holedWall('z', 0, WALL_Z, L.x0, L.x1, 2.5, L.h, [])) b.add(M.plaster, wuv(g, 2.4, L.h - 2.5, 2.5));
-  b.add(M.ironM, wuv(bb(L.x0, L.x1, 2.47, 2.53, WALL_Z, WALL_Z + .035), .6, .6));           // dado rail
+  for (const [x0, x1] of [[L.x0, -.37], [.37, L.x1]]) b.add(M.ironM, wuv(bb(x0, x1, 2.47, 2.53, WALL_Z, WALL_Z + .035), .6, .6));   // dado rail, stopping either side of the dial
   // left wall with the big window
   const WIN = { z0: 1.15, z1: 5.45, y0: .95, y1: 3.32 };
   for (const g of holedWall('x', L.x0 - .3, L.x0, 0, L.z1, 0, 1.25, [])) b.add(M.teal, wuv(g, 2.4, 1.25));
@@ -600,12 +600,13 @@ function buildLobby() {
   const nm = new THREE.Mesh(new THREE.BoxGeometry(.008, .25, .004).translate(0, .125, 0), new THREE.MeshStandardMaterial({ color: 0x120b06, roughness: .4, metalness: .5 })); nm.castShadow = true; needle.add(nm);
   needle.add(new THREE.Mesh(new THREE.CylinderGeometry(.018, .018, .01, 16).rotateX(Math.PI / 2), M.brass));
   UI3.needle = needle;
-  const lantern = new THREE.Group(); lantern.position.set(.88, 2.4, WALL_Z); world.add(lantern);
-  b.add(M.brass, wuv(new RoundedBoxGeometry(.13, .24, .04, 2, .012).translate(.88, 2.4, WALL_Z + .02), .2, .2));
+  const LAN = { x: .82, y: DOOR_H + .14 - .12 };   // same x as the call button; top edge level with the top of the door frame
+  const lantern = new THREE.Group(); lantern.position.set(LAN.x, LAN.y, WALL_Z); world.add(lantern);
+  b.add(M.brass, wuv(new RoundedBoxGeometry(.13, .24, .04, 2, .012).translate(LAN.x, LAN.y, WALL_Z + .02), .2, .2));
   const tri = new THREE.CylinderGeometry(.04, .04, .012, 3).rotateX(Math.PI / 2);
   UI3.lampUp = new THREE.Mesh(tri, M.lens.clone()); UI3.lampUp.position.set(0, .055, .042); UI3.lampUp.rotation.z = Math.PI; lantern.add(UI3.lampUp);
   UI3.lampDn = new THREE.Mesh(tri, M.lens.clone()); UI3.lampDn.position.set(0, -.055, .042); lantern.add(UI3.lampDn);
-  UI3.lanternLight = new THREE.PointLight(new THREE.Color(1, .5, .15), 0, 1.6, 2); UI3.lanternLight.position.set(.88, 2.4, WALL_Z + .2); world.add(UI3.lanternLight);
+  UI3.lanternLight = new THREE.PointLight(new THREE.Color(1, .5, .15), 0, 1.6, 2); UI3.lanternLight.position.set(LAN.x, LAN.y, WALL_Z + .2); world.add(UI3.lanternLight);
   // directory case
   b.add(M.brass, wuv(new RoundedBoxGeometry(.74, 1.0, .05, 2, .012).translate(1.98, 1.58, WALL_Z + .025), .3, .3));
   const dir = new THREE.Mesh(new THREE.PlaneGeometry(.66, .9), new THREE.MeshStandardMaterial({ map: directoryTex(), roughness: .9, metalness: 0 }));
@@ -972,6 +973,7 @@ function placeMoss() {
   for (let i = 0; i < 4; i++) hang(world, L.x0 + .12, L.h - .02, 1.5 + i * 1.25, Math.PI / 2, .75 + (i % 2) * .3, 520 + i);  // over the big window
   hang(world, -1.3, L.h - .02, WALL_Z + .07, 0, .85, 530); hang(world, 1.45, L.h - .02, WALL_Z + .07, 0, .8, 531);            // upper corners of the lift wall
   hang(world, 2.9, L.h - .02, 2.2, Math.PI / 2, .7, 532);
+  hang(world, -.6, DOOR_H + .15, WALL_Z + .06, 0, .42, 533); hang(world, .58, DOOR_H + .15, WALL_Z + .06, 0, .36, 534);   // draped over the door frame ends
   hang(cab, C.x0 + .07, C.h - .03, -1.25, Math.PI / 2, .5, 540); hang(cab, C.x0 + .07, C.h - .03, -.82, Math.PI / 2, .42, 541);   // under the ceiling by the grille
   hang(cab, -.72, C.h - .03, C.z0 + .06, 0, .45, 542);
   hang(landing, D_.x0 + .1, D_.h - .02, 1.25, Math.PI / 2, .8, 550); hang(landing, D_.x0 + .1, D_.h - .02, 2.2, Math.PI / 2, .7, 551);  // over the landing window

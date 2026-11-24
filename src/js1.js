@@ -422,7 +422,7 @@ window.addEventListener('resize', resize);
 const BAKE_FRAG = /* glsl */`
 precision highp float;
 varying vec2 vUv;
-uniform int uKind, uMode; uniform vec2 uTexel; uniform vec3 uC1, uC2; uniform float uSeed, uNS, uWear;
+uniform int uKind, uMode; uniform vec2 uTexel; uniform vec3 uC1, uC2; uniform float uSeed, uNS, uWear, uMossH;
 float h21(vec2 p){ vec3 p3 = fract(vec3(p.xyx)*vec3(.1031, .1030, .0973) + uSeed); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y)*p3.z); }
 float vn(vec2 p, vec2 per){ vec2 i = floor(p), f = fract(p); vec2 u = f*f*(3.-2.*f);
   return mix(mix(h21(mod(i,per)), h21(mod(i+vec2(1.,0.),per)), u.x), mix(h21(mod(i+vec2(0.,1.),per)), h21(mod(i+vec2(1.,1.),per)), u.x), u.y); }
@@ -458,10 +458,16 @@ S paint(vec2 uv, vec3 col, float panels, float wearAdd){
   a = mix(a, rust, chip);
   a = mix(a, a*vec3(.4,.36,.28), grime*.8);
   a *= 1. - seam*.65;
-  float moss = smoothstep(.54,.68, fbm(uv + .4, vec2(40.,24.), 4))*(1. - smoothstep(0., .06, uv.y));
-  a = mix(a, vec3(.1,.18,.03), moss);
+  // moss climbs from the foot (uMossH = how far up), thickest in chips and along the seams, with stray patches higher up
+  float front = uv.y + (fbm(uv + .6, vec2(6.,3.), 4) - .5)*uMossH*.9;
+  float reach = 1. - smoothstep(0., max(uMossH, .001), front);
+  float mn = fbm(uv + .4, vec2(40.,24.), 4);
+  float stray = smoothstep(.7, .8, fbm(uv + .9, vec2(10.,6.), 4))*smoothstep(.1, .3, uMossH)*(1. - smoothstep(.5, .9, uv.y));
+  float moss = smoothstep(.52, .62, mn*.7 + reach*.42 + chip*.1 + lip*.12 + stray*.3)*max(reach, stray);
+  vec3 mc = mix(vec3(.06,.12,.02), vec3(.2,.29,.05), fbm(uv + .2, vec2(64.,40.), 3));
+  a = mix(a, mc, moss);
   s.a = a;
-  s.h = .6 + sin(3.14159*pu)*.2*step(.5, panels) - chip*(.45 + .35*rn) - primer*.12 - seam*.9 + moss*.25 + (n2-.5)*.025;
+  s.h = .6 + sin(3.14159*pu)*.2*step(.5, panels) - chip*(.45 + .35*rn) - primer*.12 - seam*.9 + moss*(.22 + .25*mn) + (n2-.5)*.025;
   s.r = mix(.36 + .26*n2, .9, chip); s.r = mix(s.r, .86, max(grime*.6, streak*.35)); s.r = mix(s.r, 1., moss);
   s.m = 0.; s.o = 1. - seam*.6 - chip*.12 - lip*.08;
   return s;
@@ -579,13 +585,13 @@ void main(){
 }`;
 const bakeMat = new THREE.ShaderMaterial({
   vertexShader: VS, fragmentShader: BAKE_FRAG, depthTest: false, depthWrite: false,
-  uniforms: { uKind: { value: 0 }, uMode: { value: 0 }, uTexel: { value: new THREE.Vector2() }, uC1: { value: new V3() }, uC2: { value: new V3() }, uSeed: { value: 0 }, uNS: { value: 4 }, uWear: { value: 0 } },
+  uniforms: { uKind: { value: 0 }, uMode: { value: 0 }, uTexel: { value: new THREE.Vector2() }, uC1: { value: new V3() }, uC2: { value: new V3() }, uSeed: { value: 0 }, uNS: { value: 4 }, uWear: { value: 0 }, uMossH: { value: .06 } },
 });
 const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
 async function bake(kind, size, o = {}) {
   const u = bakeMat.uniforms;
   u.uKind.value = kind; u.uTexel.value.set(1 / size, 1 / size); u.uC1.value.set(...(o.c1 || [.5, .5, .5])); u.uC2.value.set(...(o.c2 || [.1, .1, .1]));
-  u.uSeed.value = o.seed ?? 0.0; u.uNS.value = (o.ns ?? 4) * size / 1024; u.uWear.value = o.wear ?? 0;
+  u.uSeed.value = o.seed ?? 0.0; u.uNS.value = (o.ns ?? 4) * size / 1024; u.uWear.value = o.wear ?? 0; u.uMossH.value = o.moss ?? .06;
   const mk = (type) => { const t = new THREE.WebGLRenderTarget(size, size, { type, depthBuffer: false, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter, magFilter: THREE.LinearFilter, wrapS: THREE.RepeatWrapping, wrapT: THREE.RepeatWrapping });
     t.texture.anisotropy = Math.min(8, MAX_ANISO); return t; };
   const out = { map: mk(THREE.HalfFloatType), normal: mk(THREE.UnsignedByteType), orm: mk(THREE.UnsignedByteType) };

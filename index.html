@@ -610,7 +610,7 @@ window.addEventListener('resize', resize);
 const BAKE_FRAG = /* glsl */`
 precision highp float;
 varying vec2 vUv;
-uniform int uKind, uMode; uniform vec2 uTexel; uniform vec3 uC1, uC2; uniform float uSeed, uNS, uWear;
+uniform int uKind, uMode; uniform vec2 uTexel; uniform vec3 uC1, uC2; uniform float uSeed, uNS, uWear, uMossH;
 float h21(vec2 p){ vec3 p3 = fract(vec3(p.xyx)*vec3(.1031, .1030, .0973) + uSeed); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y)*p3.z); }
 float vn(vec2 p, vec2 per){ vec2 i = floor(p), f = fract(p); vec2 u = f*f*(3.-2.*f);
   return mix(mix(h21(mod(i,per)), h21(mod(i+vec2(1.,0.),per)), u.x), mix(h21(mod(i+vec2(0.,1.),per)), h21(mod(i+vec2(1.,1.),per)), u.x), u.y); }
@@ -646,10 +646,16 @@ S paint(vec2 uv, vec3 col, float panels, float wearAdd){
   a = mix(a, rust, chip);
   a = mix(a, a*vec3(.4,.36,.28), grime*.8);
   a *= 1. - seam*.65;
-  float moss = smoothstep(.54,.68, fbm(uv + .4, vec2(40.,24.), 4))*(1. - smoothstep(0., .06, uv.y));
-  a = mix(a, vec3(.1,.18,.03), moss);
+  // moss climbs from the foot (uMossH = how far up), thickest in chips and along the seams, with stray patches higher up
+  float front = uv.y + (fbm(uv + .6, vec2(6.,3.), 4) - .5)*uMossH*.9;
+  float reach = 1. - smoothstep(0., max(uMossH, .001), front);
+  float mn = fbm(uv + .4, vec2(40.,24.), 4);
+  float stray = smoothstep(.7, .8, fbm(uv + .9, vec2(10.,6.), 4))*smoothstep(.1, .3, uMossH)*(1. - smoothstep(.5, .9, uv.y));
+  float moss = smoothstep(.52, .62, mn*.7 + reach*.42 + chip*.1 + lip*.12 + stray*.3)*max(reach, stray);
+  vec3 mc = mix(vec3(.06,.12,.02), vec3(.2,.29,.05), fbm(uv + .2, vec2(64.,40.), 3));
+  a = mix(a, mc, moss);
   s.a = a;
-  s.h = .6 + sin(3.14159*pu)*.2*step(.5, panels) - chip*(.45 + .35*rn) - primer*.12 - seam*.9 + moss*.25 + (n2-.5)*.025;
+  s.h = .6 + sin(3.14159*pu)*.2*step(.5, panels) - chip*(.45 + .35*rn) - primer*.12 - seam*.9 + moss*(.22 + .25*mn) + (n2-.5)*.025;
   s.r = mix(.36 + .26*n2, .9, chip); s.r = mix(s.r, .86, max(grime*.6, streak*.35)); s.r = mix(s.r, 1., moss);
   s.m = 0.; s.o = 1. - seam*.6 - chip*.12 - lip*.08;
   return s;
@@ -767,13 +773,13 @@ void main(){
 }`;
 const bakeMat = new THREE.ShaderMaterial({
   vertexShader: VS, fragmentShader: BAKE_FRAG, depthTest: false, depthWrite: false,
-  uniforms: { uKind: { value: 0 }, uMode: { value: 0 }, uTexel: { value: new THREE.Vector2() }, uC1: { value: new V3() }, uC2: { value: new V3() }, uSeed: { value: 0 }, uNS: { value: 4 }, uWear: { value: 0 } },
+  uniforms: { uKind: { value: 0 }, uMode: { value: 0 }, uTexel: { value: new THREE.Vector2() }, uC1: { value: new V3() }, uC2: { value: new V3() }, uSeed: { value: 0 }, uNS: { value: 4 }, uWear: { value: 0 }, uMossH: { value: .06 } },
 });
 const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
 async function bake(kind, size, o = {}) {
   const u = bakeMat.uniforms;
   u.uKind.value = kind; u.uTexel.value.set(1 / size, 1 / size); u.uC1.value.set(...(o.c1 || [.5, .5, .5])); u.uC2.value.set(...(o.c2 || [.1, .1, .1]));
-  u.uSeed.value = o.seed ?? 0.0; u.uNS.value = (o.ns ?? 4) * size / 1024; u.uWear.value = o.wear ?? 0;
+  u.uSeed.value = o.seed ?? 0.0; u.uNS.value = (o.ns ?? 4) * size / 1024; u.uWear.value = o.wear ?? 0; u.uMossH.value = o.moss ?? .06;
   const mk = (type) => { const t = new THREE.WebGLRenderTarget(size, size, { type, depthBuffer: false, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter, magFilter: THREE.LinearFilter, wrapS: THREE.RepeatWrapping, wrapT: THREE.RepeatWrapping });
     t.texture.anisotropy = Math.min(8, MAX_ANISO); return t; };
   const out = { map: mk(THREE.HalfFloatType), normal: mk(THREE.UnsignedByteType), orm: mk(THREE.UnsignedByteType) };
@@ -1282,7 +1288,7 @@ async function buildMaterials(progress) {
   const B = {};
   progress('Painting the steel…');
   B.teal = await bake(0, 1024, { c1: [.032, .125, .105], ns: 5, seed: .11 });
-  B.door = await bake(0, 1024, { c1: [.04, .15, .125], ns: 5, seed: .47, wear: .012 });
+  B.door = await bake(0, 1024, { c1: [.04, .15, .125], ns: 5, seed: .47, wear: .012, moss: .5 });
   progress('Rusting the edges…');
   B.cream = await bake(1, 512, { c1: [.5, .43, .3], ns: 5, seed: .23 });
   B.plaster = await bake(2, 1024, { c1: [.56, .52, .43], ns: 4, seed: .31 });
@@ -1338,7 +1344,7 @@ function buildLobby() {
   // hoistway wall: painted steel to 2.5 m, plaster above
   for (const g of holedWall('z', 0, WALL_Z, L.x0, L.x1, 0, 2.5, [[-DOOR_W / 2, DOOR_W / 2, -1, DOOR_H]])) b.add(M.teal, wuv(g, 2.4, 2.5));
   for (const g of holedWall('z', 0, WALL_Z, L.x0, L.x1, 2.5, L.h, [])) b.add(M.plaster, wuv(g, 2.4, L.h - 2.5, 2.5));
-  b.add(M.ironM, wuv(bb(L.x0, L.x1, 2.47, 2.53, WALL_Z, WALL_Z + .035), .6, .6));           // dado rail
+  for (const [x0, x1] of [[L.x0, -.37], [.37, L.x1]]) b.add(M.ironM, wuv(bb(x0, x1, 2.47, 2.53, WALL_Z, WALL_Z + .035), .6, .6));   // dado rail, stopping either side of the dial
   // left wall with the big window
   const WIN = { z0: 1.15, z1: 5.45, y0: .95, y1: 3.32 };
   for (const g of holedWall('x', L.x0 - .3, L.x0, 0, L.z1, 0, 1.25, [])) b.add(M.teal, wuv(g, 2.4, 1.25));
@@ -1395,12 +1401,13 @@ function buildLobby() {
   const nm = new THREE.Mesh(new THREE.BoxGeometry(.008, .25, .004).translate(0, .125, 0), new THREE.MeshStandardMaterial({ color: 0x120b06, roughness: .4, metalness: .5 })); nm.castShadow = true; needle.add(nm);
   needle.add(new THREE.Mesh(new THREE.CylinderGeometry(.018, .018, .01, 16).rotateX(Math.PI / 2), M.brass));
   UI3.needle = needle;
-  const lantern = new THREE.Group(); lantern.position.set(.88, 2.4, WALL_Z); world.add(lantern);
-  b.add(M.brass, wuv(new RoundedBoxGeometry(.13, .24, .04, 2, .012).translate(.88, 2.4, WALL_Z + .02), .2, .2));
+  const LAN = { x: .82, y: DOOR_H + .14 - .12 };   // same x as the call button; top edge level with the top of the door frame
+  const lantern = new THREE.Group(); lantern.position.set(LAN.x, LAN.y, WALL_Z); world.add(lantern);
+  b.add(M.brass, wuv(new RoundedBoxGeometry(.13, .24, .04, 2, .012).translate(LAN.x, LAN.y, WALL_Z + .02), .2, .2));
   const tri = new THREE.CylinderGeometry(.04, .04, .012, 3).rotateX(Math.PI / 2);
   UI3.lampUp = new THREE.Mesh(tri, M.lens.clone()); UI3.lampUp.position.set(0, .055, .042); UI3.lampUp.rotation.z = Math.PI; lantern.add(UI3.lampUp);
   UI3.lampDn = new THREE.Mesh(tri, M.lens.clone()); UI3.lampDn.position.set(0, -.055, .042); lantern.add(UI3.lampDn);
-  UI3.lanternLight = new THREE.PointLight(new THREE.Color(1, .5, .15), 0, 1.6, 2); UI3.lanternLight.position.set(.88, 2.4, WALL_Z + .2); world.add(UI3.lanternLight);
+  UI3.lanternLight = new THREE.PointLight(new THREE.Color(1, .5, .15), 0, 1.6, 2); UI3.lanternLight.position.set(LAN.x, LAN.y, WALL_Z + .2); world.add(UI3.lanternLight);
   // directory case
   b.add(M.brass, wuv(new RoundedBoxGeometry(.74, 1.0, .05, 2, .012).translate(1.98, 1.58, WALL_Z + .025), .3, .3));
   const dir = new THREE.Mesh(new THREE.PlaneGeometry(.66, .9), new THREE.MeshStandardMaterial({ map: directoryTex(), roughness: .9, metalness: 0 }));
@@ -1767,6 +1774,7 @@ function placeMoss() {
   for (let i = 0; i < 4; i++) hang(world, L.x0 + .12, L.h - .02, 1.5 + i * 1.25, Math.PI / 2, .75 + (i % 2) * .3, 520 + i);  // over the big window
   hang(world, -1.3, L.h - .02, WALL_Z + .07, 0, .85, 530); hang(world, 1.45, L.h - .02, WALL_Z + .07, 0, .8, 531);            // upper corners of the lift wall
   hang(world, 2.9, L.h - .02, 2.2, Math.PI / 2, .7, 532);
+  hang(world, -.6, DOOR_H + .15, WALL_Z + .06, 0, .42, 533); hang(world, .58, DOOR_H + .15, WALL_Z + .06, 0, .36, 534);   // draped over the door frame ends
   hang(cab, C.x0 + .07, C.h - .03, -1.25, Math.PI / 2, .5, 540); hang(cab, C.x0 + .07, C.h - .03, -.82, Math.PI / 2, .42, 541);   // under the ceiling by the grille
   hang(cab, -.72, C.h - .03, C.z0 + .06, 0, .45, 542);
   hang(landing, D_.x0 + .1, D_.h - .02, 1.25, Math.PI / 2, .8, 550); hang(landing, D_.x0 + .1, D_.h - .02, 2.2, Math.PI / 2, .7, 551);  // over the landing window
