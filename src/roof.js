@@ -58,7 +58,7 @@ function buildRoof() {
   const rTex = plateTex(256, 256, (x) => { x.clearRect(0, 0, 256, 256); x.font = `400 220px ${FONT_STENCIL}`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#efe6d2'; x.fillText('R', 128, 140); x.globalCompositeOperation = 'destination-out'; const q = rng(5); for (let i = 0; i < 2500; i++) { x.fillStyle = `rgba(0,0,0,${q() * .9})`; x.beginPath(); x.arc(q() * 256, q() * 256, q() * 3, 0, 6.283); x.fill(); } });
   const rDec = new THREE.Mesh(new THREE.PlaneGeometry(.5, .5), new THREE.MeshStandardMaterial({ map: rTex, transparent: true, roughness: .8, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
   rDec.position.set(.95, 2.75, WALL_Z + .006); rDec.receiveShadow = true; roof.add(rDec);
-  ob(HH.x0 - .05, HH.x1 + .3, HH.z0 - .05, .25, false);
+  ROOF_NOGRASS.push([HH.x0 - .05, HH.x1 + .3, HH.z0 - .05, .25]);   // no obstacle box: the walkable area already stops at the headhouse, and a box here would block the doorway
 
   // ---- solar panels: on the headhouse roof and in a row on the right ----
   const solarTex = plateTex(512, 512, (x) => { x.fillStyle = '#0c1424'; x.fillRect(0, 0, 512, 512); x.strokeStyle = '#7a8aa8'; x.lineWidth = 3; for (let i = 0; i <= 6; i++) { x.beginPath(); x.moveTo(i * 85.3, 0); x.lineTo(i * 85.3, 512); x.stroke(); } for (let i = 0; i <= 10; i++) { x.beginPath(); x.moveTo(0, i * 51.2); x.lineTo(512, i * 51.2); x.stroke(); } x.strokeStyle = 'rgba(160,170,190,.35)'; x.lineWidth = 1; for (let i = 0; i < 60; i++) { x.beginPath(); x.moveTo(0, i * 8.5); x.lineTo(512, i * 8.5); x.stroke(); } });
