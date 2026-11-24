@@ -475,29 +475,77 @@ function gateCam(time) {
 D.lantern = 0;
 
 /* ======================================================================
-   LOOKS: the art style, switchable without touching layout or gameplay.
-   Open the page with #paint or #paint-warm to see a painted look; no hash is the original.
+   TIME OF DAY: the art style follows the visitor's local clock.
+   morning 5-11 painterly cool, afternoon 11-17 golden hour, evening 17-21 painterly warm, night 21-5.
+   Crossing into the next period blends over about a minute. Add #morning, #afternoon, #evening
+   or #night to the URL to hold one period (for reviewing a look).
    ====================================================================== */
+const PERIODS = [['night', 0], ['morning', 5], ['afternoon', 11], ['evening', 17], ['night', 21]];
+const PAINT_COOL = { ramp: ['#0d2627', '#245e5e', '#78cfc3', '#f2fffa'], rampMix: .74, keepGreen: .95, stroke: .38, ink: .55, radius: 4, stride: 1.3, grain: .03, high: .86 };
 const LOOKS = {
-  photo: { label: 'Golden hour', paint: false, sun: [1, .71, .43], sunI: 9.5, hemiSky: [.45, .62, .66], hemiGround: [.32, .22, .13], hemiI: .3, exp: 1, vol: 1, ns: 1, ao: .75, bloom: .05 },
-  paint: { label: 'Painterly · cool', paint: true, sun: [1, .93, .8], sunI: 10.5, hemiSky: [.35, .8, .78], hemiGround: [.16, .3, .28], hemiI: .7, exp: 1.0, vol: 1.7, ns: .3, ao: .45, bloom: .08,
-    ramp: ['#0d2627', '#245e5e', '#78cfc3', '#f2fffa'], rampMix: .74, keepGreen: .95, stroke: .38, ink: .55, radius: 4, stride: 1.3, grain: .03, high: .86 },
-  'paint-warm': { label: 'Painterly · warm', paint: true, sun: [1, .7, .45], sunI: 10, hemiSky: [.75, .5, .55], hemiGround: [.3, .17, .14], hemiI: .55, exp: 1.08, vol: 1.3, ns: .3, ao: .5, bloom: .1,
+  morning: Object.assign({ amount: 1, sun: [1, .93, .8], sunI: 10.5, hemiSky: [.35, .8, .78], hemiGround: [.16, .3, .28], hemiI: .7, exp: 1.0, vol: 1.7, ns: .3, ao: .45, bloom: .08,
+    hor: [1.0, 1.05, .95], zen: [.3, .55, .75], glow: .6, stars: 0, lamps: .4, btnGlow: 0 }, PAINT_COOL),
+  afternoon: Object.assign({ amount: 0, sun: [1, .71, .43], sunI: 9.5, hemiSky: [.45, .62, .66], hemiGround: [.32, .22, .13], hemiI: .3, exp: 1, vol: 1, ns: 1, ao: .75, bloom: .05,
+    hor: [1.25, .78, .44], zen: [.16, .3, .55], glow: 1, stars: 0, lamps: 1, btnGlow: 0 }, PAINT_COOL),
+  evening: { amount: 1, sun: [1, .62, .38], sunI: 9, hemiSky: [.75, .5, .55], hemiGround: [.3, .17, .14], hemiI: .55, exp: 1.08, vol: 1.3, ns: .3, ao: .5, bloom: .1,
+    hor: [1.5, .7, .45], zen: [.35, .3, .5], glow: 1.2, stars: 0, lamps: 1.4, btnGlow: .15,
     ramp: ['#2b1a1d', '#7b4a42', '#e2a683', '#fff1da'], rampMix: .66, keepGreen: .55, stroke: .38, ink: .5, radius: 4, stride: 1.3, grain: .03, high: .86 },
+  night: { amount: 1, sun: [.55, .7, 1], sunI: 2.2, hemiSky: [.18, .3, .55], hemiGround: [.05, .06, .1], hemiI: .25, exp: 1.9, vol: 1.1, ns: .3, ao: .6, bloom: .16,
+    hor: [.05, .09, .18], zen: [.01, .02, .06], glow: .08, stars: 1, lamps: 2.6, btnGlow: .55,
+    ramp: ['#060b17', '#143049', '#3c8197', '#ffd59a'], rampMix: .7, keepGreen: .4, stroke: .34, ink: .6, radius: 4, stride: 1.3, grain: .035, high: .82 },
 };
-let LOOK = LOOKS.photo;
-function applyLook(name) {
-  LOOK = Object.assign({}, LOOKS.photo, LOOKS[name] || {});
-  sun.color.setRGB(...LOOK.sun); sun.intensity = LOOK.sunI;
-  hemi.color.setRGB(...LOOK.hemiSky); hemi.groundColor.setRGB(...LOOK.hemiGround); hemi.intensity = LOOK.hemiI;
-  gradeMat.uniforms.uAOs.value = LOOK.ao; gradeMat.uniforms.uBloom.value = LOOK.bloom;
-  scene.traverse(o => { const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []; for (const m of ms) if (m.normalScale) { if (!m.userData.ns0) m.userData.ns0 = m.normalScale.clone(); m.normalScale.copy(m.userData.ns0).multiplyScalar(LOOK.ns); } });
-  if (LOOK.paint) { const u = styMat.uniforms; LOOK.ramp.forEach((c, i) => u['uR' + i].value.set(c).convertLinearToSRGB());
-    u.uRampMix.value = LOOK.rampMix; u.uKeepGreen.value = LOOK.keepGreen; u.uStroke.value = LOOK.stroke; u.uInk.value = LOOK.ink; u.uRadius.value = LOOK.radius; u.uStride.value = LOOK.stride; u.uGrain.value = LOOK.grain; u.uHigh.value = LOOK.high; }
-  document.body.dataset.look = name in LOOKS ? name : 'photo';
+const hexRGB = (h) => { const c = new THREE.Color(h).convertLinearToSRGB(); return [c.r, c.g, c.b]; };
+for (const k in LOOKS) LOOKS[k].rampRGB = LOOKS[k].ramp.map(hexRGB);
+function mixLook(a, b, t) {
+  const o = {};
+  for (const k in b) {
+    const x = a[k], y = b[k];
+    if (typeof y === 'number') o[k] = lerp(x, y, t);
+    else if (k === 'rampRGB') o[k] = y.map((c, i) => c.map((v, j) => lerp(x[i][j], v, t)));
+    else if (Array.isArray(y) && typeof y[0] === 'number') o[k] = y.map((v, i) => lerp(x[i], v, t));
+    else o[k] = y;
+  }
+  // a look without painting borrows the other side's brush settings, so only the amount fades
+  if (a.amount === 0) for (const k of ['rampRGB', 'rampMix', 'keepGreen', 'stroke', 'ink', 'grain', 'high']) o[k] = b[k];
+  if (b.amount === 0) for (const k of ['rampRGB', 'rampMix', 'keepGreen', 'stroke', 'ink', 'grain', 'high']) o[k] = a[k];
+  return o;
 }
-const lookFromHash = () => { const h = location.hash.replace('#', ''); return h in LOOKS ? h : 'photo'; };
-window.addEventListener('hashchange', () => applyLook(lookFromHash()));
+function periodAt(d) { const h = d.getHours() + d.getMinutes() / 60; let p = 'night'; for (const [name, at] of PERIODS) if (h >= at) p = name; return p; }
+const heldPeriod = () => { const h = location.hash.replace('#', ''); return h in LOOKS ? h : null; };
+let LOOK = LOOKS.afternoon, lookKey = null, lookFrom = null, lookT = 1, nsMats = null, lastNs = -1;
+function setLook(key, instant) {
+  if (key === lookKey) return;
+  lookFrom = instant || !lookKey ? LOOKS[key] : LOOK; lookKey = key; lookT = instant ? 1 : 0;
+  document.body.dataset.look = key;
+}
+function applyLookParams(L) {
+  sun.color.setRGB(...L.sun); sun.intensity = L.sunI;
+  hemi.color.setRGB(...L.hemiSky); hemi.groundColor.setRGB(...L.hemiGround); hemi.intensity = L.hemiI;
+  gradeMat.uniforms.uAOs.value = L.ao; gradeMat.uniforms.uBloom.value = L.bloom;
+  const su = skyMat.uniforms; su.uHor.value.set(...L.hor); su.uZen.value.set(...L.zen); su.uGlow.value = L.glow; su.uStars.value = L.stars;
+  if (UI3.sconceLight) { UI3.sconceLight.intensity = .9 * L.lamps; UI3.sconce.material.emissiveIntensity = 5 * L.lamps; }
+  if (UI3.cabLight) UI3.cabLight.intensity = 1.1 * L.lamps;
+  if (UI3.landLight) UI3.landLight.intensity = 2.4 * L.lamps;
+  M.bulb.emissiveIntensity = 14 * Math.max(.6, L.lamps);
+  if (Math.abs(L.ns - lastNs) > .002) {
+    lastNs = L.ns;
+    if (!nsMats) { nsMats = new Set(); scene.traverse(o => { const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []; for (const m of ms) if (m.normalScale) { m.userData.ns0 = m.normalScale.clone(); nsMats.add(m); } }); }
+    for (const m of nsMats) m.normalScale.copy(m.userData.ns0).multiplyScalar(L.ns);
+  }
+  const u = styMat.uniforms;
+  L.rampRGB.forEach((c, i) => u['uR' + i].value.setRGB(c[0], c[1], c[2], THREE.LinearSRGBColorSpace));
+  u.uRampMix.value = L.rampMix; u.uKeepGreen.value = L.keepGreen; u.uStroke.value = L.stroke; u.uInk.value = L.ink; u.uRadius.value = Math.round(L.radius); u.uStride.value = L.stride; u.uGrain.value = L.grain; u.uHigh.value = L.high; u.uAmount.value = L.amount;
+}
+let clockCheck = 0;
+function lookTick(dt) {
+  clockCheck -= dt;
+  if (clockCheck <= 0) { clockCheck = 5; setLook(heldPeriod() || periodAt(new Date()), false); }
+  if (lookT < 1) { lookT = Math.min(1, lookT + dt / 60); }
+  LOOK = lookT >= 1 ? LOOKS[lookKey] : mixLook(lookFrom, LOOKS[lookKey], easeIO(lookT));
+  if (lookT >= 1) lookFrom = LOOK;
+  applyLookParams(LOOK);
+}
+window.addEventListener('hashchange', () => setLook(heldPeriod() || periodAt(new Date()), true));
 
 /* ======================================================================
    FRAME
@@ -506,6 +554,7 @@ const _e = new THREE.Euler(0, 0, 0, 'YXZ');
 let lastT = performance.now(), frameN = 0, ema = 16, slowT = 0, fastT = 0, sunTime = 0;
 let exposure = .95;
 function tick(dt, time) {
+  lookTick(dt);
   D.tick(dt, time);
   if (D.state === 'intro' || D.state === 'play') liftTick(dt);
   playerTick(dt, time);
@@ -536,7 +585,8 @@ function tick(dt, time) {
   const g0 = lift.y + GRILLE.y0 + .3, g1 = lift.y + GRILLE.y1 + .3; let ov = 0;
   for (let f = Math.floor(g0 / H) - 1; f <= Math.floor(g1 / H) + 1; f++) { const w0 = f * H + 1.0, w1 = f * H + 3.1; ov += Math.max(0, Math.min(g1, w1) - Math.max(g0, w0)); }
   ov /= (g1 - g0);
-  UI3.cabBounce.intensity = damp(UI3.cabBounce.intensity, 1.5 * ov, 12, dt);
+  UI3.cabBounce.intensity = damp(UI3.cabBounce.intensity, 1.5 * ov * LOOK.sunI / 9.5, 12, dt);
+  UI3.lobbyBounce.intensity = 2.2 * LOOK.sunI / 9.5;
   // exposure: open up a little inside the cab
   exposure = damp(exposure, (inLobby ? .95 : onLanding ? 1.0 : 1.18)*LOOK.exp, 1.5, dt);
   gradeMat.uniforms.uExposure.value = exposure;
@@ -546,7 +596,7 @@ function tick(dt, time) {
     b.press = Math.max(0, b.press - dt * 7); b.face.position.z = .006 - b.press * .0028;
     if (b.litT > 0) { b.litT -= dt; if (b.litT <= 0) b.lit = 0; }
     const isHover = hover && hover.object.userData.btn === b;
-    const target = b.lit ? (b.label === 'ALARM' ? 2.2 + Math.sin(time * 40) * 1.2 : 3.4) : isHover ? .35 : 0;
+    const target = b.lit ? (b.label === 'ALARM' ? 2.2 + Math.sin(time * 40) * 1.2 : 3.4) : isHover ? .35 + LOOK.btnGlow : LOOK.btnGlow;
     b.glow = damp(b.glow, target, b.lit ? 9 : 5, dt); b.mat.emissiveIntensity = b.glow;
   }
   // arrival lantern in the lobby
@@ -599,7 +649,7 @@ function render(time) {
   D.fade = Math.max(0, D.fade - 1 / 60 * 1.4); if (D.cut && D.fade <= 0) D.cut = false;
   gu.uFade.value = D.fade;
   pass(gradeMat, rtLDR);
-  if (LOOK.paint) { styMat.uniforms.uNear.value = camera.near; styMat.uniforms.uFar.value = camera.far; pass(styMat, rtSty); fxaaMat.uniforms.tSrc.value = rtSty.texture; }
+  if (LOOK.amount > .002) { styMat.uniforms.uNear.value = camera.near; styMat.uniforms.uFar.value = camera.far; pass(styMat, rtSty); fxaaMat.uniforms.tSrc.value = rtSty.texture; }
   else fxaaMat.uniforms.tSrc.value = rtLDR.texture;
   pass(fxaaMat, null);
 }
@@ -628,9 +678,9 @@ function loop(now) {
   lift.y = 7 * H; cab.position.y = lift.y; setLamp(7); drawLamps(7); TEX.lamp.needsUpdate = true; TEX.lampE.needsUpdate = true;
   UI3.needle.rotation.z = dialAngle(7);
   camera.position.copy(CAM.s0.p); camera.lookAt(CAM.s0.l); camera.fov = CAM.s0.fov; camera.updateProjectionMatrix();
-  applyLook(lookFromHash());
+  setLook(heldPeriod() || periodAt(new Date()), true); lookTick(0);
   D.state = 'gate'; D.fade = 0;
-  if (window.__test) window.__dbg = { D, lift, P, camera, landing, dressLanding, applyLook, setLamp, gradeMat };
+  if (window.__test) window.__dbg = { D, lift, P, camera, landing, dressLanding, setLook, setLamp, gradeMat };
   requestAnimationFrame(loop);
   // warm up a few frames (shader compile), then fade in from black
   await nextFrame(); await nextFrame(); await nextFrame();

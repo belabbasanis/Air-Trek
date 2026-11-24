@@ -414,10 +414,10 @@ function instance(parent, geo, mat, list, colors, cast = true) {
    ====================================================================== */
 const skyMat = new THREE.ShaderMaterial({
   side: THREE.BackSide, depthWrite: false,
-  uniforms: { uSun: { value: SUN_BASE.clone().negate() }, uTime: { value: 0 } },
+  uniforms: { uSun: { value: SUN_BASE.clone().negate() }, uTime: { value: 0 }, uHor: { value: new V3(1.25, .78, .44) }, uZen: { value: new V3(.16, .3, .55) }, uGlow: { value: 1 }, uStars: { value: 0 } },
   vertexShader: `varying vec3 vW; void main(){ vec4 w = modelMatrix*vec4(position,1.); vW = w.xyz; gl_Position = projectionMatrix*viewMatrix*w; }`,
   fragmentShader: /* glsl */`
-  varying vec3 vW; uniform vec3 uSun; uniform float uTime;
+  varying vec3 vW; uniform vec3 uSun, uHor, uZen; uniform float uTime, uGlow, uStars;
   float h11(float p){ return fract(sin(p*127.1)*43758.5453); }
   float n1(float x){ float i = floor(x), f = fract(x); f = f*f*(3.-2.*f); return mix(h11(i), h11(i+1.), f); }
   float h21(vec2 p){ return fract(sin(dot(p, vec2(41.3,289.1)))*43758.5453); }
@@ -427,10 +427,11 @@ const skyMat = new THREE.ShaderMaterial({
     float hz = -atan((cameraPosition.y + 6.)/420.);
     float y = d.y - hz;
     float mu = max(dot(d, uSun), 0.);
-    vec3 zen = vec3(.16,.3,.55), hor = vec3(1.25,.78,.44);
-    vec3 col = mix(hor*2.0, zen*1.3, smoothstep(-.02, .45, y));
-    col += vec3(2.2,1.2,.55)*pow(mu, 6.)*1.6 + vec3(5.,3.,1.4)*pow(mu, 60.)*2.;
-    col += vec3(60.,42.,24.)*smoothstep(.9994, .9997, mu);
+    vec3 col = mix(uHor*2.0, uZen*1.3, smoothstep(-.02, .45, y));
+    col += (vec3(2.2,1.2,.55)*pow(mu, 6.)*1.6 + vec3(5.,3.,1.4)*pow(mu, 60.)*2.)*uGlow;
+    col += vec3(60.,42.,24.)*smoothstep(.9994, .9997, mu)*uGlow;
+    vec2 sg = floor(vec2(atan(d.z, d.x)*420., d.y*420.)); float sh = h21(sg);
+    col += vec3(.9,.95,1.)*step(.9975, sh)*smoothstep(.02, .2, y)*uStars*(.5 + .5*sin(uTime*2. + sh*80.));
     // soft cloud bands
     vec2 cp = d.xz/max(d.y + .12, .05);
     float cl = n2(cp*1.4 + vec2(uTime*.004, 0.))*n2(cp*3.1 - uTime*.003);
@@ -441,7 +442,8 @@ const skyMat = new THREE.ShaderMaterial({
     if (y < tl){
       float k = clamp((tl - y)*12., 0., 1.);
       vec3 g = mix(vec3(.16,.1,.05), vec3(.03,.04,.025), k);
-      g += vec3(1.,.6,.3)*pow(mu, 4.)*.4*(1.-k);
+      g += vec3(1.,.6,.3)*pow(mu, 4.)*.4*(1.-k)*uGlow;
+      g = mix(g, g*.25 + vec3(.004,.006,.012), uStars);
       col = mix(col, g, smoothstep(0., .004, tl - y));
     }
     gl_FragColor = vec4(col, 1.);
@@ -582,9 +584,9 @@ function buildLobby() {
   // wall sconce left of the lift
   b.add(M.brass, wuv(new THREE.CylinderGeometry(.06, .06, .02, 20).rotateX(Math.PI / 2).translate(-1.55, 2.12, WALL_Z + .01), .2, .2));
   b.add(M.brass, rod(new V3(-1.55, 2.12, WALL_Z + .01), new V3(-1.55, 2.2, WALL_Z + .14), .008));
-  const sconce = new THREE.Mesh(new THREE.SphereGeometry(.045, 16, 12), M.bulb.clone()); sconce.material.emissiveIntensity = 5; sconce.position.set(-1.55, 2.2, WALL_Z + .15); world.add(sconce);
+  const sconce = new THREE.Mesh(new THREE.SphereGeometry(.045, 16, 12), M.bulb.clone()); sconce.material.emissiveIntensity = 5; sconce.position.set(-1.55, 2.2, WALL_Z + .15); world.add(sconce); UI3.sconce = sconce;
   const shade_ = new THREE.Mesh(new THREE.CylinderGeometry(.05, .11, .1, 24, 1, true), new THREE.MeshStandardMaterial({ color: 0x8a6a3a, roughness: .5, metalness: .8, side: THREE.DoubleSide })); shade_.position.set(-1.55, 2.25, WALL_Z + .15); world.add(shade_);
-  const sl = new THREE.PointLight(new THREE.Color(1, .6, .3), 0.9, 6, 2); sl.position.set(-1.55, 2.16, WALL_Z + .2); world.add(sl);
+  const sl = new THREE.PointLight(new THREE.Color(1, .6, .3), 0.9, 6, 2); sl.position.set(-1.55, 2.16, WALL_Z + .2); world.add(sl); UI3.sconceLight = sl;
   // the call button
   b.add(M.cream, wuv(new RoundedBoxGeometry(.1, .2, .016, 2, .006).translate(.82, 1.12, WALL_Z + .008), .3, .3));
   UI3.call = makeButton(world, 'CALL', new V3(.82, 1.12, WALL_Z + .017), new THREE.Euler(0, 0, 0), { type: 'call' });
@@ -860,7 +862,7 @@ function buildLanding() {
   const shade_ = new THREE.Mesh(new THREE.CylinderGeometry(.05, .17, .14, 28, 1, true), new THREE.MeshStandardMaterial({ color: 0x2c4a3f, roughness: .45, metalness: .6, side: THREE.DoubleSide }));
   shade_.position.set(0, 2.56, 1.7); shade_.castShadow = true; landing.add(shade_);
   const bulb = new THREE.Mesh(new THREE.SphereGeometry(.04, 16, 12), M.bulb); bulb.position.set(0, 2.52, 1.7); landing.add(bulb);
-  const pl = new THREE.PointLight(new THREE.Color(1, .6, .3), 2.4, 7, 2); pl.position.set(0, 2.42, 1.7); landing.add(pl);
+  const pl = new THREE.PointLight(new THREE.Color(1, .6, .3), 2.4, 7, 2); pl.position.set(0, 2.42, 1.7); landing.add(pl); UI3.landLight = pl;
   // decals: the painted wall, and the project's sticker slapped on the right wall
   TEX.land = ctex(landC); TEX.landS = ctex(landSC);
   const dec = new THREE.Mesh(new THREE.PlaneGeometry(2.9, 1.45), new THREE.MeshStandardMaterial({ map: TEX.land, transparent: true, roughness: .7, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));

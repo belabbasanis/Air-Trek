@@ -308,7 +308,7 @@ varying vec2 vUv;
 uniform sampler2D tSrc, tDepth;
 uniform vec2 uRes; uniform float uNear, uFar;
 uniform vec3 uR0, uR1, uR2, uR3;
-uniform float uRampMix, uKeepGreen, uStroke, uInk, uRadius, uStride, uGrain, uHigh;
+uniform float uRampMix, uKeepGreen, uStroke, uInk, uRadius, uStride, uGrain, uHigh, uAmount;
 float lin(float d){ return (uNear*uFar)/(uFar - d*(uFar-uNear)); }
 float h21(vec2 p){ vec3 p3 = fract(vec3(p.xyx)*.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y)*p3.z); }
 float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.-2.*f); return mix(mix(h21(i), h21(i+vec2(1,0)), f.x), mix(h21(i+vec2(0,1)), h21(i+vec2(1,1)), f.x), f.y); }
@@ -360,11 +360,11 @@ void main(){
   outc = mix(outc, uR0*.85, ink*uInk*(1. - smoothstep(.7, .95, ls)));
   // canvas tooth
   outc += (vn(gl_FragCoord.xy*.45) - .5)*uGrain + (h21(gl_FragCoord.xy) - .5)*uGrain*.5;
-  gl_FragColor = vec4(clamp(outc, 0., 1.), 1.);
+  gl_FragColor = vec4(mix(texture2D(tSrc, vUv).rgb, clamp(outc, 0., 1.), uAmount), 1.);
 }`, {
   tSrc: { value: rtLDR.texture }, tDepth: { value: rtMain.depthTexture }, uRes: { value: new THREE.Vector2() }, uNear: { value: camera.near }, uFar: { value: camera.far },
   uR0: { value: new THREE.Color() }, uR1: { value: new THREE.Color() }, uR2: { value: new THREE.Color() }, uR3: { value: new THREE.Color() },
-  uRampMix: { value: .7 }, uKeepGreen: { value: .8 }, uStroke: { value: .45 }, uInk: { value: .5 }, uRadius: { value: 4 }, uStride: { value: 1.25 }, uGrain: { value: .03 }, uHigh: { value: .62 },
+  uRampMix: { value: .7 }, uKeepGreen: { value: .8 }, uStroke: { value: .45 }, uInk: { value: .5 }, uRadius: { value: 4 }, uStride: { value: 1.25 }, uGrain: { value: .03 }, uHigh: { value: .62 }, uAmount: { value: 1 },
 });
 
 const fxaaMat = fsMat(/* glsl */`
