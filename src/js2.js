@@ -945,14 +945,14 @@ const MOTE_U = { tShadow: { value: null }, uShadowMat: { value: new THREE.Matrix
 const MOSS_CELLS = [[0.10449, 0.5, 0.29102, 0.5, 0.582], [0.60547, 0.5, 0.28857, 0.5, 0.5771], [0.09473, 0.0, 0.31006, 0.5, 0.6201], [0.58691, 0.0, 0.32568, 0.5, 0.6514]];
 const mossCards = new Map();      // parent -> [{ p, ry, h, cell, flip, tilt }]
 function hang(parent, x, y, z, ry, h, seed) {
-  const r = rng(seed); const list = mossCards.get(parent) || []; mossCards.set(parent, list);
+  const r = rng(seed); h *= 1.4; const list = mossCards.get(parent) || []; mossCards.set(parent, list);
   list.push({ p: new V3(x, y, z), ry: ry + (r() - .5) * .25, h: h * (.85 + r() * .3), cell: Math.floor(r() * 4), flip: r() < .5, tilt: (r() - .5) * .12 });
   if (r() < .7) list.push({ p: new V3(x + (r() - .5) * .1, y, z + (r() - .5) * .1), ry: ry + .9 + r() * .5, h: h * (.6 + r() * .25), cell: Math.floor(r() * 4), flip: r() < .5, tilt: (r() - .5) * .12 });
 }
 function buildMoss() {
   const tex = new THREE.TextureLoader().load('textures/hanging-moss.webp', () => { for (const m of mossMeshes) m.visible = true; }, undefined, () => console.warn('Hanging moss texture not loaded'));
   tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = Math.min(8, MAX_ANISO);
-  const mat = new THREE.MeshStandardMaterial({ map: tex, alphaTest: .4, side: THREE.DoubleSide, roughness: .95, metalness: 0, envMapIntensity: .3, color: new THREE.Color(1.1, 1.08, .95) });
+  const mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, depthWrite: false, alphaTest: .03, side: THREE.DoubleSide, roughness: .95, metalness: 0, envMapIntensity: .3, color: new THREE.Color(1.1, 1.08, .95) });
   const depth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: tex, alphaTest: .4 });
   const mossMeshes = [];
   for (const [parent, list] of mossCards) {
