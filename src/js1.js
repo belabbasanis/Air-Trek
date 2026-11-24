@@ -435,43 +435,83 @@ vec2 wor(vec2 uv, vec2 per){ vec2 p = uv*per, i = floor(p), f = fract(p); float 
 struct S { vec3 a; float h; float r; float m; float o; };
 
 // painted steel: seams, chipped paint over primer, rust, rust streaks, grime, moss at the foot (v = 0 is the floor)
-S paint(vec2 uv, vec3 col, float panels, float wearAdd){
+// painted sheet steel: chipped paint over primer and bare steel, rust, rust runs, grime, moss climbing from the foot (v = 0 is the floor)
+// extra = structural masks from the caller: x = joint proximity (more chipping), y = rust sources (rivets, joints) that bleed downward
+S paintX(vec2 uv, vec3 col, float wearAdd, vec2 extra){
   S s;
-  float pu = fract(uv.x*panels);
-  float sd = min(pu, 1.-pu)/panels;
-  float seam = panels > 0. ? 1. - smoothstep(.0012, .0036, sd) : 0.;
-  float lip = panels > 0. ? 1. - smoothstep(.0036, .014, sd) : 0.;
   float big = fbm(uv, vec2(3.,2.), 4);
-  float n1 = fbm(uv, vec2(32.,20.), 5)*.72 + fbm(uv + .13, vec2(6.,4.), 4)*.28;
+  float n1 = fbm(uv, vec2(32.,20.), 5)*.68 + fbm(uv + .13, vec2(6.,4.), 4)*.32;
   float n2 = fbm(uv + .37, vec2(40.,26.), 3);
   float low = 1. - smoothstep(0., .3, uv.y);
-  float wear = n1*.84 + n2*.16 + lip*.2 + low*.09 + wearAdd;
-  float chip = smoothstep(.618, .624, wear);
-  float primer = smoothstep(.603, .609, wear)*(1. - chip);
+  float wear = n1*.8 + n2*.12 + extra.x*.22 + low*.08 + wearAdd;
+  float chip = smoothstep(.626, .632, wear);
+  float bare = smoothstep(.612, .617, wear)*(1. - chip);                       // thin ring of bright steel round each chip
+  float primer = smoothstep(.598, .604, wear)*(1. - chip - bare);
   float rn = fbm(uv + .71, vec2(48.,32.), 4);
-  vec3 rust = mix(vec3(.11,.035,.012), vec3(.42,.15,.04), smoothstep(.3,.72,rn));
+  vec3 rust = mix(vec3(.11,.035,.012), vec3(.44,.16,.04), smoothstep(.3,.72,rn));
   rust = mix(rust, vec3(.045,.022,.014), smoothstep(.58,.78, fbm(uv+.2, vec2(96.,64.), 3)));
-  float st = fbm(vec2(uv.x, uv.y*.08) + .5, vec2(120.,2.), 4);
-  float streak = smoothstep(.56,.72, st)*smoothstep(.45,.62, fbm(uv+.9, vec2(5.,3.), 3));
-  vec3 p = col*mix(.72, 1.22, big)*mix(.9, 1.08, n2);
-  p = mix(p, p*vec3(1.3,.68,.42), streak*.6);
+  // rust runs: thin vertical streaks hanging below rust sources and chips
+  float st = fbm(vec2(uv.x, uv.y*.06) + .5, vec2(160.,2.), 4);
+  float src = clamp(extra.y + chip*.6, 0., 1.);
+  float streak = smoothstep(.55,.72, st)*clamp(src*1.4 + smoothstep(.5,.62, fbm(uv+.9, vec2(5.,3.), 3))*.5, 0., 1.);
+  vec3 p = col*mix(.74, 1.2, big)*mix(.9, 1.08, n2);
+  p = mix(p, p*vec3(1.35,.66,.4), streak*.7);
   float grime = low*(.35 + .65*fbm(uv + .3, vec2(16.,10.), 4));
   vec3 a = mix(p, vec3(.5,.46,.38), primer);
+  a = mix(a, vec3(.42,.42,.4)*mix(.8, 1.15, n2), bare);
   a = mix(a, rust, chip);
   a = mix(a, a*vec3(.4,.36,.28), grime*.8);
-  a *= 1. - seam*.65;
-  // moss climbs from the foot (uMossH = how far up), thickest in chips and along the seams, with stray patches higher up
   float front = uv.y + (fbm(uv + .6, vec2(6.,3.), 4) - .5)*uMossH*.9;
   float reach = 1. - smoothstep(0., max(uMossH, .001), front);
   float mn = fbm(uv + .4, vec2(40.,24.), 4);
   float stray = smoothstep(.7, .8, fbm(uv + .9, vec2(10.,6.), 4))*smoothstep(.1, .3, uMossH)*(1. - smoothstep(.5, .9, uv.y));
-  float moss = smoothstep(.52, .62, mn*.7 + reach*.42 + chip*.1 + lip*.12 + stray*.3)*max(reach, stray);
+  float moss = smoothstep(.52, .62, mn*.7 + reach*.42 + chip*.1 + extra.x*.12 + stray*.3)*max(reach, stray);
   vec3 mc = mix(vec3(.06,.12,.02), vec3(.2,.29,.05), fbm(uv + .2, vec2(64.,40.), 3));
   a = mix(a, mc, moss);
   s.a = a;
-  s.h = .6 + sin(3.14159*pu)*.2*step(.5, panels) - chip*(.45 + .35*rn) - primer*.12 - seam*.9 + moss*(.22 + .25*mn) + (n2-.5)*.025;
-  s.r = mix(.36 + .26*n2, .9, chip); s.r = mix(s.r, .86, max(grime*.6, streak*.35)); s.r = mix(s.r, 1., moss);
-  s.m = 0.; s.o = 1. - seam*.6 - chip*.12 - lip*.08;
+  // shallow dents (oil-canning) instead of a plank bulge; paint stands proud of chips
+  s.h = .6 + (fbm(uv + .5, vec2(4.,3.), 3) - .5)*.35 - chip*(.4 + .35*rn) - bare*.25 - primer*.1 + moss*(.22 + .25*mn) + (n2-.5)*.02;
+  s.r = mix(.3 + .2*n2, .9, chip); s.r = mix(s.r, .32, bare); s.r = mix(s.r, .85, max(grime*.6, streak*.35)); s.r = mix(s.r, 1., moss);
+  s.m = bare*.75; s.o = 1. - chip*.12;
+  return s;
+}
+S paint(vec2 uv, vec3 col, float panels, float wearAdd){ return paintX(uv, col, wearAdd, vec2(0.)); }
+// wall cladding: 1.2 m steel sheets (2 per 2.4 m tile), a lapped horizontal joint, rivet rows along every joint
+float rivetRow(float along, float across, float pitch, float r){ float d = length(vec2((fract(along/pitch) - .5)*pitch, across)); return 1. - smoothstep(r*.55, r, d); }
+S sheetWall(vec2 uv){
+  float X = uv.x*2.4, Y = uv.y*2.5;                                   // approximate metres
+  float sx = fract(X/1.2); float dSeam = min(sx, 1. - sx)*1.2;      // distance to a vertical seam
+  float dJoint = abs(Y - 1.18);                                     // lapped horizontal joint
+  float seam = 1. - smoothstep(.002, .006, dSeam), joint = 1. - smoothstep(.002, .007, dJoint);
+  float near = max(1. - smoothstep(.0, .06, dSeam), 1. - smoothstep(.0, .06, dJoint));
+  float riv = max(rivetRow(Y, dSeam - .03, .09, .008), rivetRow(X, dJoint - .03, .09, .008));
+  float lapShadow = (1. - smoothstep(0., .03, 1.18 - Y))*step(Y, 1.18);
+  S s = paintX(uv, uC1, uWear, vec2(near*.6 + riv*.5, riv + joint*.6 + seam*.3));
+  float rustRiv = riv*smoothstep(.4, .6, fbm(uv + 3.1, vec2(64.,40.), 3));
+  s.a = mix(s.a, vec3(.2,.07,.02), rustRiv*.8);
+  s.a *= 1. - seam*.55 - joint*.5 - lapShadow*.25;
+  s.h += riv*.55 - seam*.8 - joint*.6 + step(1.18, Y)*.12;
+  s.r = mix(s.r, .5, riv); s.o -= seam*.5 + joint*.45;
+  return s;
+}
+// lift door leaf (u = 0 at the leaf centre, |u| = .5 at its edges, v floor..top): raised border, two ribs, kick plate with rivets
+S doorLeaf(vec2 uv){
+  float du = abs(fract(uv.x + .5) - .5)*2.; float dx = (1. - du)*.27; float y = uv.y*2.12; float dy = min(y, 2.12 - y);
+  float border = 1. - smoothstep(.028, .036, min(dx, dy));
+  float rib = max(1. - smoothstep(.012, .02, abs(y - .78)), 1. - smoothstep(.012, .02, abs(y - 1.52)));
+  float kick = 1. - smoothstep(.27, .28, y);
+  float kickTop = 1. - smoothstep(.004, .01, abs(y - .28));
+  float riv = rivetRow(uv.x*.54, y - .25, .06, .006)*step(.04, dx) + rivetRow(y, dx - .015, .12, .005)*step(.3, y);
+  float scuff = smoothstep(.0, .05, .09 - dx)*smoothstep(.85, 1.05, y)*(1. - smoothstep(1.3, 1.5, y))*smoothstep(.45, .7, fbm(uv + 2.2, vec2(20.,60.), 4));
+  S s = paintX(uv, uC1, uWear + border*.05 + rib*.05 + scuff*.25, vec2(border*.5 + rib*.5 + kickTop*.4, riv + rib*.7 + kickTop*.6));
+  float kn = fbm(vec2(uv.x*3., y*8.) + 1.7, vec2(12.,40.), 4);
+  vec3 steel = vec3(.36,.35,.33)*mix(.65, 1.15, kn);
+  float kickRust = smoothstep(.5, .66, kn + (1. - smoothstep(0., .1, y))*.3);
+  s.a = mix(s.a, mix(steel, vec3(.25,.09,.03), kickRust), kick*.85);
+  s.m = mix(s.m, .8*(1. - kickRust), kick*.85); s.r = mix(s.r, mix(.38, .85, kickRust), kick*.85);
+  s.a = mix(s.a, vec3(.2,.07,.02), riv*.6);
+  s.h += border*.35 + rib*.3 + kick*.1 - kickTop*.35 + riv*.5;
+  s.o -= kickTop*.4;
   return s;
 }
 S cream(vec2 uv){
@@ -594,7 +634,9 @@ S planks(vec2 uv){
   s.h = .6 - gap*.8 - chip*.2 + (grain - .5)*.15; s.r = mix(.7, .9, chip); s.m = 0.; s.o = 1. - gap*.6; return s;
 }
 S surf(vec2 uv){
-  if (uKind == 0) return paint(uv, uC1, 4., uWear);
+  if (uKind == 0) return sheetWall(uv);
+  if (uKind == 12) return doorLeaf(uv);
+  if (uKind == 13) return paint(uv, uC1, 0., uWear);
   if (uKind == 1) return cream(uv);
   if (uKind == 2) return plaster(uv);
   if (uKind == 3) return tile(uv);

@@ -271,7 +271,7 @@ function buildRoof() {
 }
 const tomatoes = [];
 const roofLeafGeo = leafGeometry();
-function roofDoor(sx) { const g = new THREE.Group(); const m = new THREE.Mesh(wuv(bb(-.27, .27, 0, DOOR_H, 0, .035), 2.4, DOOR_H), M.door); m.castShadow = m.receiveShadow = true; g.add(m);
+function roofDoor(sx) { const g = new THREE.Group(); const m = new THREE.Mesh(wuv(bb(-.27, .27, 0, DOOR_H, 0, .035), .54, DOOR_H), doorMat()); m.castShadow = m.receiveShadow = true; g.add(m);
   const e = new THREE.Mesh(bb(sx > 0 ? -.27 : .255, sx > 0 ? -.255 : .27, 0, DOOR_H, -.002, .037), M.rubber); g.add(e); roof.add(g); g.position.set(sx * .265, 0, .035); return g; }
 
 /* ---- lawn: instanced grass blades that sway in the wind ---- */

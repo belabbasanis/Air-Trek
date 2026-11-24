@@ -484,11 +484,53 @@ const buttons = [];                  // panel buttons by floor / role
 const doors = { cabL: null, cabR: null, lobL: null, lobR: null, landL: null, landR: null };
 const UI3 = {};                      // misc meshes updated at runtime
 
+/* ---- weathering on top of the baked textures: uneven fading, rust-brown patches, damp streaks, and moss that
+   climbs from each floor in ragged patches and settles on top faces. Worked out in the object's own space, so it
+   stays put on moving doors and in the moving cab, and breaks up the repeat of the tiled textures. ---- */
+const WEATHER_GLSL = /* glsl */`
+float wh(vec3 p){ p = fract(p*.3183099 + .1 + uWSeed*.137); p *= 17.; return fract(p.x*p.y*p.z*(p.x + p.y + p.z)); }
+float wn(vec3 x){ vec3 i = floor(x), f = fract(x); f = f*f*(3. - 2.*f);
+  return mix(mix(mix(wh(i), wh(i + vec3(1,0,0)), f.x), mix(wh(i + vec3(0,1,0)), wh(i + vec3(1,1,0)), f.x), f.y),
+             mix(mix(wh(i + vec3(0,0,1)), wh(i + vec3(1,0,1)), f.x), mix(wh(i + vec3(0,1,1)), wh(i + vec3(1,1,1)), f.x), f.y), f.z); }
+float wf(vec3 p){ return wn(p)*.5 + wn(p*2.03 + 1.7)*.25 + wn(p*4.01 + 3.1)*.15 + wn(p*8.02 + 5.3)*.1; }
+void weather(inout vec3 c, out float moss){
+  vec3 p = vOP;
+  float m1 = wf(p*vec3(.45,.3,.45)), m2 = wf(p*vec3(1.1,.5,1.1) + 7.);
+  c *= mix(.76, 1.16, m1);
+  c = mix(c, c*vec3(1.22,.8,.55), smoothstep(.56, .74, m2)*.55);
+  c *= 1. - smoothstep(.6, .8, wf(vec3(p.x*9. + p.z*9., p.y*.35, 0.) + 2.))*.28;
+  float hh = mod(p.y + 100.*uWFloor, uWFloor);
+  float low = 1. - smoothstep(0., .95, hh + (wf(p*2.) - .5)*.55);
+  float mn = wf(p*vec3(3.,2.2,3.) + 3.);
+  moss = smoothstep(.5, .6, mn + low*.4 - .12)*max(low, smoothstep(.77, .85, wf(p*.9 + 11.))*.85)*uWMoss;
+  moss = max(moss, smoothstep(.55, .9, vON.y)*smoothstep(.42, .52, mn)*uWMoss);
+  moss = clamp(moss, 0., 1.);
+  vec3 mc = mix(vec3(.045,.1,.02), vec3(.17,.27,.05), wn(p*22.));
+  c = mix(c, mc*mix(.8, 1.2, wn(p*60.)), moss);
+}`;
+function weathered(mat, o = {}) {
+  const U = { uWMoss: { value: o.moss ?? .5 }, uWSeed: { value: o.seed ?? 0 }, uWFloor: { value: H } };
+  const prev = mat.onBeforeCompile;
+  mat.userData.weather = U;
+  mat.onBeforeCompile = (sh, r) => {
+    if (prev) prev.call(mat, sh, r);
+    Object.assign(sh.uniforms, mat.userData.weather);
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vOP; varying vec3 vON;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvOP = position; vON = normal;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vOP; varying vec3 vON; uniform float uWMoss, uWSeed, uWFloor;\n' + WEATHER_GLSL)
+      .replace('#include <map_fragment>', '#include <map_fragment>\nfloat wMoss = 0.; weather(diffuseColor.rgb, wMoss);')
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 1., wMoss);')
+      .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor *= 1. - wMoss;');
+  };
+  mat.customProgramCacheKey = () => 'weathered';
+  return mat;
+}
+let doorSeed = 10;
+function doorMat() { const m = M.door.clone(); m.userData = {}; m.onBeforeCompile = () => { }; return weathered(m, { moss: .6, seed: doorSeed++ }); }
 async function buildMaterials(progress) {
   const B = {};
   progress('Painting the steel…');
   B.teal = await bake(0, 1024, { c1: [.032, .125, .105], ns: 5, seed: .11 });
-  B.door = await bake(0, 1024, { c1: [.04, .15, .125], ns: 5, seed: .47, wear: .012, moss: .5 });
+  B.door = await bake(12, 1024, { c1: [.04, .15, .125], ns: 5, seed: .47, wear: .0, moss: .32 });
   progress('Rusting the edges…');
   B.cream = await bake(1, 512, { c1: [.5, .43, .3], ns: 5, seed: .23 });
   B.plaster = await bake(2, 1024, { c1: [.56, .52, .43], ns: 4, seed: .31 });
@@ -499,7 +541,7 @@ async function buildMaterials(progress) {
   progress('Polishing the buttons…');
   B.chrome = await bake(6, 256, { c1: [.92, .91, .88], c2: [.09, .07, .05], ns: 2, seed: .71 });
   B.brass = await bake(7, 256, { c1: [.78, .56, .26], c2: [.16, .1, .05], ns: 2, seed: .83 });
-  B.yellow = await bake(0, 512, { c1: [.62, .4, .015], ns: 5, seed: .53, wear: .01 });
+  B.yellow = await bake(13, 512, { c1: [.62, .4, .015], ns: 5, seed: .53, wear: .01 });
   progress('Planting the roof…');
   B.grass = await bake(9, 1024, { c1: [.07, .17, .03], c2: [.13, .09, .05], ns: 4, seed: .19, wear: 0 });
   B.soil = await bake(9, 512, { c1: [.07, .12, .03], c2: [.11, .07, .04], ns: 5, seed: .29, wear: .9 });
@@ -508,13 +550,13 @@ async function buildMaterials(progress) {
   B.plankWood = await bake(11, 512, { c1: [.24, .15, .08], ns: 5, seed: .57, wear: .3 });
   B.iron = await bake(8, 512, { c1: [.028, .032, .03], ns: 3, seed: .91 });
   const pbr = (b, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ map: b.map, normalMap: b.normal, roughnessMap: b.orm, metalnessMap: b.orm, aoMap: b.orm, roughness: 1, metalness: 1, envMapIntensity: .5 }, o));
-  M.teal = pbr(B.teal); M.door = pbr(B.door); M.cream = pbr(B.cream); M.plaster = pbr(B.plaster); M.ceil = pbr(B.plaster, { color: new THREE.Color(.55, .55, .52) });
+  M.teal = weathered(pbr(B.teal), { moss: .55, seed: 1 }); M.door = pbr(B.door); M.cream = pbr(B.cream); M.plaster = pbr(B.plaster); M.ceil = pbr(B.plaster, { color: new THREE.Color(.55, .55, .52) });
   M.tile = pbr(B.tile, { envMapIntensity: .7 }); M.tread = pbr(B.tread, { envMapIntensity: .8 }); M.conc = pbr(B.conc); M.chrome = pbr(B.chrome, { envMapIntensity: 1.2 });
   M.brass = pbr(B.brass, { envMapIntensity: 1.1 }); M.iron = pbr(B.iron, { envMapIntensity: .4 }); M.ironM = pbr(B.iron, { metalness: .6, roughness: .8, envMapIntensity: .5 });
-  M.landTeal = pbr(B.teal); M.landPlaster = pbr(B.plaster); M.landTile = pbr(B.tile, { envMapIntensity: .7 });
+  M.landTeal = weathered(pbr(B.teal), { moss: .5, seed: 3 }); M.landPlaster = pbr(B.plaster); M.landTile = pbr(B.tile, { envMapIntensity: .7 });
   M.rubber = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: .92, metalness: 0 });
   M.grass = pbr(B.grass, { envMapIntensity: .3 }); M.soil = pbr(B.soil, { envMapIntensity: .2 }); M.corr = pbr(B.corr, { envMapIntensity: .5 });
-  M.plankBlue = pbr(B.plankBlue, { envMapIntensity: .3 }); M.plankWood = pbr(B.plankWood, { envMapIntensity: .3 });
+  M.plankBlue = weathered(pbr(B.plankBlue, { envMapIntensity: .3 }), { moss: .4, seed: 5 }); M.plankWood = pbr(B.plankWood, { envMapIntensity: .3 });
   M.terracotta = new THREE.MeshStandardMaterial({ color: new THREE.Color(.36, .14, .07), roughness: .9, metalness: 0, normalMap: B.conc.normal, normalScale: new THREE.Vector2(.6, .6) });
   M.yellow = pbr(B.yellow, { envMapIntensity: .6 });
   M.vine = new THREE.MeshStandardMaterial({ color: new THREE.Color(.13, .09, .05), roughness: .9 });
@@ -657,7 +699,7 @@ function buildLobby() {
   // a sunlit-floor bounce
   UI3.lobbyBounce = new THREE.PointLight(new THREE.Color(1, .66, .38), 2.2, 7, 2); UI3.lobbyBounce.position.set(-.9, .55, 1.9); world.add(UI3.lobbyBounce);
   // lobby doors
-  const dg2 = (sx) => { const g = new THREE.Group(); const m = new THREE.Mesh(wuv(bb(-.27, .27, 0, DOOR_H, 0, .035), 2.4, DOOR_H), M.door); m.castShadow = m.receiveShadow = true; g.add(m);
+  const dg2 = (sx) => { const g = new THREE.Group(); const m = new THREE.Mesh(wuv(bb(-.27, .27, 0, DOOR_H, 0, .035), .54, DOOR_H), doorMat()); m.castShadow = m.receiveShadow = true; g.add(m);
     const e = new THREE.Mesh(bb(sx > 0 ? -.27 : .255, sx > 0 ? -.255 : .27, 0, DOOR_H, -.002, .037), M.rubber); g.add(e); world.add(g); g.position.set(sx * .265, 0, .035); return g; };
   doors.lobL = dg2(-1); doors.lobR = dg2(1);
   // vision strip on lobby doors: none (period steel doors) — a painted floor number plate instead
@@ -852,7 +894,7 @@ function buildCab() {
   dryLeaves(cab, C.x0 + .05, C.x1 - .05, C.z0 + .05, C.z1 - .05, 0, 22, 19, true);
   b.build(cab);
   // cab doors
-  const dg = (sx) => { const g = new THREE.Group(); const m = new THREE.Mesh(wuv(bb(-.27, .27, 0, DOOR_H, -.015, .015), 2.4, DOOR_H), M.door); m.castShadow = m.receiveShadow = true; g.add(m);
+  const dg = (sx) => { const g = new THREE.Group(); const m = new THREE.Mesh(wuv(bb(-.27, .27, 0, DOOR_H, -.015, .015), .54, DOOR_H), doorMat()); m.castShadow = m.receiveShadow = true; g.add(m);
     const e = new THREE.Mesh(bb(sx > 0 ? -.27 : .255, sx > 0 ? -.255 : .27, 0, DOOR_H, -.017, .017), M.rubber); g.add(e);
     cab.add(g); g.position.set(sx * .265, 0, -.1); return g; };
   doors.cabL = dg(-1); doors.cabR = dg(1);
@@ -906,7 +948,7 @@ function buildLanding() {
   moss(landing, new V3(L.x0 + .02, 1.005, (WIN.z0 + WIN.z1) / 2), 26, new V3(.08, .01, 1.5), 93, .035);
   dryLeaves(landing, L.x0 + .1, L.x1 - .1, WALL_Z + .1, L.z1 - .1, 0, 60, 29, true);
   b.build(landing);
-  const dg = (sx) => { const g = new THREE.Group(); const m = new THREE.Mesh(wuv(bb(-.27, .27, 0, DOOR_H, 0, .035), 2.4, DOOR_H), M.door); m.castShadow = m.receiveShadow = true; g.add(m);
+  const dg = (sx) => { const g = new THREE.Group(); const m = new THREE.Mesh(wuv(bb(-.27, .27, 0, DOOR_H, 0, .035), .54, DOOR_H), doorMat()); m.castShadow = m.receiveShadow = true; g.add(m);
     const e = new THREE.Mesh(bb(sx > 0 ? -.27 : .255, sx > 0 ? -.255 : .27, 0, DOOR_H, -.002, .037), M.rubber); g.add(e); landing.add(g); g.position.set(sx * .265, 0, .035); return g; };
   doors.landL = dg(-1); doors.landR = dg(1);
 }
