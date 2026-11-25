@@ -4,17 +4,20 @@
    ====================================================================== */
 const A = { ctx: null, smp: {} };
 /* ---- recorded sounds (audio/ next to the page). If any fail to load, the generated sound is used instead. ---- */
-const SAMPLES = { song: 'audio/song.mp3', tile: 'audio/steps-tile.mp3', metal: 'audio/steps-metal.mp3', start: 'audio/lift-start.mp3', stop: 'audio/lift-stop.mp3', loop: 'audio/lift-loop.mp3', hidden: HIDDEN.track, thunder: 'audio/thunder.mp3', button: 'audio/button.mp3' };
+const SONG_URL = 'audio/song.mp3';    // streamed, not decoded: a whole song decoded is ~60 MB of memory on a phone
+const SAMPLES = { tile: 'audio/steps-tile.mp3', metal: 'audio/steps-metal.mp3', start: 'audio/lift-start.mp3', stop: 'audio/lift-stop.mp3', loop: 'audio/lift-loop.mp3', hidden: HIDDEN.track, thunder: 'audio/thunder.mp3', button: 'audio/button.mp3' };
 const STEP_SLOT = { tile: [.5, .45, 8], metal: [1.0, .9, 8] };       // slot length, step length, steps per file
 const BTN_SLOT = [.5, .48, 7];                                          // button.mp3: seven arcade button presses, one per half second
 const LOOP_IN = .5, LOOP_OUT = 27.5;                                    // seamless region of lift-loop.mp3
-const samplesReady = (async () => {
+let samplesStarted = false;
+function loadSamples() {   // the short sounds: fetched once the start screen is up, so they don't compete with the first load
+  if (samplesStarted) return; samplesStarted = true;
   const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext; if (!OAC) return;
   const dec = new OAC(2, 1, 48000);
-  await Promise.all(Object.entries(SAMPLES).map(async ([k, url]) => {
+  for (const [k, url] of Object.entries(SAMPLES)) (async () => {
     try { const r = await fetch(url); if (!r.ok) return; A.smp[k] = await dec.decodeAudioData(await r.arrayBuffer()); } catch (e) { console.warn('Sound not loaded:', url); }
-  }));
-})();
+  })();
+}
 function playBuf(buf, t, { gain = 1, rate = 1, offset = 0, dur, dest } = {}) {
   const s = A.ctx.createBufferSource(); s.buffer = buf; s.playbackRate.value = rate; const g = A.ctx.createGain(); g.gain.value = gain;
   s.connect(g).connect(dest || A.master); dur !== undefined ? s.start(t, offset, dur) : s.start(t, offset); return { s, g };
@@ -67,24 +70,26 @@ function liftStopSound() {
   const t = now_(); playBuf(A.smp.stop, t, { gain: .9 });
   if (A.loop) { const { s, g } = A.loop; g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(0, t + .6); s.stop(t + .7); A.loop = null; }
 }
-// roof track: fetched and decoded the first time the roof is chosen (it is only needed up there), then looped
+// a song played from an <audio> element through the mix: it streams instead of being decoded whole
+function songElement(url) {
+  const el = new Audio(url); el.loop = true; el.preload = 'auto';
+  const src = A.ctx.createMediaElementSource(el), g = A.ctx.createGain(); g.gain.value = 0; src.connect(g).connect(A.master);
+  return { el, g };
+}
+// roof track: its element is made (and unlocked) during the tap that starts the game, so phones let it play later
 const ROOF_SONG = 'audio/roof-song.mp3';
-function loadRoofSong() {
-  if (A.roofLoading || !A.ctx) return; A.roofLoading = true;
-  fetch(ROOF_SONG).then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); }).then(b => A.ctx.decodeAudioData(b)).then(buf => { A.smp.roof = buf; })
-    .catch(() => { console.warn('Sound not loaded:', ROOF_SONG); });
-}
+function prepareRoofSong() { if (A.roofEl || !A.ctx) return; A.roofEl = songElement(ROOF_SONG); A.roofEl.el.play().then(() => A.roofEl.el.pause()).catch(() => { }); }
 function roofSongTick(on, t) {
-  if (on && !A.smp.roof) { loadRoofSong(); return; }
-  if (on && !A.roofSong) { const { s, g } = playBuf(A.smp.roof, t, { gain: 0 }); s.loop = true; g.gain.setValueAtTime(0, t); A.roofSong = { s, g, off: 0 }; }
-  const R = A.roofSong; if (!R) return;
+  const R = A.roofEl; if (!R) return;
+  if (on && R.el.paused) { if (R.off) R.el.currentTime = 0; R.off = 0; R.el.play().catch(() => { }); }
   R.g.gain.setTargetAtTime(on ? .7 : 0, t, on ? .8 : 1.2);
-  if (on) R.off = 0; else if (!R.off) R.off = t; else if (t - R.off > 6) { R.s.stop(); A.roofSong = null; }   // faded out: stop it, the next visit starts it from the top
+  if (on) R.off = 0; else if (!R.el.paused) { if (!R.off) R.off = t; else if (t - R.off > 6) R.el.pause(); }   // faded out: pause; the next visit starts it from the top
 }
-function startSong() {
-  if (!A.ctx || !A.smp.song) return false;
-  const t = now_() + .05; const { s, g } = playBuf(A.smp.song, t, { gain: 0 }); s.loop = true;
-  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.8, t + 3); A.song = { s, g };
+function startSong() {   // called inside the tap that starts the game, which phones require before audio may play
+  if (!A.ctx) return false;
+  const { el, g } = songElement(SONG_URL); el.play().catch(() => { });
+  const t = now_() + .05; g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.8, t + 3); A.song = { el, g };
+  prepareRoofSong();
   return true;
 }
 function initAudio() {
@@ -253,7 +258,7 @@ function selectFloor(f) {
   const b = buttonFor(f); if (b) { b.press = 1; sfxButton(); }
   if (f === lift.floor && lift.phase !== 'closing') { if (lift.doors < 1) doorsTo(1); caption(f === 0 ? 'You are in the lobby' : `You are on <b>${esc(label)}</b>`); return; }
   buttons.forEach(x => { if (x.act.type === 'floor') x.lit = 0; }); if (b) b.lit = 1;
-  lift.target = f; if (f === ROOF) loadRoofSong();
+  lift.target = f; if (f === GALLERY_FLOOR) ensureGallery();
   if (lift.doors > 0) { caption('Doors closing'); doorsTo(0, depart); } else depart();
 }
 function depart() {
@@ -336,8 +341,7 @@ function openSocial(a) {
 }
 const menu = $('menu');
 function openMenu() { menu.hidden = false; if (document.pointerLockElement) document.exitPointerLock(); keys.clear(); setTimeout(() => menu.querySelector('a')?.focus(), 30); }
-function closeMenu() { menu.hidden = true; $('menuBtn').focus(); }
-$('menuBtn').addEventListener('click', (e) => { e.stopPropagation(); menu.hidden ? openMenu() : closeMenu(); });
+function closeMenu() { menu.hidden = true; canvas.focus({ preventScroll: true }); }
 $('closeMenu').addEventListener('click', closeMenu);
 menu.addEventListener('click', (e) => { if (e.target === menu) closeMenu(); });
 menu.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); closeMenu(); } if (e.key === 'Tab') { const f = [...menu.querySelectorAll('a,button')]; const i = f.indexOf(document.activeElement); if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); } else if (!e.shiftKey && i === f.length - 1) { e.preventDefault(); f[0].focus(); } } });
@@ -808,12 +812,18 @@ function loop(now) {
   const pr = $('pressTxt'); const progress = (s) => { pr.textContent = s; };
   try { await buildScene(progress); }
   catch (e) { console.error(e); noGL('Something went wrong while building the lift.'); return; }
+  // compile the shaders the first frames need, in parallel where the browser can (the roof, the landings and the hidden cab compile when first seen)
+  progress('Warming up…');
+  const aside = [roof, landing, HID.wiz].filter(o => o && o.parent).map(o => [o, o.parent]);
+  aside.forEach(([o, p]) => p.remove(o));
+  try { await renderer.compileAsync(scene, camera); } catch (e) { }
+  aside.forEach(([o, p]) => p.add(o));
   lift.y = 7 * H; cab.position.y = lift.y; setLamp(7); drawLamps(7); TEX.lamp.needsUpdate = true; TEX.lampE.needsUpdate = true;
   UI3.needle.rotation.z = dialAngle(7);
   camera.position.copy(CAM.s0.p); camera.lookAt(CAM.s0.l); camera.fov = fovFor(CAM.s0.fov); camera.updateProjectionMatrix();
   setLook(heldPeriod() || periodAt(new Date()), true); lookTick(0);
   D.state = 'gate'; D.fade = 0;
-  if (window.__test) window.__dbg = { D, lift, P, camera, landing, dressLanding, setLook, setLamp, gradeMat, A, selectFloor, ROOF, H, surfaceUnder, hot, HID, startHidden, gallery, GAL_LIVE, GALLERY_FLOOR, GAL_OBST, moveTo, actOn, sfxButton, sfxThunder, ROOF_STONES, sfxStep, initAudio };
+  if (window.__test) window.__dbg = { D, lift, P, camera, landing, dressLanding, setLook, setLamp, gradeMat, A, selectFloor, ROOF, H, surfaceUnder, hot, HID, startHidden, gallery, GAL_LIVE, GALLERY_FLOOR, GAL_OBST, moveTo, renderer, scene, actOn, sfxButton, sfxThunder, ROOF_STONES, sfxStep, initAudio };
   requestAnimationFrame(loop);
   // warm up a few frames (shader compile), then fade in from black
   await nextFrame(); await nextFrame(); await nextFrame();
@@ -822,4 +832,11 @@ function loop(now) {
   const st = $('start'); try { window.focus(); } catch (e) { } st.focus({ preventScroll: true });
   st.addEventListener('click', () => D.begin());
   st.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); D.begin(); } });
+  // the rest, once the start screen is up: sounds, the graffiti on the back wall, the gallery on floor 2
+  const idle = () => new Promise(r => window.requestIdleCallback ? requestIdleCallback(r, { timeout: 600 }) : setTimeout(r, 60));
+  loadSamples();
+  await loadLateFonts();
+  await idle(); paintGraffiti();
+  await idle(); ensureGallery();
+  const was = gallery.visible; gallery.visible = true; try { renderer.compileAsync(gallery, camera, scene).catch(() => { }); } catch (e) { } gallery.visible = was;
 })();

@@ -101,7 +101,7 @@ function noGL(why) {
   m.querySelector('h2').textContent = T_TITLE; m.querySelector('h2').removeAttribute('id');
   m.querySelector('p').textContent = (why || 'This lift needs WebGL2, which this browser did not provide.') + ' Every floor is listed here instead.';
   m.querySelectorAll('[id]').forEach(e => e.removeAttribute('id'));
-  p.appendChild(m); $('nogl').hidden = false; $('start').hidden = true; $('fade').classList.add('out'); $('menuBtn').hidden = true;
+  p.appendChild(m); $('nogl').hidden = false; $('start').hidden = true; $('fade').classList.add('out');
 }
 try {
   renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', stencil: false, alpha: false });
@@ -676,6 +676,7 @@ const bakeMat = new THREE.ShaderMaterial({
 });
 const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
 async function bake(kind, size, o = {}) {
+  if (isTouch) size = Math.max(256, size >> 1);   // phones: a quarter of the texels (each bake keeps three mipmapped targets in GPU memory)
   const u = bakeMat.uniforms;
   u.uKind.value = kind; u.uTexel.value.set(1 / size, 1 / size); u.uC1.value.set(...(o.c1 || [.5, .5, .5])); u.uC2.value.set(...(o.c2 || [.1, .1, .1]));
   u.uSeed.value = o.seed ?? 0.0; u.uNS.value = (o.ns ?? 4) * size / 1024; u.uWear.value = o.wear ?? 0; u.uMossH.value = o.moss ?? .06;

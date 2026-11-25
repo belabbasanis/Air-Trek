@@ -20,11 +20,14 @@ const FONT_STENCIL = '"Saira Stencil One","Saira Condensed",Impact,sans-serif';
 const FONT_SERIF = '"Shippori Mincho B1","Cormorant Garamond",Georgia,serif';
 const FONT_MONO = '"IBM Plex Mono",ui-monospace,Menlo,monospace';
 const FONT_EMOJI = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Segoe UI Symbol",sans-serif';
-async function loadFonts() {
-  const want = [`600 64px "Saira Condensed"`, `400 64px "Saira Stencil One"`, `500 32px "Shippori Mincho B1"`, `800 32px "Shippori Mincho B1"`, `500 32px "IBM Plex Mono"`, `400 32px "IBM Plex Mono"`, `400 64px "Permanent Marker"`, `400 64px "Sedgwick Ave Display"`, `800 64px "Bricolage Grotesque"`, `italic 400 32px "Newsreader"`, `800 64px "Barlow Condensed"`, `600 32px "Barlow Condensed"`, `600 64px "Caveat"`];
-  const jp = document.fonts.load(`800 64px "Shippori Mincho B1"`, GRAF_JP);   // the kanji in the graffiti come from their own font subset
-  const cn = document.fonts.load(`400 64px "Ma Shan Zheng"`, GRAF_CN);        // brush-script Chinese, loaded for just these characters
-  try { await Promise.race([Promise.all([...want.map(f => document.fonts.load(f)), jp, cn]), new Promise(r => setTimeout(r, 3500))]); } catch (e) { }
+async function loadFonts() {   // only what the opening scene draws with; the rest comes later (loadLateFonts)
+  const want = [`600 64px "Saira Condensed"`, `400 64px "Saira Stencil One"`, `500 32px "Shippori Mincho B1"`, `800 32px "Shippori Mincho B1"`, `500 32px "IBM Plex Mono"`, `400 32px "IBM Plex Mono"`, `500 32px "Cormorant Garamond"`, `600 64px "Caveat"`];
+  try { await Promise.race([Promise.all(want.map(f => document.fonts.load(f))), new Promise(r => setTimeout(r, 2500))]); } catch (e) { }
+}
+function loadLateFonts() {    // the graffiti's and the gallery's typefaces, fetched once the start screen is up
+  const want = [`400 64px "Permanent Marker"`, `400 64px "Sedgwick Ave Display"`, `800 64px "Bricolage Grotesque"`, `italic 400 32px "Newsreader"`, `800 64px "Barlow Condensed"`, `600 32px "Barlow Condensed"`, `600 32px "Cormorant Garamond"`, `italic 500 32px "Cormorant Garamond"`];
+  const jp = document.fonts.load(`800 64px "Shippori Mincho B1"`, GRAF_JP), cn = document.fonts.load(`400 64px "Ma Shan Zheng"`, GRAF_CN);
+  return Promise.race([Promise.all([...want.map(f => document.fonts.load(f)), jp, cn]).catch(() => { }), new Promise(r => setTimeout(r, 4000))]);
 }
 
 /* ---- back-wall graffiti: years of tags over a sun-faded spray burst. Marker tags with drips, a red brush-script Chinese tag (two lines),
@@ -32,6 +35,7 @@ async function loadFonts() {
 const GRAF_JP = '夢';
 const GRAF_CN = '我不想 辈子让人踩在脚下';   // red tag, as given; split over two lines at the space
 const GRAF = { w: 2048, h: 1072, mw: 6.5, mh: 3.4, y0: .05, door: [-.8, .8, 2.8] };   // canvas px; wall metres; door + transom opening (x0, x1, top)
+function paintGraffiti() { if (!UI3.grafMesh || UI3.grafMesh.visible) return; UI3.grafTex.image = grafTex().image; UI3.grafTex.needsUpdate = true; UI3.grafMesh.visible = true; }
 function grafTex() {
   const { w: W, h: Hh } = GRAF, K = W / GRAF.mw, r = rng(404);
   const X = (m) => (m + GRAF.mw / 2) * K, Y = (h) => (GRAF.y0 + GRAF.mh - h) * K;
@@ -814,8 +818,9 @@ function buildLobby() {
   const dg = new THREE.Mesh(new THREE.PlaneGeometry(.68, .92), M.glass); dg.position.set(1.98, 1.58, WALL_Z + .058); world.add(dg);
   hot.push(Object.assign(dir, { userData: { act: { type: 'directory' } } }));
   // graffiti on the back wall, round the door
-  { const g = new THREE.Mesh(new THREE.PlaneGeometry(GRAF.mw, GRAF.mh), new THREE.MeshStandardMaterial({ map: grafTex(), transparent: true, depthWrite: false, roughness: .6, metalness: 0, polygonOffset: true, polygonOffsetFactor: -2 }));
-    g.position.set(0, GRAF.y0 + GRAF.mh / 2, L.z1 - .004); g.rotation.y = Math.PI; world.add(g); }
+  // (the wall is behind you on the start screen and through the intro, so it is painted after the start screen is up: paintGraffiti)
+  { UI3.grafTex = ctex(cv(2, 2)[0]); const g = new THREE.Mesh(new THREE.PlaneGeometry(GRAF.mw, GRAF.mh), new THREE.MeshStandardMaterial({ map: UI3.grafTex, transparent: true, depthWrite: false, roughness: .6, metalness: 0, polygonOffset: true, polygonOffsetFactor: -2 }));
+    g.position.set(0, GRAF.y0 + GRAF.mh / 2, L.z1 - .004); g.rotation.y = Math.PI; g.visible = false; world.add(g); UI3.grafMesh = g; }
   // maker's tag sprayed under the directory; each logo has its own invisible hit area that opens the profile
   { const mh = TAG.mw * TAG.h / TAG.w, k = TAG.mw / TAG.w;
     const tag = new THREE.Mesh(new THREE.PlaneGeometry(TAG.mw, mh), new THREE.MeshStandardMaterial({ map: tagTex(), transparent: true, depthWrite: false, roughness: .55, metalness: 0, polygonOffset: true, polygonOffsetFactor: -2 }));
@@ -1312,6 +1317,11 @@ function loadCarpet() {
     m.receiveShadow = true; world.add(m);
   }).catch(() => console.warn('Carpet model not loaded'));
 }
+// every mesh takes shadows; signage stays crisp in the painted looks (every canvas-drawn surface except the ivy leaves)
+function finishSubtree(root) {
+  root.traverse(o => { if ((o.isMesh || o.isInstancedMesh) && o !== sky) o.receiveShadow = true; });
+  root.traverse(o => { const m = o.material; if (m && !Array.isArray(m) && m.map && m.map.isCanvasTexture && m !== M.leaf && m !== M.dry) keepSharp(m); });
+}
 async function buildScene(progress) {
   await loadFonts();
   await preloadStickerImages();
@@ -1319,7 +1329,7 @@ async function buildScene(progress) {
   progress('Hanging the ivy…');
   scene.environment = envMap();
   TEX.btn = buttonAtlas(); TEX.stk = stickerAtlas();
-  buildLobby(); buildShaft(); buildCab(); cabNotes(); buildHidden(); buildLanding(); buildGallery();
+  buildLobby(); buildShaft(); buildCab(); cabNotes(); buildHidden(); buildLanding();   // the gallery (floor 2) is built after the start screen: ensureGallery
   // vines + instanced foliage per parent
   const leafGeo = leafGeometry(), mossGeo = mossGeometry(), flGeo = flowerGeometry();
   for (const parent of [world, cab, landing]) {
@@ -1329,9 +1339,7 @@ async function buildScene(progress) {
     instance(parent, mossGeo, M.moss, mossM, mossC, false);
     instance(parent, flGeo, M.flower, flowerM, null, false);
   }
-  scene.traverse(o => { if ((o.isMesh || o.isInstancedMesh) && o !== sky) o.receiveShadow = true; });
-  // signage stays crisp in the painted looks: every canvas-drawn surface except the ivy leaves
-  scene.traverse(o => { const m = o.material; if (m && !Array.isArray(m) && m.map && m.map.isCanvasTexture && m !== M.leaf && m !== M.dry) keepSharp(m); });
+  finishSubtree(scene);
   buildRoof();
   placeMoss(); buildMoss(); placePlants(); loadPlants(); loadCarpet(); loadStall();
   motes(world, 900, [LOBBY.x0 + .1, LOBBY.x1 - .1, .05, LOBBY.h - .1, WALL_Z + .05, LOBBY.z1 - .1], 5);

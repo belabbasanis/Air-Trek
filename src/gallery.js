@@ -547,6 +547,7 @@ function floatingLogoTick(dt, time) {
 }
 
 /* ---- runtime ---- */
+function ensureGallery() { if (GAL_LIVE.built) return; GAL_LIVE.built = true; buildGallery(); finishSubtree(gallery); }
 function galleryHere() { return D.state === 'play' && lift.floor === GALLERY_FLOOR && lift.phase !== 'riding' && (lift.doors > 0 || !P.inCab); }
 function galleryTick(dt, time) {
   const near = (lift.floor === GALLERY_FLOOR || lift.target === GALLERY_FLOOR) && Math.abs(lift.y - GALLERY_FLOOR * H) < 1.2 * H;

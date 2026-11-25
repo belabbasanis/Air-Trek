@@ -3,6 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<!-- start fetching three.js while the page itself is still arriving -->
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js">
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/utils/BufferGeometryUtils.js">
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/geometries/RoundedBoxGeometry.js">
 <title>Air Trek</title>
 <script>
 /* =====================================================================
@@ -99,7 +104,7 @@ body.letterbox #lb i{height:calc((100vh - 100vw/2.39)/2)}
 #start .press.wait{animation:none;opacity:.4}
 #start .note{position:absolute;bottom:8vh;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,248,236,.4);text-shadow:0 1px 8px rgba(0,0,0,.6);text-align:center;padding:0 16px}
 @keyframes breathe{50%{opacity:.35}}
-#fade{position:fixed;inset:0;background:#000;z-index:20;pointer-events:none;opacity:1;transition:opacity 2.6s ease}
+#fade{position:fixed;inset:0;background:#000;z-index:9;pointer-events:none;opacity:1;transition:opacity 2.6s ease}
 #fade.out{opacity:0}
 
 /* captions, hint, typed floor, reticle, hover label */
@@ -126,8 +131,6 @@ body.letterbox #cap{bottom:calc((100vh - 100vw/2.39)/2 + 2vh)}
 @keyframes pulse{50%{box-shadow:0 0 0 6px rgba(255,178,79,.25)}}
 
 /* menu button + floor list (also the fallback without WebGL, and for screen readers) */
-#menuBtn{position:fixed;z-index:11;top:calc(14px + env(safe-area-inset-top,0px));right:calc(14px + env(safe-area-inset-right,0px));font:inherit;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:rgba(255,248,236,.72);background:rgba(6,9,8,.38);border:1px solid rgba(255,248,236,.18);border-radius:16px;padding:7px 14px 6px;cursor:pointer;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);transition:color .3s,border-color .3s}
-#menuBtn:hover,#menuBtn:focus-visible{color:#fff;border-color:rgba(255,248,236,.5);outline:none}
 #menu{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:rgba(3,5,4,.55);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);padding:16px max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px))}
 #menu .panel{width:min(520px,100%);max-height:calc(100vh - 32px);overflow:auto;box-sizing:border-box;padding:22px 22px 18px;background:rgba(10,14,12,.86);border:1px solid rgba(255,236,210,.12);border-radius:10px;display:flex;flex-direction:column;gap:16px}
 #menu h2{margin:0;font-family:var(--f-serif);font-weight:500;font-size:22px;letter-spacing:.3em;text-transform:uppercase}
@@ -180,7 +183,6 @@ body.rm .cine,body.rm #lb i{transition-duration:.01s}
 <div id="typed" class="ui" aria-live="polite"></div>
 <div id="stick" aria-hidden="true"><i id="knob"></i></div>
 <a id="visit" href="#" target="_blank" rel="noopener"><small id="visitSmall">Step out to visit</small><b id="visitName"></b></a>
-<button id="menuBtn" type="button" aria-haspopup="dialog" aria-controls="menu">Floors</button>
 <div id="menu" role="dialog" aria-modal="true" aria-labelledby="menuH" hidden>
   <div class="panel">
     <h2 id="menuH">Floors</h2>
