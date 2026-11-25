@@ -410,8 +410,8 @@ void main(){
 }`, { tSrc: { value: rtLDR.texture }, uTexel: { value: new THREE.Vector2() } });
 
 /* ---- sizing, with automatic resolution scaling to hold the frame rate ---- */
-let renderScale = 1, W = 1, Hh = 1;
-const DPR_CAP = 1.5;
+let renderScale = isTouch ? .85 : 1, W = 1, Hh = 1;
+const DPR_CAP = isTouch ? 1.15 : 1.5;   // phones: 3x screens would mean 9x the pixels through every pass
 function resize() {
   const w = window.innerWidth, h = window.innerHeight;
   const pr = Math.min(window.devicePixelRatio || 1, DPR_CAP) * renderScale;
@@ -427,7 +427,8 @@ function resize() {
   camera.aspect = w / h; camera.updateProjectionMatrix();
   gradeMat.uniforms.uRes.value.set(W, Hh); fxaaMat.uniforms.uTexel.value.set(1 / W, 1 / Hh); aoMat.uniforms.uRes.value.set(hw, hh);
 }
-window.addEventListener('resize', resize);
+let resizeT = 0;   // phones fire resize as the address bar slides; rebuild the render targets once it settles
+window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(resize, 160); });
 
 /* ======================================================================
    MATERIAL BAKER: procedural PBR surfaces rendered once on the GPU

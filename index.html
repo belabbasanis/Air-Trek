@@ -1,3 +1,8 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Air Trek</title>
 <script>
 /* =====================================================================
@@ -33,10 +38,10 @@ const PROJECTS = [
    ===================================================================== */
 const GALLERY = [
   { id: 'rapailler', title: 'Rapailler la langue', author: 'Pascal Huynh', medium: 'Le Centre du français laurentien · design social, graphique et de service', blurb: 'Designing a democratic written system for Québécois.', url: 'https://www.figma.com/deck/2hi6S4RJpQG5paXR71TXMM/Le-Fran%C3%A7ais-Laurentien?node-id=6008-228' },
-  { id: 'stm',       title: 'STM Surfer', author: '', medium: 'browser game · unofficial fan project, not affiliated with the STM', blurb: 'A three-lane runner through the Montreal metro. Run every line, station by station, and ride the train roofs.', url: 'https://stm-surfer.vercel.app/' },
-  { id: 'hope',      title: 'Hope Library', author: '', medium: 'website · 48 documentaries, series and films', blurb: 'People are already building the future.', url: 'https://hopelibrary.github.io/' },
-  { id: 'hands',     title: 'Untitled (hands)', author: '', medium: '', blurb: '', url: '' },
-  { id: 'sfmap',     title: 'Untitled (San Francisco)', author: '', medium: '', blurb: '', url: '' },
+  { id: 'stm',       title: 'STM Surfer', author: 'Thai Tran', medium: 'browser game · unofficial fan project, not affiliated with the STM', blurb: 'A three-lane runner through the Montreal metro. Run every line, station by station, and ride the train roofs.', url: 'https://stm-surfer.vercel.app/' },
+  { id: 'hope',      title: 'Hope Library', author: 'Quentin Noël Bourbeau', medium: 'website · 48 documentaries, series and films', blurb: 'People are already building the future.', url: 'https://hopelibrary.github.io/' },
+  { id: 'hands',     title: 'Everybodywave', author: 'Jasmin Omanovic & Steven Padayas', medium: '', blurb: '', url: 'https://everybodywave.com' },
+  { id: 'sfmap',     title: 'Spark Joy', author: 'Mia Zhou', medium: '', blurb: '', url: '' },
 ];
 const TITLE  = 'Air Trek';      // title card and start screen
 const STUDIO = 'Bermuda DPT';   // credit line: "<STUDIO> presents"
@@ -44,8 +49,7 @@ const STUDIO = 'Bermuda DPT';   // credit line: "<STUDIO> presents"
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@500;800&family=Cormorant+Garamond:ital,wght@0,500;1,500&family=IBM+Plex+Mono:wght@400;500&family=Saira+Condensed:wght@600&family=Saira+Stencil+One&family=Permanent+Marker&family=Sedgwick+Ave+Display&display=swap">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&family=Newsreader:ital,opsz,wght@1,6..72,400&family=Barlow+Condensed:wght@600;800&display=swap">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&display=block&text=%E3%82%A8%E3%82%A2%E3%83%BB%E3%83%88%E3%83%AC%E3%83%83%E3%82%AFAIRTEK">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&family=Newsreader:ital,opsz,wght@1,6..72,400&family=Barlow+Condensed:wght@600;800&family=Caveat:wght@600&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&display=swap&text=%E6%88%91%E4%B8%8D%E6%83%B3%E8%BE%88%E5%AD%90%E8%AE%A9%E4%BA%BA%E8%B8%A9%E5%9C%A8%E8%84%9A%E4%B8%8B">
 <style>
 /* Layout: full-bleed WebGL viewport; cinematic type sits over the live scene, captions low and centred, one small menu button in the corner. */
@@ -145,6 +149,9 @@ body.letterbox #cap{bottom:calc((100vh - 100vw/2.39)/2 + 2vh)}
 .tog[aria-pressed="true"]{border-color:var(--amber);color:var(--amber)}
 .tog:focus-visible,#closeMenu:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 .maker{margin:0;font-size:12px;letter-spacing:.08em;color:rgba(246,239,227,.62)} .maker a{color:var(--ink);text-underline-offset:3px}
+html,body{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+body{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+#menu{-webkit-user-select:text;user-select:text}
 #flash{position:fixed;inset:0;z-index:9;background:#eef4ff;opacity:0;pointer-events:none}
 #closeMenu{align-self:flex-start;font:inherit;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink);background:rgba(255,236,210,.08);border:1px solid var(--ink-faint);border-radius:4px;padding:8px 14px;cursor:pointer}
 .keys{display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:11px;color:var(--ink-dim);align-items:center}
@@ -165,24 +172,7 @@ body.rm .cine,body.rm #lb i{transition-duration:.01s}
 <div id="lb" aria-hidden="true"><i id="lbT"></i><i id="lbB"></i></div>
 <div id="credit" class="cine" aria-hidden="true"><span id="creditName"></span><br><span>presents</span></div>
 <div id="logo" class="cine" role="img" aria-label="">
-  <svg id="logoWord" class="word" viewBox="0 0 1520 500" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Air Trek">
-    <g transform="translate(110 0) skewX(-12)">
-      <g fill="#000">
-        <polygon points="1290,96 1500,70 1478,118 1286,138"/>
-        <polygon points="1316,170 1470,152 1452,190 1310,204"/>
-        <polygon points="1300,236 1420,224 1404,254 1294,262"/>
-      </g>
-      <g font-family="'Dela Gothic One', 'Saira Condensed', sans-serif" font-size="222" letter-spacing="-16">
-        <text x="40" y="290" fill="#000" stroke="#000" stroke-width="36" stroke-linejoin="miter" transform="translate(18 18)">エア・トレック</text>
-        <text x="40" y="290" fill="#000" stroke="#000" stroke-width="36" stroke-linejoin="miter">エア・トレック</text>
-        <text x="40" y="290" fill="#fff" stroke="#fff" stroke-width="3">エア・トレック</text>
-      </g>
-      <polygon points="330,330 1250,330 1228,458 308,458" fill="#000" transform="translate(14 12)"/>
-      <polygon points="330,330 1250,330 1228,458 308,458" fill="#fff" stroke="#000" stroke-width="13" stroke-linejoin="miter"/>
-      <text x="779" y="439" text-anchor="middle" font-family="'Dela Gothic One', 'Saira Condensed', sans-serif" font-size="114" letter-spacing="4" fill="#000">AIR TREK</text>
-    </g>
-  </svg>
-  <div class="sub"><span class="seal" aria-hidden="true">↑</span><span id="logoSub"></span></div>
+  <div class="sub"><span id="logoSub"></span></div>
 </div>
 <div id="cap" class="ui" aria-live="polite"></div>
 <div id="hint" class="ui"></div>
@@ -633,8 +623,8 @@ void main(){
 }`, { tSrc: { value: rtLDR.texture }, uTexel: { value: new THREE.Vector2() } });
 
 /* ---- sizing, with automatic resolution scaling to hold the frame rate ---- */
-let renderScale = 1, W = 1, Hh = 1;
-const DPR_CAP = 1.5;
+let renderScale = isTouch ? .85 : 1, W = 1, Hh = 1;
+const DPR_CAP = isTouch ? 1.15 : 1.5;   // phones: 3x screens would mean 9x the pixels through every pass
 function resize() {
   const w = window.innerWidth, h = window.innerHeight;
   const pr = Math.min(window.devicePixelRatio || 1, DPR_CAP) * renderScale;
@@ -650,7 +640,8 @@ function resize() {
   camera.aspect = w / h; camera.updateProjectionMatrix();
   gradeMat.uniforms.uRes.value.set(W, Hh); fxaaMat.uniforms.uTexel.value.set(1 / W, 1 / Hh); aoMat.uniforms.uRes.value.set(hw, hh);
 }
-window.addEventListener('resize', resize);
+let resizeT = 0;   // phones fire resize as the address bar slides; rebuild the render targets once it settles
+window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(resize, 160); });
 
 /* ======================================================================
    MATERIAL BAKER: procedural PBR surfaces rendered once on the GPU
@@ -943,7 +934,7 @@ const FONT_SERIF = '"Shippori Mincho B1","Cormorant Garamond",Georgia,serif';
 const FONT_MONO = '"IBM Plex Mono",ui-monospace,Menlo,monospace';
 const FONT_EMOJI = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Segoe UI Symbol",sans-serif';
 async function loadFonts() {
-  const want = [`600 64px "Saira Condensed"`, `400 64px "Saira Stencil One"`, `500 32px "Shippori Mincho B1"`, `800 32px "Shippori Mincho B1"`, `500 32px "IBM Plex Mono"`, `400 32px "IBM Plex Mono"`, `400 64px "Permanent Marker"`, `400 64px "Sedgwick Ave Display"`, `800 64px "Bricolage Grotesque"`, `italic 400 32px "Newsreader"`, `800 64px "Barlow Condensed"`, `600 32px "Barlow Condensed"`];
+  const want = [`600 64px "Saira Condensed"`, `400 64px "Saira Stencil One"`, `500 32px "Shippori Mincho B1"`, `800 32px "Shippori Mincho B1"`, `500 32px "IBM Plex Mono"`, `400 32px "IBM Plex Mono"`, `400 64px "Permanent Marker"`, `400 64px "Sedgwick Ave Display"`, `800 64px "Bricolage Grotesque"`, `italic 400 32px "Newsreader"`, `800 64px "Barlow Condensed"`, `600 32px "Barlow Condensed"`, `600 64px "Caveat"`];
   const jp = document.fonts.load(`800 64px "Shippori Mincho B1"`, GRAF_JP);   // the kanji in the graffiti come from their own font subset
   const cn = document.fonts.load(`400 64px "Ma Shan Zheng"`, GRAF_CN);        // brush-script Chinese, loaded for just these characters
   try { await Promise.race([Promise.all([...want.map(f => document.fonts.load(f)), jp, cn]), new Promise(r => setTimeout(r, 3500))]); } catch (e) { }
@@ -2121,6 +2112,40 @@ function placeMoss() {
   hang(landing, D_.x0 + .1, D_.h - .02, 1.25, Math.PI / 2, .8, 550); hang(landing, D_.x0 + .1, D_.h - .02, 2.2, Math.PI / 2, .7, 551);  // over the landing window
   hang(landing, -1.35, D_.h - .02, D_.z1 - .05, 0, .55, 552); hang(landing, 1.35, D_.h - .02, D_.z1 - .05, 0, .5, 553);
 }
+/* ---- a trail of tiny scribbles round the cab: look up, look right, left, down, turn around... and the punchline.
+   The last one is on the fixed wall beside the doorway, never on the doors (they slide away behind the wall) ---- */
+const FONT_HAND = '"Caveat","Comic Sans MS","Segoe Print",cursive';
+function noteTex(text, ink, arrow, outline) {
+  const [c, x] = cv(512, 200); x.fillStyle = ink; x.strokeStyle = ink; x.lineCap = x.lineJoin = 'round';
+  x.font = `600 88px ${FONT_HAND}`; x.textBaseline = 'middle'; const tw = x.measureText(text).width, ax = arrow ? 86 : 0, x0 = (512 - tw - ax) / 2;
+  x.save(); x.translate(0, 100); x.rotate(-.03); if (outline) { x.lineWidth = 14; x.strokeStyle = outline; x.strokeText(text, x0, 0); x.strokeStyle = ink; } x.fillText(text, x0, 0); x.restore();
+  if (arrow) {                                     // a hand-drawn arrow after the words
+    const cx = x0 + tw + 50, cy = 104; x.beginPath();
+    const stroke = x.stroke.bind(x); x.stroke = () => { if (outline) { x.lineWidth = 20; x.strokeStyle = outline; stroke(); x.strokeStyle = ink; } x.lineWidth = 9; stroke(); };
+    if (arrow === 'turn') { x.arc(cx, cy, 30, Math.PI * .2, Math.PI * 1.75); x.stroke(); const a = Math.PI * 1.75, px = cx + Math.cos(a) * 30, py = cy + Math.sin(a) * 30; x.beginPath(); x.moveTo(px - 18, py - 4); x.lineTo(px + 2, py + 2); x.lineTo(px - 4, py + 20); x.stroke(); }
+    else { const d = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }[arrow], L = 34, tx = cx + d[0] * L, ty = cy + d[1] * L;
+      x.moveTo(cx - d[0] * L, cy - d[1] * L); x.lineTo(tx, ty); x.moveTo(tx, ty); x.lineTo(tx - d[0] * 18 - d[1] * 16, ty - d[1] * 18 - d[0] * 16); x.moveTo(tx, ty); x.lineTo(tx - d[0] * 18 + d[1] * 16, ty - d[1] * 18 + d[0] * 16); x.stroke(); }
+  }
+  return ctex(c);
+}
+function cabNotes() {
+  const C = CAB, chalk = '#ece6d6', ink = '#1d1a16';
+  const note = (text, inkC, arrow, pos, rot, w = .3, outline) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, w * 200 / 512), new THREE.MeshStandardMaterial({ map: noteTex(text, inkC, arrow, outline), transparent: true, roughness: .8, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+    m.position.set(...pos); m.rotation.set(...rot); m.renderOrder = 2; cab.add(m); return m;
+  };
+  note('psst... look up', chalk, 'up', [-.2, .004, -1.2], [-Math.PI / 2, 0, 0], .44, 'rgba(20,16,12,.85)');   // 1 · on the floor by the buttons
+  note('now look right', ink, 'right', [.3, C.h - .005, -1.25], [Math.PI / 2, 0, 0]);            // 2 · on the ceiling: top of the words toward you, right is the right wall
+  note('no, left', chalk, 'left', [C.x1 - .005, 1.68, -1.42], [0, -Math.PI / 2, 0], .24);        // 3 · right wall, beside the certificate, pointing back at the panel wall
+  note('down there', chalk, 'down', [.45, 1.22, C.z0 + .005], [0, 0, 0], .26);                    // 4 · back wall, right of the panel
+  note('turn around', chalk, 'turn', [.44, .004, -1.48], [-Math.PI / 2, 0, 0], .36, 'rgba(20,16,12,.85)');   // 5 · floor, back corner
+  // the punchline: a little print taped to the front wall, beside the doorway
+  const map = new THREE.TextureLoader().load('images/here-we-go-again.jpg'); map.colorSpace = THREE.SRGBColorSpace; map.anisotropy = Math.min(8, MAX_ANISO);
+  const pic = new THREE.Mesh(new THREE.PlaneGeometry(.24, .24), new THREE.MeshStandardMaterial({ map, roughness: .55, emissive: 0xffffff, emissiveMap: map, emissiveIntensity: .22, polygonOffset: true, polygonOffsetFactor: -2 }));
+  pic.position.set(.665, 1.52, C.z1 - .004); pic.rotation.set(0, Math.PI, .04); cab.add(pic);
+  const tape = new THREE.MeshStandardMaterial({ color: 0xe8dfc4, transparent: true, opacity: .75, roughness: .6, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 });
+  for (const [dx, a] of [[-.1, .5], [.1, -.45]]) { const t = new THREE.Mesh(new THREE.PlaneGeometry(.07, .022), tape); t.position.set(.665 - dx, 1.64, C.z1 - .005); t.rotation.set(0, Math.PI, a); cab.add(t); }
+}
 /* ---- plant models (from the supplied GLBs, simplified, stored as JSON + WebP textures the artifact host can serve):
    ivy-hanging (trailing ivy), moss-garland (hanging moss), ivy-climbing (ivy up a stem), liana (twisted vines) ---- */
 const PLANTS = { 'ivy-hanging': [], 'moss-garland': [], 'ivy-climbing': [], 'liana': [] };   // name -> [parent, x, y, z, rotY, scale, hang]
@@ -2207,7 +2232,7 @@ async function buildScene(progress) {
   progress('Hanging the ivy…');
   scene.environment = envMap();
   TEX.btn = buttonAtlas(); TEX.stk = stickerAtlas();
-  buildLobby(); buildShaft(); buildCab(); buildHidden(); buildLanding(); buildGallery();
+  buildLobby(); buildShaft(); buildCab(); cabNotes(); buildHidden(); buildLanding(); buildGallery();
   // vines + instanced foliage per parent
   const leafGeo = leafGeometry(), mossGeo = mossGeometry(), flGeo = flowerGeometry();
   for (const parent of [world, cab, landing]) {
@@ -3419,12 +3444,13 @@ function gorillaGeometry() {
   for (const sx of [-1, 1]) blob([.25, .23, .25], [sx * .5, 1.44, .02]);
   // head: low and forward between the shoulders, thrown back mid-roar, jaw dropped, fangs bared, the crest of a silverback
   const head = []; const hb = (s_, at, rot, d, j_) => head.push(blob(s_, at, rot, d, j_));
-  hb([.21, .21, .21], [0, 1.63, .21], [0, 0, 0], 1, .06); hb([.07, .1, .16], [0, 1.79, .15], [0, 0, 0], 0, .05); hb([.2, .06, .09], [0, 1.67, .35], [0, 0, 0], 0, .05);
-  hb([.16, .09, .14], [0, 1.57, .37], [-.25, 0, 0], 1, .05); hb([.14, .06, .13], [0, 1.43, .33], [.55, 0, 0], 0, .05);
-  for (const sx of [-1, 1]) { hb([.05, .06, .04], [sx * .2, 1.65, .15], [0, 0, 0], 0, .04);
-    const f = new THREE.ConeGeometry(.022, .075, 4); f.rotateX(Math.PI); f.translate(sx * .075, 1.49, .45); parts.push(f); head.push(f);
-    const f2 = new THREE.ConeGeometry(.019, .06, 4); f2.translate(sx * .065, 1.42, .42); parts.push(f2); head.push(f2); }
-  const pivot = new V3(0, 1.52, .12), tilt = new THREE.Matrix4().makeTranslation(pivot.x, pivot.y, pivot.z).multiply(new THREE.Matrix4().makeRotationX(-.3)).multiply(new THREE.Matrix4().makeTranslation(-pivot.x, -pivot.y, -pivot.z));
+  blob([.22, .16, .22], [0, 1.66, .2], [-.3, 0, 0], 1, .05);                                                         // the thick neck, rising out of the chest
+  hb([.21, .21, .21], [0, 1.83, .35], [0, 0, 0], 1, .06); hb([.07, .1, .16], [0, 1.99, .29], [0, 0, 0], 0, .05); hb([.2, .06, .09], [0, 1.87, .49], [0, 0, 0], 0, .05);
+  hb([.16, .09, .14], [0, 1.77, .51], [-.25, 0, 0], 1, .05); hb([.14, .06, .13], [0, 1.63, .47], [.55, 0, 0], 0, .05);
+  for (const sx of [-1, 1]) { hb([.05, .06, .04], [sx * .2, 1.85, .29], [0, 0, 0], 0, .04);
+    const f = new THREE.ConeGeometry(.022, .075, 4); f.rotateX(Math.PI); f.translate(sx * .075, 1.69, .59); parts.push(f); head.push(f);
+    const f2 = new THREE.ConeGeometry(.019, .06, 4); f2.translate(sx * .065, 1.62, .56); parts.push(f2); head.push(f2); }
+  const pivot = new V3(0, 1.7, .28), tilt = new THREE.Matrix4().makeTranslation(pivot.x, pivot.y, pivot.z).multiply(new THREE.Matrix4().makeRotationX(-.3)).multiply(new THREE.Matrix4().makeTranslation(-pivot.x, -pivot.y, -pivot.z));
   for (const g of head) g.applyMatrix4(tilt);
   // arms: long and heavy; (viewer's left) a fist driven forward, (viewer's right) a fist raised over the head
   limb([-.5, 1.44, .02], [-.78, 1.08, .3], .2, .17); limb([-.78, 1.08, .3], [-.56, 1.2, .74], .19, .15); blob([.17, .15, .19], [-.53, 1.21, .84], [.2, .3, 0], 0, .06);
@@ -3513,7 +3539,7 @@ function buildGallery() {
   b.build(gallery);
   doors.galL = galDoor(-1); doors.galR = galDoor(1);
   // the pieces
-  pieceRapailler(G, TL); pieceSTM(G); pieceHope(G); pieceHands(G, TL); pieceMap(G, TL); pieceGorilla(G); pieceDove(TL);
+  pieceRapailler(G, TL); pieceSTM(G); pieceHope(G); pieceHands(G, TL); pieceMap(G, TL); pieceGorilla(G); pieceDove(TL); floatingLogo(TL);
   // spots on the rails, one or two per piece
   const S = railY - .02;
   spot(railY, new V3(1.6, S, 1.4), new V3(G.x1, 1.7, 1.7)); spot(railY, new V3(1.6, S, 2.5), new V3(G.x1, 1.6, 2.3));
@@ -3529,11 +3555,37 @@ function buildGallery() {
   GAL_LIVE.light = new THREE.PointLight(new THREE.Color(1, .68, .4), 3.2, 9, 1.6); GAL_LIVE.light.position.set(0, 2.45, 3.6); gallery.add(GAL_LIVE.light);
 }
 
+/* ---- the As Is logo, floating in the air past the lift door: walk through it and it's gone (back on the next arrival) ---- */
+const AS_IS_FLOAT = { z: 1.45, y: 1.58, w: 1.0 };
+function floatingLogo(TL) {
+  const map = TL.load('images/as-is-logo.png'); map.colorSpace = THREE.SRGBColorSpace; map.anisotropy = Math.min(8, MAX_ANISO);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(AS_IS_FLOAT.w, AS_IS_FLOAT.w * 238 / 272), new THREE.MeshBasicMaterial({ map, color: new THREE.Color(1.9, 1.85, 1.7), transparent: true, depthWrite: false, side: THREE.DoubleSide }));
+  m.position.set(0, AS_IS_FLOAT.y, AS_IS_FLOAT.z); m.rotation.y = Math.PI; m.renderOrder = 6; gallery.add(m);   // faces the lift, reads the right way round from it
+  GAL_LIVE.logo = { m, state: 'shown', t: 0, rearm: false };
+}
+function floatingLogoTick(dt, time) {
+  const L = GAL_LIVE.logo; if (!L) return;
+  if (lift.floor !== GALLERY_FLOOR || lift.phase === 'riding') L.rearm = true;                 // left the floor: bring it back next time
+  if (L.rearm && lift.floor === GALLERY_FLOOR && lift.phase !== 'riding') { L.rearm = false; L.state = 'shown'; L.t = 0; L.m.visible = true; L.m.material.opacity = 1; L.m.scale.setScalar(1); }
+  if (L.state === 'shown') {
+    L.m.position.y = AS_IS_FLOAT.y + Math.sin(time * 1.3) * .035; L.m.rotation.y = Math.PI + Math.sin(time * .7) * .09;
+    L.m.material.opacity = .86 + Math.sin(time * 2.1) * .1;
+    if (D.state === 'play' && lift.floor === GALLERY_FLOOR && !P.inCab && P.pos.z > AS_IS_FLOAT.z && Math.abs(P.pos.x) < AS_IS_FLOAT.w * .7) {   // walked through it
+      L.state = 'going'; L.t = 0; if (A.ctx) { const t = now_(); bell(t, 1318.5, .05); bell(t + .09, 1760, .045); bell(t + .2, 2637, .03); }
+    }
+  } else if (L.state === 'going') {
+    L.t += dt; const k = clamp(L.t / .7, 0, 1);
+    L.m.material.opacity = (1 - k) * (1 - k); L.m.scale.setScalar(1 + k * .35); L.m.position.y += dt * .25;
+    if (k >= 1) { L.state = 'gone'; L.m.visible = false; }
+  }
+}
+
 /* ---- runtime ---- */
 function galleryHere() { return D.state === 'play' && lift.floor === GALLERY_FLOOR && lift.phase !== 'riding' && (lift.doors > 0 || !P.inCab); }
 function galleryTick(dt, time) {
   const near = (lift.floor === GALLERY_FLOOR || lift.target === GALLERY_FLOOR) && Math.abs(lift.y - GALLERY_FLOOR * H) < 1.2 * H;
   gallery.visible = near;
+  floatingLogoTick(dt, time);
   if (!near) return;
   // the arcade screen runs at 20 fps while you are in the room
   GAL_LIVE.screenT -= dt;
@@ -3864,7 +3916,7 @@ let capT = 0, hintT = 0;
 function caption(html, dur = 3) { const c = $('cap'); c.innerHTML = html; c.classList.add('on'); capT = dur; }
 function hint(html, dur = 7) { const h = $('hint'); h.innerHTML = html; h.classList.add('on'); hintT = dur; }
 const visitA = $('visit');
-function showVisit(p) { visitA.href = p.url; $('visitName').textContent = p.name + ' ↗'; $('visitSmall').textContent = `Floor ${p.floor} · step out to visit`; visitA.classList.add('on'); visitA.dataset.floor = p.floor; }
+function showVisit(p) { visitA.href = p.url; $('visitName').textContent = p.name; visitA.dataset.floor = p.floor; }   // the link stays out of sight: it is what gets clicked to open the tab
 function hideVisit() { visitA.classList.remove('on', 'pulse'); }
 function triggerVisit(how) {
   const p = BY_FLOOR.get(lift.floor); if (!p || p.gallery || lift.doors < .9 || lift.phase === 'riding') return false;
@@ -3873,8 +3925,7 @@ function triggerVisit(how) {
   // a real link clicked inside the user's gesture: pop-up blockers allow this
   visitA.href = p.url; try { visitA.click(); } catch (e) { }
   caption(`Opening <b>${esc(p.name)}</b> in a new tab`, 3.5);
-  visitA.classList.add('pulse'); setTimeout(() => visitA.classList.remove('pulse'), 2600);
-  hint('If no tab opened, use the link in the corner', 6);
+  hint(isTouch ? 'If no tab opened, tap the painted wall' : 'If no tab opened, click the painted wall', 6);
   return true;
 }
 // the maker's profiles: a real link clicked inside the press, so pop-up blockers let the new tab through
@@ -4005,6 +4056,7 @@ function onTouchMove(e) {
   if (Math.hypot(e.clientX - t.sx, e.clientY - t.sy) > 8) t.moved = true; if (t.moved) look(dx, dy, .006);
 }
 function onTouchUp(e) {
+  if (pendingExit) { pendingExit = false; triggerVisit('step'); }   // a touch ending is a gesture: open the project the player just walked out to
   if (P.joy && e.pointerId === P.joy.id) { P.joy = null; $('stick').style.display = 'none'; return; }
   const t = touches.get(e.pointerId); touches.delete(e.pointerId); if (!t || t.moved || performance.now() - t.t > 450) return;
   P.touchAim = { x: e.clientX, y: e.clientY }; updateHover(); const a = hover ? hover.object.userData.act : null; P.touchAim = null; hover = null; if (a) actOn(a);
@@ -4122,9 +4174,11 @@ const D = {
         : '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk · click to look around · pick a floor on the panel, or type its number', 9); }, (SHOT.hint - SHOT.ctrl) * 1000);
   },
 };
+// portrait screens: widen the vertical field of view so the horizontal one stays usable
+const fovFor = (v) => { const a = camera.aspect || 1; return a >= 1 ? v : Math.min(100, 2 * Math.atan(Math.tan(v * Math.PI / 360) / a) * 180 / Math.PI); };
 function lerpShot(a, b, k) { return { p: a.p.clone().lerp(b.p, k), l: a.l.clone().lerp(b.l, k), fov: lerp(a.fov, b.fov, k) }; }
 function setCam(s, time, hand) {
-  camera.position.copy(s.p); camera.fov = s.fov; camera.updateProjectionMatrix();
+  camera.position.copy(s.p); camera.fov = fovFor(s.fov); camera.updateProjectionMatrix();
   const l = s.l.clone();
   if (!RM && hand > 0) { camera.position.x += Math.sin(time * .7) * .012 * hand; camera.position.y += Math.sin(time * 1.1 + 1) * .008 * hand; l.x += Math.sin(time * .5 + 2) * .02 * hand; l.y += Math.sin(time * .8) * .012 * hand; }
   camera.lookAt(l);
@@ -4230,7 +4284,7 @@ function tick(dt, time) {
     const sw = RM ? 0 : (Math.sin(time * 1.7) * .5 + Math.sin(time * 2.9 + 1) * .5) * .006 * vN;
     camera.position.set(P.pos.x + sw, gy + 1.62 + P.bob + P.dip + (RM ? 0 : Math.sin(time * 40) * .0025 * P.jolt), P.pos.z);
     _e.set(P.pitch, P.yaw, RM ? 0 : sw * .4, 'YXZ'); camera.quaternion.setFromEuler(_e);
-    camera.fov = damp(camera.fov, 62, 4, dt); camera.updateProjectionMatrix();
+    camera.fov = damp(camera.fov, fovFor(62), 4, dt); camera.updateProjectionMatrix();
   }
   // sun drift: slow across the doors on the start shot
   sunTime += dt * (D.state === 'gate' ? 1 : .25);
@@ -4356,7 +4410,7 @@ function loop(now) {
   catch (e) { console.error(e); noGL('Something went wrong while building the lift.'); return; }
   lift.y = 7 * H; cab.position.y = lift.y; setLamp(7); drawLamps(7); TEX.lamp.needsUpdate = true; TEX.lampE.needsUpdate = true;
   UI3.needle.rotation.z = dialAngle(7);
-  camera.position.copy(CAM.s0.p); camera.lookAt(CAM.s0.l); camera.fov = CAM.s0.fov; camera.updateProjectionMatrix();
+  camera.position.copy(CAM.s0.p); camera.lookAt(CAM.s0.l); camera.fov = fovFor(CAM.s0.fov); camera.updateProjectionMatrix();
   setLook(heldPeriod() || periodAt(new Date()), true); lookTick(0);
   D.state = 'gate'; D.fade = 0;
   if (window.__test) window.__dbg = { D, lift, P, camera, landing, dressLanding, setLook, setLamp, gradeMat, A, selectFloor, ROOF, H, surfaceUnder, hot, HID, startHidden, gallery, GAL_LIVE, GALLERY_FLOOR, GAL_OBST, moveTo, actOn, sfxButton, sfxThunder, ROOF_STONES, sfxStep, initAudio };

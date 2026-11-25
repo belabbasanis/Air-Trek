@@ -410,12 +410,13 @@ function gorillaGeometry() {
   for (const sx of [-1, 1]) blob([.25, .23, .25], [sx * .5, 1.44, .02]);
   // head: low and forward between the shoulders, thrown back mid-roar, jaw dropped, fangs bared, the crest of a silverback
   const head = []; const hb = (s_, at, rot, d, j_) => head.push(blob(s_, at, rot, d, j_));
-  hb([.21, .21, .21], [0, 1.63, .21], [0, 0, 0], 1, .06); hb([.07, .1, .16], [0, 1.79, .15], [0, 0, 0], 0, .05); hb([.2, .06, .09], [0, 1.67, .35], [0, 0, 0], 0, .05);
-  hb([.16, .09, .14], [0, 1.57, .37], [-.25, 0, 0], 1, .05); hb([.14, .06, .13], [0, 1.43, .33], [.55, 0, 0], 0, .05);
-  for (const sx of [-1, 1]) { hb([.05, .06, .04], [sx * .2, 1.65, .15], [0, 0, 0], 0, .04);
-    const f = new THREE.ConeGeometry(.022, .075, 4); f.rotateX(Math.PI); f.translate(sx * .075, 1.49, .45); parts.push(f); head.push(f);
-    const f2 = new THREE.ConeGeometry(.019, .06, 4); f2.translate(sx * .065, 1.42, .42); parts.push(f2); head.push(f2); }
-  const pivot = new V3(0, 1.52, .12), tilt = new THREE.Matrix4().makeTranslation(pivot.x, pivot.y, pivot.z).multiply(new THREE.Matrix4().makeRotationX(-.3)).multiply(new THREE.Matrix4().makeTranslation(-pivot.x, -pivot.y, -pivot.z));
+  blob([.22, .16, .22], [0, 1.66, .2], [-.3, 0, 0], 1, .05);                                                         // the thick neck, rising out of the chest
+  hb([.21, .21, .21], [0, 1.83, .35], [0, 0, 0], 1, .06); hb([.07, .1, .16], [0, 1.99, .29], [0, 0, 0], 0, .05); hb([.2, .06, .09], [0, 1.87, .49], [0, 0, 0], 0, .05);
+  hb([.16, .09, .14], [0, 1.77, .51], [-.25, 0, 0], 1, .05); hb([.14, .06, .13], [0, 1.63, .47], [.55, 0, 0], 0, .05);
+  for (const sx of [-1, 1]) { hb([.05, .06, .04], [sx * .2, 1.85, .29], [0, 0, 0], 0, .04);
+    const f = new THREE.ConeGeometry(.022, .075, 4); f.rotateX(Math.PI); f.translate(sx * .075, 1.69, .59); parts.push(f); head.push(f);
+    const f2 = new THREE.ConeGeometry(.019, .06, 4); f2.translate(sx * .065, 1.62, .56); parts.push(f2); head.push(f2); }
+  const pivot = new V3(0, 1.7, .28), tilt = new THREE.Matrix4().makeTranslation(pivot.x, pivot.y, pivot.z).multiply(new THREE.Matrix4().makeRotationX(-.3)).multiply(new THREE.Matrix4().makeTranslation(-pivot.x, -pivot.y, -pivot.z));
   for (const g of head) g.applyMatrix4(tilt);
   // arms: long and heavy; (viewer's left) a fist driven forward, (viewer's right) a fist raised over the head
   limb([-.5, 1.44, .02], [-.78, 1.08, .3], .2, .17); limb([-.78, 1.08, .3], [-.56, 1.2, .74], .19, .15); blob([.17, .15, .19], [-.53, 1.21, .84], [.2, .3, 0], 0, .06);
@@ -504,7 +505,7 @@ function buildGallery() {
   b.build(gallery);
   doors.galL = galDoor(-1); doors.galR = galDoor(1);
   // the pieces
-  pieceRapailler(G, TL); pieceSTM(G); pieceHope(G); pieceHands(G, TL); pieceMap(G, TL); pieceGorilla(G); pieceDove(TL);
+  pieceRapailler(G, TL); pieceSTM(G); pieceHope(G); pieceHands(G, TL); pieceMap(G, TL); pieceGorilla(G); pieceDove(TL); floatingLogo(TL);
   // spots on the rails, one or two per piece
   const S = railY - .02;
   spot(railY, new V3(1.6, S, 1.4), new V3(G.x1, 1.7, 1.7)); spot(railY, new V3(1.6, S, 2.5), new V3(G.x1, 1.6, 2.3));
@@ -520,11 +521,37 @@ function buildGallery() {
   GAL_LIVE.light = new THREE.PointLight(new THREE.Color(1, .68, .4), 3.2, 9, 1.6); GAL_LIVE.light.position.set(0, 2.45, 3.6); gallery.add(GAL_LIVE.light);
 }
 
+/* ---- the As Is logo, floating in the air past the lift door: walk through it and it's gone (back on the next arrival) ---- */
+const AS_IS_FLOAT = { z: 1.45, y: 1.58, w: 1.0 };
+function floatingLogo(TL) {
+  const map = TL.load('images/as-is-logo.png'); map.colorSpace = THREE.SRGBColorSpace; map.anisotropy = Math.min(8, MAX_ANISO);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(AS_IS_FLOAT.w, AS_IS_FLOAT.w * 238 / 272), new THREE.MeshBasicMaterial({ map, color: new THREE.Color(1.9, 1.85, 1.7), transparent: true, depthWrite: false, side: THREE.DoubleSide }));
+  m.position.set(0, AS_IS_FLOAT.y, AS_IS_FLOAT.z); m.rotation.y = Math.PI; m.renderOrder = 6; gallery.add(m);   // faces the lift, reads the right way round from it
+  GAL_LIVE.logo = { m, state: 'shown', t: 0, rearm: false };
+}
+function floatingLogoTick(dt, time) {
+  const L = GAL_LIVE.logo; if (!L) return;
+  if (lift.floor !== GALLERY_FLOOR || lift.phase === 'riding') L.rearm = true;                 // left the floor: bring it back next time
+  if (L.rearm && lift.floor === GALLERY_FLOOR && lift.phase !== 'riding') { L.rearm = false; L.state = 'shown'; L.t = 0; L.m.visible = true; L.m.material.opacity = 1; L.m.scale.setScalar(1); }
+  if (L.state === 'shown') {
+    L.m.position.y = AS_IS_FLOAT.y + Math.sin(time * 1.3) * .035; L.m.rotation.y = Math.PI + Math.sin(time * .7) * .09;
+    L.m.material.opacity = .86 + Math.sin(time * 2.1) * .1;
+    if (D.state === 'play' && lift.floor === GALLERY_FLOOR && !P.inCab && P.pos.z > AS_IS_FLOAT.z && Math.abs(P.pos.x) < AS_IS_FLOAT.w * .7) {   // walked through it
+      L.state = 'going'; L.t = 0; if (A.ctx) { const t = now_(); bell(t, 1318.5, .05); bell(t + .09, 1760, .045); bell(t + .2, 2637, .03); }
+    }
+  } else if (L.state === 'going') {
+    L.t += dt; const k = clamp(L.t / .7, 0, 1);
+    L.m.material.opacity = (1 - k) * (1 - k); L.m.scale.setScalar(1 + k * .35); L.m.position.y += dt * .25;
+    if (k >= 1) { L.state = 'gone'; L.m.visible = false; }
+  }
+}
+
 /* ---- runtime ---- */
 function galleryHere() { return D.state === 'play' && lift.floor === GALLERY_FLOOR && lift.phase !== 'riding' && (lift.doors > 0 || !P.inCab); }
 function galleryTick(dt, time) {
   const near = (lift.floor === GALLERY_FLOOR || lift.target === GALLERY_FLOOR) && Math.abs(lift.y - GALLERY_FLOOR * H) < 1.2 * H;
   gallery.visible = near;
+  floatingLogoTick(dt, time);
   if (!near) return;
   // the arcade screen runs at 20 fps while you are in the room
   GAL_LIVE.screenT -= dt;

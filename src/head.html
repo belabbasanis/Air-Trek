@@ -1,3 +1,8 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Air Trek</title>
 <script>
 /* =====================================================================
@@ -33,10 +38,10 @@ const PROJECTS = [
    ===================================================================== */
 const GALLERY = [
   { id: 'rapailler', title: 'Rapailler la langue', author: 'Pascal Huynh', medium: 'Le Centre du français laurentien · design social, graphique et de service', blurb: 'Designing a democratic written system for Québécois.', url: 'https://www.figma.com/deck/2hi6S4RJpQG5paXR71TXMM/Le-Fran%C3%A7ais-Laurentien?node-id=6008-228' },
-  { id: 'stm',       title: 'STM Surfer', author: '', medium: 'browser game · unofficial fan project, not affiliated with the STM', blurb: 'A three-lane runner through the Montreal metro. Run every line, station by station, and ride the train roofs.', url: 'https://stm-surfer.vercel.app/' },
-  { id: 'hope',      title: 'Hope Library', author: '', medium: 'website · 48 documentaries, series and films', blurb: 'People are already building the future.', url: 'https://hopelibrary.github.io/' },
-  { id: 'hands',     title: 'Untitled (hands)', author: '', medium: '', blurb: '', url: '' },
-  { id: 'sfmap',     title: 'Untitled (San Francisco)', author: '', medium: '', blurb: '', url: '' },
+  { id: 'stm',       title: 'STM Surfer', author: 'Thai Tran', medium: 'browser game · unofficial fan project, not affiliated with the STM', blurb: 'A three-lane runner through the Montreal metro. Run every line, station by station, and ride the train roofs.', url: 'https://stm-surfer.vercel.app/' },
+  { id: 'hope',      title: 'Hope Library', author: 'Quentin Noël Bourbeau', medium: 'website · 48 documentaries, series and films', blurb: 'People are already building the future.', url: 'https://hopelibrary.github.io/' },
+  { id: 'hands',     title: 'Everybodywave', author: 'Jasmin Omanovic & Steven Padayas', medium: '', blurb: '', url: 'https://everybodywave.com' },
+  { id: 'sfmap',     title: 'Spark Joy', author: 'Mia Zhou', medium: '', blurb: '', url: '' },
 ];
 const TITLE  = 'Air Trek';      // title card and start screen
 const STUDIO = 'Bermuda DPT';   // credit line: "<STUDIO> presents"
@@ -44,8 +49,7 @@ const STUDIO = 'Bermuda DPT';   // credit line: "<STUDIO> presents"
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@500;800&family=Cormorant+Garamond:ital,wght@0,500;1,500&family=IBM+Plex+Mono:wght@400;500&family=Saira+Condensed:wght@600&family=Saira+Stencil+One&family=Permanent+Marker&family=Sedgwick+Ave+Display&display=swap">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&family=Newsreader:ital,opsz,wght@1,6..72,400&family=Barlow+Condensed:wght@600;800&display=swap">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&display=block&text=%E3%82%A8%E3%82%A2%E3%83%BB%E3%83%88%E3%83%AC%E3%83%83%E3%82%AFAIRTEK">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&family=Newsreader:ital,opsz,wght@1,6..72,400&family=Barlow+Condensed:wght@600;800&family=Caveat:wght@600&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&display=swap&text=%E6%88%91%E4%B8%8D%E6%83%B3%E8%BE%88%E5%AD%90%E8%AE%A9%E4%BA%BA%E8%B8%A9%E5%9C%A8%E8%84%9A%E4%B8%8B">
 <style>
 /* Layout: full-bleed WebGL viewport; cinematic type sits over the live scene, captions low and centred, one small menu button in the corner. */
@@ -145,6 +149,9 @@ body.letterbox #cap{bottom:calc((100vh - 100vw/2.39)/2 + 2vh)}
 .tog[aria-pressed="true"]{border-color:var(--amber);color:var(--amber)}
 .tog:focus-visible,#closeMenu:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 .maker{margin:0;font-size:12px;letter-spacing:.08em;color:rgba(246,239,227,.62)} .maker a{color:var(--ink);text-underline-offset:3px}
+html,body{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+body{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+#menu{-webkit-user-select:text;user-select:text}
 #flash{position:fixed;inset:0;z-index:9;background:#eef4ff;opacity:0;pointer-events:none}
 #closeMenu{align-self:flex-start;font:inherit;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink);background:rgba(255,236,210,.08);border:1px solid var(--ink-faint);border-radius:4px;padding:8px 14px;cursor:pointer}
 .keys{display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:11px;color:var(--ink-dim);align-items:center}
@@ -165,24 +172,7 @@ body.rm .cine,body.rm #lb i{transition-duration:.01s}
 <div id="lb" aria-hidden="true"><i id="lbT"></i><i id="lbB"></i></div>
 <div id="credit" class="cine" aria-hidden="true"><span id="creditName"></span><br><span>presents</span></div>
 <div id="logo" class="cine" role="img" aria-label="">
-  <svg id="logoWord" class="word" viewBox="0 0 1520 500" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Air Trek">
-    <g transform="translate(110 0) skewX(-12)">
-      <g fill="#000">
-        <polygon points="1290,96 1500,70 1478,118 1286,138"/>
-        <polygon points="1316,170 1470,152 1452,190 1310,204"/>
-        <polygon points="1300,236 1420,224 1404,254 1294,262"/>
-      </g>
-      <g font-family="'Dela Gothic One', 'Saira Condensed', sans-serif" font-size="222" letter-spacing="-16">
-        <text x="40" y="290" fill="#000" stroke="#000" stroke-width="36" stroke-linejoin="miter" transform="translate(18 18)">エア・トレック</text>
-        <text x="40" y="290" fill="#000" stroke="#000" stroke-width="36" stroke-linejoin="miter">エア・トレック</text>
-        <text x="40" y="290" fill="#fff" stroke="#fff" stroke-width="3">エア・トレック</text>
-      </g>
-      <polygon points="330,330 1250,330 1228,458 308,458" fill="#000" transform="translate(14 12)"/>
-      <polygon points="330,330 1250,330 1228,458 308,458" fill="#fff" stroke="#000" stroke-width="13" stroke-linejoin="miter"/>
-      <text x="779" y="439" text-anchor="middle" font-family="'Dela Gothic One', 'Saira Condensed', sans-serif" font-size="114" letter-spacing="4" fill="#000">AIR TREK</text>
-    </g>
-  </svg>
-  <div class="sub"><span class="seal" aria-hidden="true">↑</span><span id="logoSub"></span></div>
+  <div class="sub"><span id="logoSub"></span></div>
 </div>
 <div id="cap" class="ui" aria-live="polite"></div>
 <div id="hint" class="ui"></div>

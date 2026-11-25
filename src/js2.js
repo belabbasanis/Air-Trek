@@ -21,7 +21,7 @@ const FONT_SERIF = '"Shippori Mincho B1","Cormorant Garamond",Georgia,serif';
 const FONT_MONO = '"IBM Plex Mono",ui-monospace,Menlo,monospace';
 const FONT_EMOJI = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Segoe UI Symbol",sans-serif';
 async function loadFonts() {
-  const want = [`600 64px "Saira Condensed"`, `400 64px "Saira Stencil One"`, `500 32px "Shippori Mincho B1"`, `800 32px "Shippori Mincho B1"`, `500 32px "IBM Plex Mono"`, `400 32px "IBM Plex Mono"`, `400 64px "Permanent Marker"`, `400 64px "Sedgwick Ave Display"`, `800 64px "Bricolage Grotesque"`, `italic 400 32px "Newsreader"`, `800 64px "Barlow Condensed"`, `600 32px "Barlow Condensed"`];
+  const want = [`600 64px "Saira Condensed"`, `400 64px "Saira Stencil One"`, `500 32px "Shippori Mincho B1"`, `800 32px "Shippori Mincho B1"`, `500 32px "IBM Plex Mono"`, `400 32px "IBM Plex Mono"`, `400 64px "Permanent Marker"`, `400 64px "Sedgwick Ave Display"`, `800 64px "Bricolage Grotesque"`, `italic 400 32px "Newsreader"`, `800 64px "Barlow Condensed"`, `600 32px "Barlow Condensed"`, `600 64px "Caveat"`];
   const jp = document.fonts.load(`800 64px "Shippori Mincho B1"`, GRAF_JP);   // the kanji in the graffiti come from their own font subset
   const cn = document.fonts.load(`400 64px "Ma Shan Zheng"`, GRAF_CN);        // brush-script Chinese, loaded for just these characters
   try { await Promise.race([Promise.all([...want.map(f => document.fonts.load(f)), jp, cn]), new Promise(r => setTimeout(r, 3500))]); } catch (e) { }
@@ -1199,6 +1199,40 @@ function placeMoss() {
   hang(landing, D_.x0 + .1, D_.h - .02, 1.25, Math.PI / 2, .8, 550); hang(landing, D_.x0 + .1, D_.h - .02, 2.2, Math.PI / 2, .7, 551);  // over the landing window
   hang(landing, -1.35, D_.h - .02, D_.z1 - .05, 0, .55, 552); hang(landing, 1.35, D_.h - .02, D_.z1 - .05, 0, .5, 553);
 }
+/* ---- a trail of tiny scribbles round the cab: look up, look right, left, down, turn around... and the punchline.
+   The last one is on the fixed wall beside the doorway, never on the doors (they slide away behind the wall) ---- */
+const FONT_HAND = '"Caveat","Comic Sans MS","Segoe Print",cursive';
+function noteTex(text, ink, arrow, outline) {
+  const [c, x] = cv(512, 200); x.fillStyle = ink; x.strokeStyle = ink; x.lineCap = x.lineJoin = 'round';
+  x.font = `600 88px ${FONT_HAND}`; x.textBaseline = 'middle'; const tw = x.measureText(text).width, ax = arrow ? 86 : 0, x0 = (512 - tw - ax) / 2;
+  x.save(); x.translate(0, 100); x.rotate(-.03); if (outline) { x.lineWidth = 14; x.strokeStyle = outline; x.strokeText(text, x0, 0); x.strokeStyle = ink; } x.fillText(text, x0, 0); x.restore();
+  if (arrow) {                                     // a hand-drawn arrow after the words
+    const cx = x0 + tw + 50, cy = 104; x.beginPath();
+    const stroke = x.stroke.bind(x); x.stroke = () => { if (outline) { x.lineWidth = 20; x.strokeStyle = outline; stroke(); x.strokeStyle = ink; } x.lineWidth = 9; stroke(); };
+    if (arrow === 'turn') { x.arc(cx, cy, 30, Math.PI * .2, Math.PI * 1.75); x.stroke(); const a = Math.PI * 1.75, px = cx + Math.cos(a) * 30, py = cy + Math.sin(a) * 30; x.beginPath(); x.moveTo(px - 18, py - 4); x.lineTo(px + 2, py + 2); x.lineTo(px - 4, py + 20); x.stroke(); }
+    else { const d = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }[arrow], L = 34, tx = cx + d[0] * L, ty = cy + d[1] * L;
+      x.moveTo(cx - d[0] * L, cy - d[1] * L); x.lineTo(tx, ty); x.moveTo(tx, ty); x.lineTo(tx - d[0] * 18 - d[1] * 16, ty - d[1] * 18 - d[0] * 16); x.moveTo(tx, ty); x.lineTo(tx - d[0] * 18 + d[1] * 16, ty - d[1] * 18 + d[0] * 16); x.stroke(); }
+  }
+  return ctex(c);
+}
+function cabNotes() {
+  const C = CAB, chalk = '#ece6d6', ink = '#1d1a16';
+  const note = (text, inkC, arrow, pos, rot, w = .3, outline) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, w * 200 / 512), new THREE.MeshStandardMaterial({ map: noteTex(text, inkC, arrow, outline), transparent: true, roughness: .8, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+    m.position.set(...pos); m.rotation.set(...rot); m.renderOrder = 2; cab.add(m); return m;
+  };
+  note('psst... look up', chalk, 'up', [-.2, .004, -1.2], [-Math.PI / 2, 0, 0], .44, 'rgba(20,16,12,.85)');   // 1 · on the floor by the buttons
+  note('now look right', ink, 'right', [.3, C.h - .005, -1.25], [Math.PI / 2, 0, 0]);            // 2 · on the ceiling: top of the words toward you, right is the right wall
+  note('no, left', chalk, 'left', [C.x1 - .005, 1.68, -1.42], [0, -Math.PI / 2, 0], .24);        // 3 · right wall, beside the certificate, pointing back at the panel wall
+  note('down there', chalk, 'down', [.45, 1.22, C.z0 + .005], [0, 0, 0], .26);                    // 4 · back wall, right of the panel
+  note('turn around', chalk, 'turn', [.44, .004, -1.48], [-Math.PI / 2, 0, 0], .36, 'rgba(20,16,12,.85)');   // 5 · floor, back corner
+  // the punchline: a little print taped to the front wall, beside the doorway
+  const map = new THREE.TextureLoader().load('images/here-we-go-again.jpg'); map.colorSpace = THREE.SRGBColorSpace; map.anisotropy = Math.min(8, MAX_ANISO);
+  const pic = new THREE.Mesh(new THREE.PlaneGeometry(.24, .24), new THREE.MeshStandardMaterial({ map, roughness: .55, emissive: 0xffffff, emissiveMap: map, emissiveIntensity: .22, polygonOffset: true, polygonOffsetFactor: -2 }));
+  pic.position.set(.665, 1.52, C.z1 - .004); pic.rotation.set(0, Math.PI, .04); cab.add(pic);
+  const tape = new THREE.MeshStandardMaterial({ color: 0xe8dfc4, transparent: true, opacity: .75, roughness: .6, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 });
+  for (const [dx, a] of [[-.1, .5], [.1, -.45]]) { const t = new THREE.Mesh(new THREE.PlaneGeometry(.07, .022), tape); t.position.set(.665 - dx, 1.64, C.z1 - .005); t.rotation.set(0, Math.PI, a); cab.add(t); }
+}
 /* ---- plant models (from the supplied GLBs, simplified, stored as JSON + WebP textures the artifact host can serve):
    ivy-hanging (trailing ivy), moss-garland (hanging moss), ivy-climbing (ivy up a stem), liana (twisted vines) ---- */
 const PLANTS = { 'ivy-hanging': [], 'moss-garland': [], 'ivy-climbing': [], 'liana': [] };   // name -> [parent, x, y, z, rotY, scale, hang]
@@ -1285,7 +1319,7 @@ async function buildScene(progress) {
   progress('Hanging the ivy…');
   scene.environment = envMap();
   TEX.btn = buttonAtlas(); TEX.stk = stickerAtlas();
-  buildLobby(); buildShaft(); buildCab(); buildHidden(); buildLanding(); buildGallery();
+  buildLobby(); buildShaft(); buildCab(); cabNotes(); buildHidden(); buildLanding(); buildGallery();
   // vines + instanced foliage per parent
   const leafGeo = leafGeometry(), mossGeo = mossGeometry(), flGeo = flowerGeometry();
   for (const parent of [world, cab, landing]) {

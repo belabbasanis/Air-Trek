@@ -316,7 +316,7 @@ let capT = 0, hintT = 0;
 function caption(html, dur = 3) { const c = $('cap'); c.innerHTML = html; c.classList.add('on'); capT = dur; }
 function hint(html, dur = 7) { const h = $('hint'); h.innerHTML = html; h.classList.add('on'); hintT = dur; }
 const visitA = $('visit');
-function showVisit(p) { visitA.href = p.url; $('visitName').textContent = p.name + ' ↗'; $('visitSmall').textContent = `Floor ${p.floor} · step out to visit`; visitA.classList.add('on'); visitA.dataset.floor = p.floor; }
+function showVisit(p) { visitA.href = p.url; $('visitName').textContent = p.name; visitA.dataset.floor = p.floor; }   // the link stays out of sight: it is what gets clicked to open the tab
 function hideVisit() { visitA.classList.remove('on', 'pulse'); }
 function triggerVisit(how) {
   const p = BY_FLOOR.get(lift.floor); if (!p || p.gallery || lift.doors < .9 || lift.phase === 'riding') return false;
@@ -325,8 +325,7 @@ function triggerVisit(how) {
   // a real link clicked inside the user's gesture: pop-up blockers allow this
   visitA.href = p.url; try { visitA.click(); } catch (e) { }
   caption(`Opening <b>${esc(p.name)}</b> in a new tab`, 3.5);
-  visitA.classList.add('pulse'); setTimeout(() => visitA.classList.remove('pulse'), 2600);
-  hint('If no tab opened, use the link in the corner', 6);
+  hint(isTouch ? 'If no tab opened, tap the painted wall' : 'If no tab opened, click the painted wall', 6);
   return true;
 }
 // the maker's profiles: a real link clicked inside the press, so pop-up blockers let the new tab through
@@ -457,6 +456,7 @@ function onTouchMove(e) {
   if (Math.hypot(e.clientX - t.sx, e.clientY - t.sy) > 8) t.moved = true; if (t.moved) look(dx, dy, .006);
 }
 function onTouchUp(e) {
+  if (pendingExit) { pendingExit = false; triggerVisit('step'); }   // a touch ending is a gesture: open the project the player just walked out to
   if (P.joy && e.pointerId === P.joy.id) { P.joy = null; $('stick').style.display = 'none'; return; }
   const t = touches.get(e.pointerId); touches.delete(e.pointerId); if (!t || t.moved || performance.now() - t.t > 450) return;
   P.touchAim = { x: e.clientX, y: e.clientY }; updateHover(); const a = hover ? hover.object.userData.act : null; P.touchAim = null; hover = null; if (a) actOn(a);
@@ -574,9 +574,11 @@ const D = {
         : '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk · click to look around · pick a floor on the panel, or type its number', 9); }, (SHOT.hint - SHOT.ctrl) * 1000);
   },
 };
+// portrait screens: widen the vertical field of view so the horizontal one stays usable
+const fovFor = (v) => { const a = camera.aspect || 1; return a >= 1 ? v : Math.min(100, 2 * Math.atan(Math.tan(v * Math.PI / 360) / a) * 180 / Math.PI); };
 function lerpShot(a, b, k) { return { p: a.p.clone().lerp(b.p, k), l: a.l.clone().lerp(b.l, k), fov: lerp(a.fov, b.fov, k) }; }
 function setCam(s, time, hand) {
-  camera.position.copy(s.p); camera.fov = s.fov; camera.updateProjectionMatrix();
+  camera.position.copy(s.p); camera.fov = fovFor(s.fov); camera.updateProjectionMatrix();
   const l = s.l.clone();
   if (!RM && hand > 0) { camera.position.x += Math.sin(time * .7) * .012 * hand; camera.position.y += Math.sin(time * 1.1 + 1) * .008 * hand; l.x += Math.sin(time * .5 + 2) * .02 * hand; l.y += Math.sin(time * .8) * .012 * hand; }
   camera.lookAt(l);
@@ -682,7 +684,7 @@ function tick(dt, time) {
     const sw = RM ? 0 : (Math.sin(time * 1.7) * .5 + Math.sin(time * 2.9 + 1) * .5) * .006 * vN;
     camera.position.set(P.pos.x + sw, gy + 1.62 + P.bob + P.dip + (RM ? 0 : Math.sin(time * 40) * .0025 * P.jolt), P.pos.z);
     _e.set(P.pitch, P.yaw, RM ? 0 : sw * .4, 'YXZ'); camera.quaternion.setFromEuler(_e);
-    camera.fov = damp(camera.fov, 62, 4, dt); camera.updateProjectionMatrix();
+    camera.fov = damp(camera.fov, fovFor(62), 4, dt); camera.updateProjectionMatrix();
   }
   // sun drift: slow across the doors on the start shot
   sunTime += dt * (D.state === 'gate' ? 1 : .25);
@@ -808,7 +810,7 @@ function loop(now) {
   catch (e) { console.error(e); noGL('Something went wrong while building the lift.'); return; }
   lift.y = 7 * H; cab.position.y = lift.y; setLamp(7); drawLamps(7); TEX.lamp.needsUpdate = true; TEX.lampE.needsUpdate = true;
   UI3.needle.rotation.z = dialAngle(7);
-  camera.position.copy(CAM.s0.p); camera.lookAt(CAM.s0.l); camera.fov = CAM.s0.fov; camera.updateProjectionMatrix();
+  camera.position.copy(CAM.s0.p); camera.lookAt(CAM.s0.l); camera.fov = fovFor(CAM.s0.fov); camera.updateProjectionMatrix();
   setLook(heldPeriod() || periodAt(new Date()), true); lookTick(0);
   D.state = 'gate'; D.fade = 0;
   if (window.__test) window.__dbg = { D, lift, P, camera, landing, dressLanding, setLook, setLamp, gradeMat, A, selectFloor, ROOF, H, surfaceUnder, hot, HID, startHidden, gallery, GAL_LIVE, GALLERY_FLOOR, GAL_OBST, moveTo, actOn, sfxButton, sfxThunder, ROOF_STONES, sfxStep, initAudio };
