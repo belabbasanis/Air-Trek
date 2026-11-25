@@ -40,15 +40,14 @@ const ROOF = TOP + 1;            // the roof garden: a stop of its own above the
 const floorTag = (f) => f === 0 ? 'L' : f === ROOF ? 'R' : String(f);
 const T_TITLE = (typeof TITLE !== 'undefined' && TITLE) ? String(TITLE) : 'As Is';
 const T_STUDIO = (typeof STUDIO !== 'undefined' && STUDIO) ? String(STUDIO) : '';
-const numWord = (n) => ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'][n] || String(n);
 const floorLabel = (f) => f === 0 ? 'Lobby' : f === ROOF ? 'Roof' : 'Floor ' + f;
 
 /* ---- DOM text that depends on the list ---- */
 document.title = T_TITLE;
 $('srTitle').textContent = `${T_TITLE}: a lift to ${FLOORS.length} projects, one per floor`;
 $('creditName').textContent = T_STUDIO; $('startMark').textContent = T_STUDIO || T_TITLE;
-$('logoWord').textContent = T_TITLE.toUpperCase(); $('logo').setAttribute('aria-label', T_TITLE);
-$('logoSub').textContent = `a lift to ${numWord(FLOORS.length)} project${FLOORS.length === 1 ? '' : 's'}`;
+$('logo').setAttribute('aria-label', T_TITLE);
+$('logoSub').textContent = 'elevator through layers of the subconscious';
 $('menuLede').textContent = `Every floor is someone's project. Ride the lift, or open one directly from this list. Links open in a new tab.`;
 function buildList(el) {
   el.innerHTML = '';

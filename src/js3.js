@@ -4,7 +4,7 @@
    ====================================================================== */
 const A = { ctx: null, smp: {} };
 /* ---- recorded sounds (audio/ next to the page). If any fail to load, the generated sound is used instead. ---- */
-const SAMPLES = { song: 'audio/song.mp3', tile: 'audio/steps-tile.mp3', metal: 'audio/steps-metal.mp3', start: 'audio/lift-start.mp3', stop: 'audio/lift-stop.mp3', loop: 'audio/lift-loop.mp3' };
+const SAMPLES = { song: 'audio/song.mp3', tile: 'audio/steps-tile.mp3', metal: 'audio/steps-metal.mp3', start: 'audio/lift-start.mp3', stop: 'audio/lift-stop.mp3', loop: 'audio/lift-loop.mp3', hidden: HIDDEN.track };
 const STEP_SLOT = { tile: [.5, .45, 8], metal: [1.0, .9, 8] };       // slot length, step length, steps per file
 const LOOP_IN = .5, LOOP_OUT = 27.5;                                    // seamless region of lift-loop.mp3
 const samplesReady = (async () => {
@@ -19,10 +19,10 @@ function playBuf(buf, t, { gain = 1, rate = 1, offset = 0, dur, dest } = {}) {
   s.connect(g).connect(dest || A.master); dur !== undefined ? s.start(t, offset, dur) : s.start(t, offset); return { s, g };
 }
 let lastStep = -1;
-function stepSample(file, gain = 1, rate = 1) {
+function stepSample(file, gain = 1, rate = 1, dest) {
   const buf = A.smp[file]; if (!buf) return false;
   const [slot, len, n] = STEP_SLOT[file]; let i = Math.floor(Math.random() * n); if (i === lastStep) i = (i + 1) % n; lastStep = i;
-  playBuf(buf, now_(), { gain: (file === 'metal' ? .42 : .5) * gain * (.8 + Math.random() * .2), rate: rate * (.94 + Math.random() * .12), offset: i * slot, dur: len });
+  playBuf(buf, now_(), { gain: (file === 'metal' ? .42 : .5) * gain * (.8 + Math.random() * .2), rate: rate * (.94 + Math.random() * .12), offset: i * slot, dur: len, dest });
   return true;
 }
 // what is underfoot: the cab's steel floor, tile (lobby, landings), and on the roof stepping stones or grass
@@ -33,7 +33,15 @@ function surfaceUnder() {
     if (z < WALL_Z + .1 && Math.abs(x) < DOOR_W / 2 + .1) return 'tile';          // the brass sill
     return ROOF_STONES.some(q => x > q[0] && x < q[1] && z > q[2] && z < q[3]) ? 'stone' : 'grass';
   }
+  if (lift.floor === 0 && lift.phase !== 'riding' && Math.abs(x - CARPET.x) < CARPET.w / 2 && Math.abs(z - CARPET.z) < CARPET.d / 2) return 'carpet';
   return 'tile';
+}
+function carpetStep() {
+  // the tile step heard through a pile rug: heel thud kept, the click filtered away, plus a soft fibre brush
+  const ctx = A.ctx, t = now_();
+  if (!A.carpetLP) { A.carpetLP = ctx.createBiquadFilter(); A.carpetLP.type = 'lowpass'; A.carpetLP.frequency.value = 420; A.carpetLP.Q.value = .5; A.carpetLP.connect(A.master); }
+  if (!stepSample('tile', 1.5, .86, A.carpetLP)) thump(t, 80, 45, .07, .09);
+  noiseHit(t + .01, 'bandpass', 1400 + Math.random() * 500, 1.2, .018, .09);
 }
 function grassStep() {
   const ctx = A.ctx, t = now_();
@@ -137,6 +145,7 @@ function sfxDoors(opening, dur) {
 }
 function sfxStep(surface) { if (!A.ctx) return; const steel = surface === 'metal';
   if (surface === 'grass') { grassStep(); return; }
+  if (surface === 'carpet') { carpetStep(); return; }
   if (surface === 'stone' ? stepSample('tile', 1.15, .82) : stepSample(steel ? 'metal' : 'tile')) return;
   const t = now_(); noiseHit(t, 'lowpass', steel ? 900 : 620, .8, .12, .09); thump(t, 95, 55, .1, .09); if (steel) noiseHit(t + .005, 'bandpass', 1700 + Math.random() * 400, 9, .035, .14); }
 function sfxTick(g) { if (!A.ctx) return; const t = now_(); noiseHit(t, 'bandpass', 800, 2.5, .08 * g, .05); thump(t, 140, 80, .06 * g, .07); }
@@ -172,8 +181,8 @@ function audioTick(dt) {
   A.ambLP.frequency.setTargetAtTime(shut ? 600 : 7000, t, .3);
   A.wind.g.gain.setTargetAtTime(shut ? .03 : lift.floor === ROOF && !P.inCab ? .14 : .055, t, .5);
   // generative music once the intro has played
-  if (A.song) A.song.g.gain.setTargetAtTime(D.state === 'intro' ? .8 : lift.phase === 'riding' ? .4 : .55, t, 1.5);
-  if (D.state === 'play' && !A.song) {
+  if (A.song) A.song.g.gain.setTargetAtTime(HID.active ? 0 : D.state === 'intro' ? .8 : lift.phase === 'riding' ? .4 : .55, t, HID.active ? .06 : 1.5);   // the hidden lift cuts the music
+  if (D.state === 'play' && !A.song && !HID.active) {
     A.pad.g.gain.setTargetAtTime(lift.phase === 'riding' ? .028 : .036, t, 1.5);
     if (t > A.pad.next) { A.pad.next = t + 9; setChord((A.pad.chord + 1) % 4, t); }
     if (t > A.nextNote) { A.nextNote = t + 2.6 + Math.random() * 4.5; const tones = CHORD_TONES[A.pad.chord]; const f = tones[Math.floor(Math.random() * tones.length)];
@@ -261,10 +270,10 @@ function liftTick(dt) {
   if (doors.roofL) { const ra = lift.floor === ROOF && lift.phase !== 'riding' && Math.abs(lift.y - ROOF * H) < .01 ? o : 0; doors.roofL.position.x = -.265 - ra; doors.roofR.position.x = .265 + ra; }
   cab.position.y = lift.y;
   // hall dial follows the cab
-  UI3.needle.rotation.z = damp(UI3.needle.rotation.z, dialAngle(clamp(lift.y / H, 0, TOP)), 6, dt);
+  if (!hiddenDial(dt)) UI3.needle.rotation.z = damp(UI3.needle.rotation.z, dialAngle(clamp(lift.y / H, 0, TOP)), 6, dt);
 }
 function onDoorsOpen() {
-  if (D.state !== 'play') return;
+  if (D.state !== 'play' || HID.active) return;
   const p = BY_FLOOR.get(lift.floor);
   if (p) { caption(`<b>${esc(p.name)}</b>${p.author ? ' · by ' + esc(p.author) : ''}`, 4.5); showVisit(p); hint(isTouch ? 'Walk out, or tap the painted wall, to visit' : 'Walk out, click the painted wall, or press <kbd>Enter</kbd> to visit', 6); }
   else if (lift.floor === 0) caption('Lobby', 2.4);
@@ -272,7 +281,7 @@ function onDoorsOpen() {
 }
 
 /* ======================================================================
-   UI: captions, hint, tooltip, visit link, menu
+   UI: captions, hint, visit link, menu
    ====================================================================== */
 const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 let capT = 0, hintT = 0;
@@ -291,6 +300,12 @@ function triggerVisit(how) {
   visitA.classList.add('pulse'); setTimeout(() => visitA.classList.remove('pulse'), 2600);
   hint('If no tab opened, use the link in the corner', 6);
   return true;
+}
+// the maker's profiles: a real link clicked inside the press, so pop-up blockers let the new tab through
+function openSocial(a) {
+  const l = document.createElement('a'); l.href = a.url; l.target = '_blank'; l.rel = 'noopener'; document.body.appendChild(l);
+  try { l.click(); } catch (e) { } l.remove();
+  sfxClick(); caption(`Opening <b>${esc(a.label)}</b> · ${esc(a.handle)}`, 3);
 }
 const menu = $('menu');
 function openMenu() { menu.hidden = false; if (document.pointerLockElement) document.exitPointerLock(); keys.clear(); setTimeout(() => menu.querySelector('a')?.focus(), 30); }
@@ -316,7 +331,8 @@ let hover = null;
 function groundY() { if (P.pos.z < CAB.z1 + .02) return lift.y; return lift.floor === 0 && lift.phase !== 'riding' ? 0 : lift.floor * H; }
 function rects() {
   const r = .22, out = [[CAB.x0 + r, CAB.x1 - r, CAB.z0 + r, CAB.z1 - r * .9]];
-  if (lift.doors > .92 && lift.phase === 'open') {
+  if (HID.active && lift.floor === 0) out.push([LOBBY.x0 + r, LOBBY.x1 - r, WALL_Z + r, LOBBY.z1 - r], [-DOOR_W / 2 + .19, DOOR_W / 2 - .19, WALL_Z + .02, WALL_Z + .6]);   // nobody gets into the hidden cab
+  else if (lift.doors > .92 && lift.phase === 'open') {
     out.push([-DOOR_W / 2 + .19, DOOR_W / 2 - .19, CAB.z1 - .4, WALL_Z + .6]);
     if (lift.floor === 0) out.push([LOBBY.x0 + r, LOBBY.x1 - r, WALL_Z + r, LOBBY.z1 - r]);
     else if (lift.floor === ROOF) { const e = .25 + r; out.push([RF.x0 + e, RF.x1 - e, .3 + r, RF.z1 - e], [RF.x0 + e, HH.x0 - .05 - r, RF.z0 + e, 1], [HH.x1 + .3 + r, RF.x1 - e, RF.z0 + e, 1]); }
@@ -328,8 +344,8 @@ function inRects(x, z, R) { for (const q of R) if (x >= q[0] && x <= q[1] && z >
 function moveTo(nx, nz) {
   const R = rects();
   if (!inRects(P.pos.x, P.pos.z, R)) { const q = R[0]; P.pos.x = clamp(P.pos.x, q[0], q[1]); P.pos.z = clamp(P.pos.z, q[2], q[3]); }
-  if (lift.floor === 0 && nz > WALL_Z) { const dx = nx + .9, dz = nz - 4.05, d = Math.hypot(dx, dz); if (d < .42) { nx = -.9 + dx / d * .42; nz = 4.05 + dz / d * .42; } }
-  const ok = (x, z) => inRects(x, z, R) && !(lift.floor === ROOF && z > .2 && ROOF_OBST.some(q => x > q[0] - .2 && x < q[1] + .2 && z > q[2] - .2 && z < q[3] + .2));
+  if (lift.floor === 0 && nz > WALL_Z) { const dx = nx - CARPET.x, dz = nz - CARPET.z, d = Math.hypot(dx, dz); if (d < .42) { nx = CARPET.x + dx / d * .42; nz = CARPET.z + dz / d * .42; } }
+  const ok = (x, z) => inRects(x, z, R) && !(lift.floor === 0 && x > STALL.box[0] && x < STALL.box[1] && z > STALL.box[2]) && !(lift.floor === ROOF && z > .2 && ROOF_OBST.some(q => x > q[0] - .2 && x < q[1] + .2 && z > q[2] - .2 && z < q[3] + .2));
   if (ok(nx, nz)) { P.pos.x = nx; P.pos.z = nz; return; }
   if (ok(nx, P.pos.z)) { P.pos.x = nx; return; }
   if (ok(P.pos.x, nz)) { P.pos.z = nz; return; }
@@ -354,29 +370,19 @@ function actOn(a) {
     case 'stop': sfxClick(); thump(now_(), 120, 60, .2, .12); caption('The stop switch is keyed. Nobody left a key.', 3); break;
     case 'open': { const b = buttons.find(x => x.act.type === 'open'); b.press = 1; sfxClick(); if (lift.phase === 'closed' || lift.phase === 'closing') { if (lift.phase === 'closing') { lift.onDone = null; lift.target = lift.floor; buttons.forEach(x => { if (x.act.type === 'floor') x.lit = 0; }); } doorsTo(1); } break; }
     case 'close': { const b = buttons.find(x => x.act.type === 'close'); b.press = 1; sfxClick(); if (lift.phase === 'open') { if (inCab()) doorsTo(0); else caption('Step into the cab first'); } break; }
-    case 'call': { UI3.call.press = 1; sfxClick(); if (lift.floor === 0 && lift.phase === 'closed') doorsTo(1); break; }
+    case 'call': { UI3.call.press = 1; sfxClick(); if (hiddenTap()) break; if (lift.floor === 0 && lift.phase === 'closed') doorsTo(1); break; }
     case 'directory': openMenu(); break;
     case 'visit': triggerVisit('click'); break;
+    case 'social': openSocial(a); break;
   }
 }
-function tipFor(a) {
-  switch (a.type) {
-    case 'floor': { if (a.floor === 0) return ['L', 'Lobby', 'Back to the ground floor']; if (a.floor === ROOF) return ['R', 'Roof garden', 'Up on the roof']; const p = BY_FLOOR.get(a.floor); return ['Floor ' + a.floor, p.name, p.author ? 'by ' + p.author : '']; }
-    case 'alarm': return ['', 'Alarm', 'Rings the bell']; case 'stop': return ['', 'Stop', 'Key switch']; case 'open': return ['', 'Open doors', '']; case 'close': return ['', 'Close doors', ''];
-    case 'call': return ['', 'Call the lift', '']; case 'directory': return ['', 'Directory', isTouch ? 'Tap for the floor list' : 'Click or press F for the floor list'];
-    case 'visit': { const p = BY_FLOOR.get(lift.floor); return ['Floor ' + lift.floor, p.name + ' ↗', 'Opens in a new tab']; }
-  }
-  return null;
-}
-function showTip(dt) {
-  const tip = $('tip'), ret = $('ret');
+// clickable things: the mouse cursor turns to a hand, and the centre dot (pointer lock) grows into a ring
+function showHot() {
+  const ret = $('ret');
   ret.classList.toggle('on', D.state === 'play' && (locked || (lockFailed && !isTouch)) && menu.hidden);
   ret.classList.toggle('hot', !!hover);
-  if (!hover) { tip.classList.remove('on'); return; }
-  const t = tipFor(hover.object.userData.act); if (!t) { tip.classList.remove('on'); return; }
-  $('tipFl').textContent = t[0]; $('tipName').textContent = t[1]; $('tipBy').textContent = t[2];
-  let x, y; if (locked || isTouch || !mouse.in) { const p = hover.point.clone().project(camera); x = (p.x * .5 + .5) * innerWidth; y = (-p.y * .5 + .5) * innerHeight; } else { x = mouse.x; y = mouse.y; }
-  x = Math.min(x, innerWidth - 300); tip.style.left = x + 'px'; tip.style.top = y + 'px'; tip.classList.add('on');
+  const cur = hover && !locked && D.state === 'play' && menu.hidden ? 'pointer' : '';
+  if (canvas.style.cursor !== cur) canvas.style.cursor = cur;
 }
 // pointer lock (desktop), drag-look fallback, touch joystick + look
 canvas.addEventListener('mousemove', (e) => { mouse.x = e.clientX; mouse.y = e.clientY; mouse.in = true; if (locked) look(e.movementX, e.movementY, .0022); });
@@ -685,13 +691,16 @@ function tick(dt, time) {
   if (lift.phase === 'arrived' && lift.floor === 0) D.lantern = 1;
   const lv = lanternOn || (lift.phase === 'arrived' && lift.floor === 0) ? 1 : 0;
   const up = lift.dir >= 0 || D.state !== 'play';
-  UI3.lampUp.material.emissiveIntensity = damp(UI3.lampUp.material.emissiveIntensity, lv && up ? 6 : 0, 8, dt);
-  UI3.lampDn.material.emissiveIntensity = damp(UI3.lampDn.material.emissiveIntensity, lv && !up ? 6 : 0, 8, dt);
-  UI3.lanternLight.intensity = lv ? .25 : 0;
+  if (!hiddenLanterns(time)) {
+    UI3.lampUp.material.emissiveIntensity = damp(UI3.lampUp.material.emissiveIntensity, lv && up ? 6 : 0, 8, dt);
+    UI3.lampDn.material.emissiveIntensity = damp(UI3.lampDn.material.emissiveIntensity, lv && !up ? 6 : 0, 8, dt);
+    UI3.lanternLight.intensity = lv ? .25 : 0;
+  }
+  hiddenTick(dt, time);
   // captions
   if (capT > 0) { capT -= dt; if (capT <= 0) $('cap').classList.remove('on'); }
   if (hintT > 0) { hintT -= dt; if (hintT <= 0) $('hint').classList.remove('on'); }
-  updateHover(); showTip(dt);
+  updateHover(); showHot();
   audioTick(dt);
   // shared shader inputs
   skyMat.uniforms.uSun.value.copy(sunDir).negate(); skyMat.uniforms.uTime.value = time;
@@ -768,7 +777,7 @@ function loop(now) {
   camera.position.copy(CAM.s0.p); camera.lookAt(CAM.s0.l); camera.fov = CAM.s0.fov; camera.updateProjectionMatrix();
   setLook(heldPeriod() || periodAt(new Date()), true); lookTick(0);
   D.state = 'gate'; D.fade = 0;
-  if (window.__test) window.__dbg = { D, lift, P, camera, landing, dressLanding, setLook, setLamp, gradeMat, A, selectFloor, ROOF, H, surfaceUnder, ROOF_STONES, sfxStep, initAudio };
+  if (window.__test) window.__dbg = { D, lift, P, camera, landing, dressLanding, setLook, setLamp, gradeMat, A, selectFloor, ROOF, H, surfaceUnder, hot, HID, startHidden, ROOF_STONES, sfxStep, initAudio };
   requestAnimationFrame(loop);
   // warm up a few frames (shader compile), then fade in from black
   await nextFrame(); await nextFrame(); await nextFrame();

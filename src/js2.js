@@ -21,10 +21,152 @@ const FONT_SERIF = '"Shippori Mincho B1","Cormorant Garamond",Georgia,serif';
 const FONT_MONO = '"IBM Plex Mono",ui-monospace,Menlo,monospace';
 const FONT_EMOJI = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Segoe UI Symbol",sans-serif';
 async function loadFonts() {
-  const want = [`600 64px "Saira Condensed"`, `400 64px "Saira Stencil One"`, `500 32px "Shippori Mincho B1"`, `800 32px "Shippori Mincho B1"`, `500 32px "IBM Plex Mono"`, `400 32px "IBM Plex Mono"`];
-  try { await Promise.race([Promise.all(want.map(f => document.fonts.load(f))), new Promise(r => setTimeout(r, 3500))]); } catch (e) { }
+  const want = [`600 64px "Saira Condensed"`, `400 64px "Saira Stencil One"`, `500 32px "Shippori Mincho B1"`, `800 32px "Shippori Mincho B1"`, `500 32px "IBM Plex Mono"`, `400 32px "IBM Plex Mono"`, `400 64px "Permanent Marker"`, `400 64px "Sedgwick Ave Display"`];
+  const jp = document.fonts.load(`800 64px "Shippori Mincho B1"`, GRAF_JP);   // the kanji in the graffiti come from their own font subset
+  try { await Promise.race([Promise.all([...want.map(f => document.fonts.load(f)), jp]), new Promise(r => setTimeout(r, 3500))]); } catch (e) { }
 }
 
+/* ---- back-wall graffiti: years of tags over a sun-faded spray burst. Marker tags with drips, a red brush-kanji tag (無意識, "the unconscious"),
+   blue marker over blue/white/orange bursts, scribbles, splatter and a taped flyer. Drawn here, no images ---- */
+const GRAF_JP = '無意識夢上下';
+const GRAF = { w: 2048, h: 1072, mw: 6.5, mh: 3.4, y0: .05, door: [-.8, .8, 2.8] };   // canvas px; wall metres; door + transom opening (x0, x1, top)
+function grafTex() {
+  const { w: W, h: Hh } = GRAF, K = W / GRAF.mw, r = rng(404);
+  const X = (m) => (m + GRAF.mw / 2) * K, Y = (h) => (GRAF.y0 + GRAF.mh - h) * K;
+  const [c, x] = cv(W, Hh);
+  const MARK = '"Permanent Marker","Saira Condensed",Impact,sans-serif', HAND = '"Sedgwick Ave Display","Permanent Marker",Impact,sans-serif', JP = '"Shippori Mincho B1",serif';
+  // a paint layer: draw the shapes black, run drips off their lower edges, colour it, wear it, lay it on the wall
+  const layer = (draw, colour, { drips = 0, dripLen = 90, alpha = 1, wear = 1, mist = 0 } = {}) => {
+    const [m, mx] = cv(W, Hh); mx.fillStyle = mx.strokeStyle = '#000'; mx.lineCap = mx.lineJoin = 'round'; draw(mx);
+    if (drips) {
+      const d = mx.getImageData(0, 0, W, Hh).data, edge = [];
+      for (let yy = 2; yy < Hh - 4; yy += 2) for (let xx = 0; xx < W; xx += 3) { const i = (yy * W + xx) * 4 + 3; if (d[i] > 200 && d[i + W * 4 * 3] < 30) edge.push([xx, yy]); }
+      for (let k = 0; k < drips && edge.length; k++) {
+        const [ex, ey] = edge[Math.floor(r() * edge.length)], len = 8 + Math.pow(r(), 2) * dripLen, wd = 2 + r() * 3.5;
+        mx.beginPath(); mx.roundRect(ex - wd / 2, ey - 2, wd, len, wd / 2); mx.fill(); mx.beginPath(); mx.arc(ex, ey + len - wd * .2, wd * .8, 0, Math.PI * 2); mx.fill();
+      }
+    }
+    const [o, ox] = cv(W, Hh);
+    if (mist) { ox.filter = `blur(${mist}px)`; ox.globalAlpha = .35; ox.drawImage(m, 0, 0); ox.filter = 'none'; ox.globalAlpha = 1; }
+    ox.drawImage(m, 0, 0);
+    ox.globalCompositeOperation = 'source-in'; ox.fillStyle = colour; ox.fillRect(0, 0, W, Hh);
+    ox.globalCompositeOperation = 'destination-out';
+    for (let i = 0; i < 14000 * wear; i++) { ox.fillStyle = `rgba(0,0,0,${.2 + r() * .6})`; const s_ = .6 + r() * 2; ox.fillRect(r() * W, r() * Hh, s_, s_); }
+    for (let i = 0; i < 40 * wear; i++) { const px = r() * W, py = r() * Hh, rad = 12 + r() * 70; const g = ox.createRadialGradient(px, py, 0, px, py, rad); g.addColorStop(0, `rgba(0,0,0,${.2 + r() * .45})`); g.addColorStop(1, 'rgba(0,0,0,0)'); ox.fillStyle = g; ox.fillRect(px - rad, py - rad, rad * 2, rad * 2); }
+    x.globalAlpha = alpha; x.drawImage(o, 0, 0); x.globalAlpha = 1;
+  };
+  const text = (mx, str, font, px, py, rot = 0, { stroke = 0, skew = 0, spacing = 0 } = {}) => {
+    mx.save(); mx.translate(px, py); mx.rotate(rot); if (skew) mx.transform(1, 0, skew, 1, 0, 0); mx.font = font; mx.textBaseline = 'alphabetic';
+    if ('letterSpacing' in mx) mx.letterSpacing = spacing + 'px';
+    if (stroke) { mx.lineWidth = stroke; mx.strokeText(str, 0, 0); } else mx.fillText(str, 0, 0); mx.restore();
+  };
+  const scrawl = (mx, x0, y0, w, h, n, lw) => { mx.lineWidth = lw; mx.beginPath(); let px = x0, py = y0 + h / 2; mx.moveTo(px, py); for (let i = 0; i < n; i++) { px += w / n; mx.quadraticCurveTo(px - w / n / 2, y0 + r() * h, px, y0 + r() * h); } mx.stroke(); };
+  // 1. grime run down from the ceiling and water marks
+  for (let i = 0; i < 46; i++) { const px = r() * W, wd = 8 + r() * 70, len = 80 + r() * 520; const g = x.createLinearGradient(0, 0, 0, len); g.addColorStop(0, `rgba(20,16,10,${.08 + r() * .14})`); g.addColorStop(1, 'rgba(20,16,10,0)'); x.fillStyle = g; x.fillRect(px, 0, wd, len); }
+  // 2. the old spray bursts, faded: blue and white on the left, orange and white on the right, a green patch low down
+  const burst = (cx, cy, rx, ry, col, n, a) => { for (let i = 0; i < n; i++) { const px = cx + (r() - .5) * 2 * rx, py = cy + (r() - .5) * 2 * ry, rad = 30 + r() * 90; const g = x.createRadialGradient(px, py, 0, px, py, rad); g.addColorStop(0, `rgba(${col},${a * (.4 + r() * .6)})`); g.addColorStop(1, `rgba(${col},0)`); x.fillStyle = g; x.fillRect(px - rad, py - rad, rad * 2, rad * 2); }
+    for (let i = 0; i < n * 40; i++) { const px = cx + (r() - .5) * 2.6 * rx, py = cy + (r() - .5) * 2.6 * ry; x.fillStyle = `rgba(${col},${r() * a})`; x.fillRect(px, py, 1.5, 1.5); } };
+  burst(X(-2.3), Y(1.65), 260, 120, '52,112,206', 44, .62); burst(X(-1.4), Y(1.35), 120, 60, '236,238,232', 14, .3);
+  burst(X(1.8), Y(1.55), 250, 110, '222,110,46', 40, .55); burst(X(2.7), Y(1.9), 110, 60, '240,240,236', 12, .28); burst(X(2.2), Y(.75), 160, 70, '52,112,206', 18, .4); burst(X(-2.9), Y(.6), 120, 70, '96,150,70', 16, .35);
+  // 3. splatter and long drips from up high
+  layer((mx) => { for (let i = 0; i < 90; i++) { const px = X(-3.1) + r() * 900, py = Y(3.35) + r() * 160, rad = .8 + Math.pow(r(), 3) * 9; mx.beginPath(); mx.arc(px, py, rad, 0, Math.PI * 2); mx.fill(); }
+    for (let i = 0; i < 7; i++) { const px = X(-2.9) + r() * 1500, py = Y(3.4) + r() * 60, len = 120 + r() * 380; mx.lineWidth = 2 + r() * 4; mx.beginPath(); mx.moveTo(px, py); mx.lineTo(px + (r() - .5) * 6, py + len); mx.stroke(); } }, '#111', { wear: .6, alpha: .85 });
+  // 4. big black marker tags
+  layer((mx) => {
+    text(mx, 'SLOWBURN', `400 158px ${HAND}`, X(-3.18), Y(2.45), -.05);
+    text(mx, 'KROMA', `400 88px ${HAND}`, X(2.15), Y(3.2), .04); text(mx, 'deep end', `400 88px ${MARK}`, X(-2.4), Y(3.12), -.03);
+    text(mx, 'LOOP', `400 110px ${HAND}`, X(-3.0), Y(.75), .03); text(mx, 'ZZZ', `400 90px ${HAND}`, X(1.6), Y(.42), -.05);
+    text(mx, 'nobody home', `400 112px ${MARK}`, X(.95), Y(2.8), .03);
+    text(mx, 'AS IS', `400 128px ${HAND}`, X(-.62), Y(2.95), -.02);
+    text(mx, 'GHO$T', `400 96px ${HAND}`, X(.95), Y(1.05), -.08);
+    scrawl(mx, X(-3.0), Y(3.38), 360, 50, 7, 7); scrawl(mx, X(.9), Y(2.42), 520, 60, 9, 9); scrawl(mx, X(-2.0), Y(1.0), 300, 40, 6, 6);
+  }, '#121212', { drips: 110, dripLen: 150, alpha: .92, mist: 5 });
+  // 5. red brush kanji: 無意識, "the unconscious", with a slashed underline
+  layer((mx) => { text(mx, '無意識', `800 190px ${JP}`, X(1.25), Y(1.95), -.06, { skew: -.18 }); mx.lineWidth = 9; mx.beginPath(); mx.moveTo(X(1.2), Y(1.82)); mx.quadraticCurveTo(X(2.0), Y(1.72), X(3.0), Y(1.86)); mx.stroke(); },
+    '#a8302a', { drips: 45, dripLen: 160, alpha: .88, mist: 4 });
+  // 6. blue marker over the bursts
+  layer((mx) => {
+    text(mx, 'mothlight', `400 84px ${MARK}`, X(-3.05), Y(1.62), -.02); text(mx, 'VEIN', `400 92px ${HAND}`, X(2.05), Y(1.25), .05);
+    text(mx, '夢', `800 120px ${JP}`, X(-1.2), Y(2.05), .1);
+  }, '#2b5bb4', { drips: 26, dripLen: 90, alpha: .9, mist: 3 });
+  // 6b. chalky white marker on the teal below
+  layer((mx) => { text(mx, 'still here', `400 70px ${MARK}`, X(-2.55), Y(.5), -.04); text(mx, 'L', `400 120px ${HAND}`, X(2.85), Y(.4), .1); text(mx, 'up is down', `400 52px ${MARK}`, X(1.0), Y(1.05), .06);
+    for (let i = 0; i < 8; i++) scrawl(mx, X(-3.1 + r() * 6), Y(.15 + r() * 1.0), 70 + r() * 120, 14 + r() * 20, 5, 2.5); }, '#e6e2d6', { drips: 14, dripLen: 50, alpha: .75, wear: .8 });
+  // 7. small scribbles, numbers, hearts and crowns
+  layer((mx) => {
+    const notes = [['33·37·13', -2.9, 1.25, 40], ['4  4', -1.9, 1.05, 44], ['kiki+mo', 1.05, .78, 40], ['↑ 22', 2.6, 2.35, 46], ['B3', -1.15, 2.55, 50], ['was here', 2.15, .55, 34], ['R?', -2.45, 2.2, 48], ['wake up', 1.0, 2.3, 38], ['0', -3.0, .3, 60], ['no lift', 2.55, 1.05, 34]];
+    for (const [t_, xm, ym, fs] of notes) text(mx, t_, `400 ${fs}px ${MARK}`, X(xm), Y(ym), (r() - .5) * .25);
+    mx.lineWidth = 4;
+    for (const [xm, ym] of [[-1.9, 1.4], [2.8, .8], [1.3, 2.6]]) { const px = X(xm), py = Y(ym); mx.beginPath(); mx.moveTo(px, py + 18); mx.bezierCurveTo(px - 30, py - 4, px - 14, py - 26, px, py - 8); mx.bezierCurveTo(px + 14, py - 26, px + 30, py - 4, px, py + 18); mx.stroke(); }
+    for (const [xm, ym] of [[-2.95, 2.75], [.98, 3.12]]) { const px = X(xm), py = Y(ym); mx.beginPath(); mx.moveTo(px, py); mx.lineTo(px + 10, py - 30); mx.lineTo(px + 24, py - 8); mx.lineTo(px + 38, py - 34); mx.lineTo(px + 50, py - 8); mx.lineTo(px + 64, py - 30); mx.lineTo(px + 72, py); mx.closePath(); mx.stroke(); }
+    for (let i = 0; i < 26; i++) scrawl(mx, X(-3.1 + r() * 6), Y(.4 + r() * 2.6), 80 + r() * 140, 16 + r() * 24, 5 + Math.floor(r() * 5), 2.5);
+    for (let i = 0; i < 5; i++) { const px = X(2.4 + i * .06), py = Y(.95); mx.lineWidth = 3; mx.beginPath(); mx.moveTo(px, py); mx.lineTo(px, py + 36); mx.stroke(); }
+  }, '#1a1a1a', { alpha: .8, wear: .5 });
+  // 8. a flyer, taped up and peeling: MISSING / FLOOR 4
+  { const fx = X(-2.05), fy = Y(1.95), fw = .34 * K, fh = .46 * K; x.save(); x.translate(fx, fy); x.rotate(.05);
+    x.fillStyle = 'rgba(0,0,0,.25)'; x.fillRect(4, 6, fw, fh);
+    x.fillStyle = '#e8e1cd'; x.beginPath(); x.moveTo(0, 0); x.lineTo(fw, 0); x.lineTo(fw, fh * .8); x.lineTo(fw * .86, fh); x.lineTo(0, fh); x.closePath(); x.fill();
+    x.fillStyle = '#1c1a17'; x.textAlign = 'center'; x.font = `400 26px ${FONT_STENCIL}`; x.fillText('MISSING', fw / 2, 34);
+    x.strokeStyle = '#1c1a17'; x.lineWidth = 3; x.strokeRect(fw * .2, 48, fw * .6, fh * .42); x.font = `400 64px ${FONT_STENCIL}`; x.fillText('4', fw / 2, 48 + fh * .3);
+    x.font = `400 17px ${MARK}`; x.fillText('one floor, between', fw / 2, fh * .74); x.fillText('3 and 5. if found', fw / 2, fh * .74 + 20); x.fillText('press R', fw / 2, fh * .74 + 40);
+    x.fillStyle = 'rgba(214,206,170,.8)'; for (const [tx, ty, a] of [[0, 0, -.6], [fw, 0, .6], [0, fh, .5]]) { x.save(); x.translate(tx, ty); x.rotate(a); x.fillRect(-18, -6, 36, 12); x.restore(); }
+    x.restore(); x.textAlign = 'start'; }
+  // the door and its transom are an opening in the wall: nothing painted there
+  x.clearRect(X(GRAF.door[0]), Y(GRAF.door[2]), (GRAF.door[1] - GRAF.door[0]) * K, Hh);
+  return ctex(c);
+}
+/* ---- maker's tag: stencil graffiti sprayed on the lift wall under the directory (Saira Stencil + hand-cut logos, overspray, drips) ---- */
+const SOCIAL = [
+  { key: 'instagram', label: 'Instagram', handle: '@belabbasanis', url: 'https://www.instagram.com/belabbasanis' },
+  { key: 'x', label: 'X', handle: '@0xBelabbaa', url: 'https://x.com/0xBelabbaa' },
+];
+const TAG = { w: 1024, h: 600, mw: .92, x: 1.98, y: .66, icon: 128, iconY: 452, iconX: [404, 620] };   // canvas px, metres, and where the two logos sit on the canvas
+function tagTex() {
+  const { w: W, h: Hh } = TAG, r = rng(77);
+  const [m, mx] = cv(W, Hh);     // the stencil mask: what the cut-out lets through
+  mx.fillStyle = '#000'; mx.textAlign = 'center'; mx.textBaseline = 'alphabetic';
+  mx.font = `400 58px ${FONT_STENCIL}`; if ('letterSpacing' in mx) mx.letterSpacing = '14px'; mx.fillText('CRAFTED BY', W / 2 + 7, 132);
+  mx.font = `400 128px ${FONT_STENCIL}`; if ('letterSpacing' in mx) mx.letterSpacing = '4px'; mx.fillText('ANIS BELABBAS', W / 2 + 2, 290);
+  if ('letterSpacing' in mx) mx.letterSpacing = '0px';
+  const S = TAG.icon;
+  // Instagram: rounded square, lens and flash, each ring cut with stencil bridges
+  { const cx = TAG.iconX[0], cy = TAG.iconY, h = S / 2, rr = S * .28, t = S * .1;
+    mx.lineWidth = t; mx.strokeStyle = '#000';
+    mx.beginPath(); mx.roundRect(cx - h + t / 2, cy - h + t / 2, S - t, S - t, rr); mx.stroke();
+    mx.beginPath(); mx.arc(cx, cy, S * .22, 0, Math.PI * 2); mx.stroke();
+    mx.beginPath(); mx.arc(cx + S * .27, cy - S * .27, S * .065, 0, Math.PI * 2); mx.fill();
+    mx.globalCompositeOperation = 'destination-out';
+    for (const [bx, by, bw, bh] of [[cx - 4, cy - h - 2, 8, t + 4], [cx - 4, cy + h - t - 2, 8, t + 4], [cx - S * .22 - t, cy - 3, t * 2, 6], [cx + S * .22 - t, cy - 3, t * 2, 6]]) mx.fillRect(bx, by, bw, bh);
+    mx.globalCompositeOperation = 'source-over'; }
+  // X: the heavy stroke top-left to bottom-right, the thin one crossing it with a gap
+  { const cx = TAG.iconX[1], cy = TAG.iconY, h = S / 2;
+    mx.beginPath(); mx.moveTo(cx - h, cy - h); mx.lineTo(cx - h + S * .3, cy - h); mx.lineTo(cx + h, cy + h); mx.lineTo(cx + h - S * .3, cy + h); mx.closePath(); mx.fill();
+    mx.lineWidth = S * .085; mx.lineCap = 'butt';
+    mx.beginPath(); mx.moveTo(cx + h - S * .06, cy - h); mx.lineTo(cx + S * .1, cy - S * .1); mx.stroke();
+    mx.beginPath(); mx.moveTo(cx - S * .1, cy + S * .1); mx.lineTo(cx - h + S * .06, cy + h); mx.stroke(); }
+  // a thin rule between the name and the logos, sprayed through a straight edge
+  mx.fillRect(W / 2 - 250, 340, 500, 7);
+  const [c, x] = cv(W, Hh);
+  // overspray: the paint mist that escapes round the stencil edges
+  x.filter = 'blur(9px)'; x.globalAlpha = .28; x.drawImage(m, 0, 0); x.filter = 'blur(3px)'; x.globalAlpha = .5; x.drawImage(m, 0, 0); x.filter = 'none'; x.globalAlpha = 1;
+  x.drawImage(m, 0, 0);
+  // drips: from the bottom of the letters and logos, a few long ones
+  const md = mx.getImageData(0, 0, W, Hh).data, edge = [];
+  for (let yy = 1; yy < Hh - 1; yy += 2) for (let xx = 0; xx < W; xx += 3) { const i = (yy * W + xx) * 4 + 3; if (md[i] > 200 && md[i + W * 4 * 2] < 40) edge.push([xx, yy]); }
+  for (let k = 0; k < 26 && edge.length; k++) {
+    const [ex, ey] = edge[Math.floor(r() * edge.length)], len = 12 + Math.pow(r(), 2.2) * 120, wd = 2.5 + r() * 3;
+    const g = x.createLinearGradient(0, ey, 0, ey + len); g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(.85, 'rgba(0,0,0,.9)'); g.addColorStop(1, 'rgba(0,0,0,.7)');
+    x.fillStyle = g; x.beginPath(); x.roundRect(ex - wd / 2, ey - 2, wd, len, wd / 2); x.fill();
+    x.beginPath(); x.arc(ex, ey + len - wd * .2, wd * .85, 0, Math.PI * 2); x.fill();
+  }
+  // paint colour (chalky off-white, it reads on the dark teal where black would vanish) and the wear: speckle from the can, and patches rubbed thin where the wall rusts through
+  x.globalCompositeOperation = 'source-in'; x.fillStyle = '#ece6d8'; x.fillRect(0, 0, W, Hh);
+  x.globalCompositeOperation = 'destination-out';
+  for (let i = 0; i < 9000; i++) { x.fillStyle = `rgba(0,0,0,${.25 + r() * .6})`; const s_ = .6 + r() * 1.8; x.fillRect(r() * W, r() * Hh, s_, s_); }
+  for (let i = 0; i < 26; i++) { const px = r() * W, py = r() * Hh, rad = 10 + r() * 46; const g = x.createRadialGradient(px, py, 0, px, py, rad); g.addColorStop(0, `rgba(0,0,0,${.35 + r() * .4})`); g.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g; x.fillRect(px - rad, py - rad, rad * 2, rad * 2); }
+  x.globalCompositeOperation = 'source-over';
+  return ctex(c);
+}
 /* ---- button atlas: engraved numerals on aged ivory, a red ALARM face, door symbols ---- */
 const BTN_CELLS = ['L', ...FLOORS.map(p => String(p.floor)), 'R', 'ALARM', 'OPEN', 'CLOSE', 'CALL'];
 const BTN_N = Math.ceil(Math.sqrt(BTN_CELLS.length));
@@ -585,6 +727,9 @@ function envMap() {
   const pm = new THREE.PMREMGenerator(renderer); const t = pm.fromScene(es, .03).texture; pm.dispose(); return t;
 }
 
+/* ---- the lobby carpet: the supplied rug model (carpet.json), 2 x 3 m in the middle of the floor. Its own texture atlas is soft, so the top
+   is projected straight down from the rug photo, flattened and mirrored about the medallion (textures/carpet-top.webp) ---- */
+const CARPET = { x: 0, z: (WALL_Z + LOBBY.z1) / 2, w: 2, d: 3, h: .02 };
 function buildLobby() {
   const b = new Bucket(); const L = LOBBY;
   // floor, ceiling, beams
@@ -664,20 +809,34 @@ function buildLobby() {
   dir.position.set(1.98, 1.58, WALL_Z + .052); world.add(dir);
   const dg = new THREE.Mesh(new THREE.PlaneGeometry(.68, .92), M.glass); dg.position.set(1.98, 1.58, WALL_Z + .058); world.add(dg);
   hot.push(Object.assign(dir, { userData: { act: { type: 'directory' } } }));
-  // plant pot in the foreground of the opening shot
+  // graffiti on the back wall, round the door
+  { const g = new THREE.Mesh(new THREE.PlaneGeometry(GRAF.mw, GRAF.mh), new THREE.MeshStandardMaterial({ map: grafTex(), transparent: true, depthWrite: false, roughness: .6, metalness: 0, polygonOffset: true, polygonOffsetFactor: -2 }));
+    g.position.set(0, GRAF.y0 + GRAF.mh / 2, L.z1 - .004); g.rotation.y = Math.PI; world.add(g); }
+  // maker's tag sprayed under the directory; each logo has its own invisible hit area that opens the profile
+  { const mh = TAG.mw * TAG.h / TAG.w, k = TAG.mw / TAG.w;
+    const tag = new THREE.Mesh(new THREE.PlaneGeometry(TAG.mw, mh), new THREE.MeshStandardMaterial({ map: tagTex(), transparent: true, depthWrite: false, roughness: .55, metalness: 0, polygonOffset: true, polygonOffsetFactor: -2 }));
+    tag.position.set(TAG.x, TAG.y, WALL_Z + .004); world.add(tag);
+    const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false });
+    SOCIAL.forEach((s_, i) => {
+      const hit = new THREE.Mesh(new THREE.PlaneGeometry(TAG.icon * 1.5 * k, TAG.icon * 1.5 * k), hitMat);
+      hit.position.set(TAG.x - TAG.mw / 2 + TAG.iconX[i] * k, TAG.y + mh / 2 - TAG.iconY * k, WALL_Z + .01); hit.userData.act = { type: 'social', ...s_ };
+      world.add(hit); hot.push(hit);
+    }); }
+  // plant pot, standing in the middle of the carpet
+  const PX = CARPET.x, PZ = CARPET.z, PY = CARPET.h;
   const potPts = [[0, 0], [.13, 0], [.15, .02], [.17, .3], [.2, .32], [.2, .36], [.18, .36], [.17, .33], [0, .33]].map(p => new THREE.Vector2(p[0], p[1]));
-  const pot = new THREE.Mesh(new THREE.LatheGeometry(potPts, 28), M.terracotta); pot.position.set(-.9, 0, 4.05); pot.castShadow = pot.receiveShadow = true; world.add(pot);
-  const soil = new THREE.Mesh(new THREE.CircleGeometry(.17, 24).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x140d07, roughness: 1 })); soil.position.set(-.9, .325, 4.05); world.add(soil);
+  const pot = new THREE.Mesh(new THREE.LatheGeometry(potPts, 28), M.terracotta); pot.position.set(PX, PY, PZ); pot.castShadow = pot.receiveShadow = true; world.add(pot);
+  const soil = new THREE.Mesh(new THREE.CircleGeometry(.17, 24).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x140d07, roughness: 1 })); soil.position.set(PX, PY + .325, PZ); world.add(soil);
   const pr = rng(31);
   for (let i = 0; i < 14; i++) {
     const a = pr() * 6.283, h = .45 + pr() * .65, lean = .15 + pr() * .3;
-    const base = new V3(-.9 + Math.cos(a) * .05, .32, 4.05 + Math.sin(a) * .05), tip = new V3(-.9 + Math.cos(a) * lean, .32 + h, 4.05 + Math.sin(a) * lean);
+    const base = new V3(PX + Math.cos(a) * .05, PY + .32, PZ + Math.sin(a) * .05), tip = new V3(PX + Math.cos(a) * lean, PY + .32 + h, PZ + Math.sin(a) * lean);
     const mid = base.clone().lerp(tip, .5).add(new V3(Math.cos(a) * .08, .05, Math.sin(a) * .08));
     (vineGeos.get(world) || vineGeos.set(world, []).get(world)).push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([base, mid, tip]), 8, .006, 5, false));
     const nrm = new V3(Math.cos(a) * .6, .7, Math.sin(a) * .6).add(new V3(pr() - .5, pr() - .5, pr() - .5).multiplyScalar(.6)); const up = new V3(Math.cos(a), .4 + pr() * .5, Math.sin(a));
     leafM.push({ parent: world, m: leafMatrix(tip, nrm, up, .16 + pr() * .12, new THREE.Matrix4()) }); leafC.push(new THREE.Color().setHSL(.24 + pr() * .05, .55, .2 + pr() * .12));
   }
-  moss(world, new V3(-.9, .34, 4.05), 6, new V3(.28, .01, .28), 5, .035);
+  moss(world, new V3(PX, PY + .34, PZ), 6, new V3(.28, .01, .28), 5, .035);
   // ivy: up the left jamb, across the header, over the dial; round the window; from the pipe
   ivy(world, { origin: new V3(0, 0, WALL_Z + .052), U: new V3(1, 0, 0), V: new V3(0, 1, 0), N: new V3(0, 0, 1), u0: -2.6, u1: -.55, v0: 0, v1: 2.48, seed: 3,
     starts: [[-.75, .02, 1.5, 70], [-1.1, .02, 1.3, 60], [-1.9, .02, 1.7, 46], [-.62, .4, 1.6, 52]], leaf: .07, flowers: .05 });
@@ -1067,7 +1226,7 @@ function loadPlants() {
     fetch(`models/${name}.json`).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then((j) => {
       const g = meshFromJSON(j), top = j.max[1];
       const map = TL.load(`textures/${name}-color.webp`); map.colorSpace = THREE.SRGBColorSpace; map.anisotropy = Math.min(8, MAX_ANISO);
-      const nm = TL.load(`textures/${name}-normal.webp`);
+      const nm = TL.load(`textures/${name}-normal.webp`); map.flipY = nm.flipY = false;   // glTF uvs start at the top of the image
       const mat = new THREE.MeshStandardMaterial({ map, normalMap: nm, side: THREE.DoubleSide, roughness: .82, metalness: 0, envMapIntensity: .35 });
       const byParent = new Map(); for (const e of list) { if (!byParent.has(e[0])) byParent.set(e[0], []); byParent.get(e[0]).push(e); }
       for (const [parent, items] of byParent) {
@@ -1078,6 +1237,37 @@ function loadPlants() {
     }).catch(() => console.warn(`Plant model not loaded: ${name}`));
   }
 }
+/* ---- the umbrella stall at the back of the lobby (stall.json, from the supplied model, simplified): under the graffiti, right of the door, facing the room ---- */
+const STALL = { x: 2.08, z: 6.2, h: 2.1, ry: Math.PI };   // centre on the floor, height in metres, turn
+STALL.box = [STALL.x - 1.0, STALL.x + 1.0, STALL.z - 1.05, LOBBY.z1];   // walk-around footprint (x0, x1, z0, z1), set from the model's size below
+function loadStall() {
+  fetch('models/stall.json').then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then((j) => {
+    const g = meshFromJSON(j), TL = new THREE.TextureLoader();
+    const map = TL.load('textures/stall-color.webp'), nm = TL.load('textures/stall-normal.webp'); map.colorSpace = THREE.SRGBColorSpace; map.anisotropy = Math.min(8, MAX_ANISO);
+    map.flipY = nm.flipY = false;   // glTF uvs start at the top of the image
+    const mat = new THREE.MeshStandardMaterial({ map, normalMap: nm, roughness: .85, metalness: 0, envMapIntensity: .35 });
+    const m = new THREE.Mesh(g, mat), k = STALL.h / (j.max[1] - j.min[1]);
+    m.scale.setScalar(k); m.rotation.y = STALL.ry;
+    m.position.set(STALL.x - (j.min[0] + j.max[0]) / 2 * k * Math.cos(STALL.ry), -j.min[1] * k, STALL.z + (j.min[2] + j.max[2]) / 2 * k * Math.cos(STALL.ry));
+    m.castShadow = m.receiveShadow = true; world.add(m);
+    const hw = (j.max[0] - j.min[0]) / 2 * k, hd = (j.max[2] - j.min[2]) / 2 * k;
+    STALL.box = [STALL.x - hw * .8, STALL.x + hw * .8, STALL.z - hd * .75, LOBBY.z1];
+  }).catch(() => console.warn('Stall model not loaded'));
+}
+function loadCarpet() {
+  fetch('models/carpet.json').then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then((j) => {
+    const g = meshFromJSON(j), p = g.attributes.position, n = p.count, uv = new Float32Array(n * 2);
+    const sx = j.max[0] - j.min[0], sz = j.max[2] - j.min[2];
+    for (let i = 0; i < n; i++) { uv[i * 2] = (p.getX(i) - j.min[0]) / sx; uv[i * 2 + 1] = (p.getZ(i) - j.min[2]) / sz; }
+    g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    const map = new THREE.TextureLoader().load('textures/carpet-top.webp'); map.colorSpace = THREE.SRGBColorSpace; map.anisotropy = Math.min(8, MAX_ANISO);
+    const mat = new THREE.MeshStandardMaterial({ map, roughness: 1, metalness: 0, envMapIntensity: .25 });
+    const m = new THREE.Mesh(g, mat);
+    m.scale.set(CARPET.w / sx, CARPET.h / (j.max[1] - j.min[1]), CARPET.d / sz);
+    m.position.set(CARPET.x - (j.min[0] + sx / 2) * m.scale.x, -j.min[1] * m.scale.y + .001, CARPET.z - (j.min[2] + sz / 2) * m.scale.z);
+    m.receiveShadow = true; world.add(m);
+  }).catch(() => console.warn('Carpet model not loaded'));
+}
 async function buildScene(progress) {
   await loadFonts();
   await preloadStickerImages();
@@ -1085,7 +1275,7 @@ async function buildScene(progress) {
   progress('Hanging the ivy…');
   scene.environment = envMap();
   TEX.btn = buttonAtlas(); TEX.stk = stickerAtlas();
-  buildLobby(); buildShaft(); buildCab(); buildLanding();
+  buildLobby(); buildShaft(); buildCab(); buildHidden(); buildLanding();
   // vines + instanced foliage per parent
   const leafGeo = leafGeometry(), mossGeo = mossGeometry(), flGeo = flowerGeometry();
   for (const parent of [world, cab, landing]) {
@@ -1099,7 +1289,7 @@ async function buildScene(progress) {
   // signage stays crisp in the painted looks: every canvas-drawn surface except the ivy leaves
   scene.traverse(o => { const m = o.material; if (m && !Array.isArray(m) && m.map && m.map.isCanvasTexture && m !== M.leaf && m !== M.dry) keepSharp(m); });
   buildRoof();
-  placeMoss(); buildMoss(); placePlants(); loadPlants();
+  placeMoss(); buildMoss(); placePlants(); loadPlants(); loadCarpet(); loadStall();
   motes(world, 900, [LOBBY.x0 + .1, LOBBY.x1 - .1, .05, LOBBY.h - .1, WALL_Z + .05, LOBBY.z1 - .1], 5);
   motes(cab, 260, [CAB.x0 + .02, CAB.x1 - .02, .05, CAB.h - .05, CAB.z0 + .02, CAB.z1 - .02], 6);
   motes(landing, 260, [LAND.x0 + .05, LAND.x1 - .05, .05, LAND.h - .1, WALL_Z + .05, LAND.z1 - .1], 7);

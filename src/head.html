@@ -3,7 +3,7 @@
 /* =====================================================================
    PROJECTS: one entry per floor. Add people here and nothing else needs to change.
    floor   whole number, 1 or higher (the lobby is L). Each floor once.
-   name    shown on the button tooltip, the landing wall and the floor list.
+   name    shown on the landing wall, the arrival caption and the floor list.
    author  shown under the name.
    url     opens in a new tab when a visitor steps out onto the landing.
    sticker an emoji or up to 3 characters, or a data:image/... URI.
@@ -29,7 +29,7 @@ const STUDIO = 'Bermuda DPT';   // credit line: "<STUDIO> presents"
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@500;800&family=Cormorant+Garamond:ital,wght@0,500;1,500&family=IBM+Plex+Mono:wght@400;500&family=Saira+Condensed:wght@600&family=Saira+Stencil+One&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@500;800&family=Cormorant+Garamond:ital,wght@0,500;1,500&family=IBM+Plex+Mono:wght@400;500&family=Saira+Condensed:wght@600&family=Saira+Stencil+One&family=Permanent+Marker&family=Sedgwick+Ave+Display&display=swap">
 <style>
 /* Layout: full-bleed WebGL viewport; cinematic type sits over the live scene, captions low and centred, one small menu button in the corner. */
 :root{
@@ -63,10 +63,10 @@ body.letterbox #lb i{height:calc((100vh - 100vw/2.39)/2)}
 #credit.on{transform:none}
 #logo{left:9vw;top:40%;text-align:left;transform:translateX(-18px)}
 #logo.on{transform:none}
-#logo .word{font-family:var(--f-serif);font-weight:800;font-size:clamp(46px,7.4vw,118px);letter-spacing:.2em;line-height:.9;margin-right:-.2em;color:#fffbf3;text-shadow:0 2px 3px rgba(0,0,0,.35),0 6px 30px rgba(0,0,0,.45);white-space:nowrap}
+#logo .word{display:block;height:clamp(38px,5.9vw,94px);width:auto;filter:drop-shadow(0 2px 2px rgba(0,0,0,.35)) drop-shadow(0 6px 18px rgba(0,0,0,.45));user-select:none}
 #logo .sub{display:flex;align-items:center;gap:14px;margin-top:18px;font-family:var(--f-serif);font-weight:500;font-size:clamp(12px,1.1vw,15px);letter-spacing:.32em;text-transform:uppercase;color:#fffbf3;text-shadow:0 1px 2px rgba(0,0,0,.6),0 2px 14px rgba(0,0,0,.5)}
 .seal{display:inline-grid;place-items:center;width:1.9em;height:1.9em;background:#b3261e;color:#f8e9dc;font-size:1.15em;letter-spacing:0;border-radius:50%;box-shadow:0 0 0 1px rgba(255,255,255,.08),0 4px 12px rgba(0,0,0,.35)}
-@media (max-width:640px){ #credit{right:6vw;top:40%} #logo{left:6vw;right:6vw;top:34%} #logo .sub{flex-wrap:wrap;gap:8px 10px;letter-spacing:.18em} #logo .word{font-size:15vw} }
+@media (max-width:640px){ #credit{right:6vw;top:40%} #logo{left:6vw;right:6vw;top:34%} #logo .sub{flex-wrap:wrap;gap:8px 10px;letter-spacing:.18em} #logo .word{height:12vw} }
 
 /* start screen: Updraft's card, set over the live lobby shot instead of black */
 #start{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;cursor:pointer;transition:opacity 1.6s ease;outline:none;
@@ -91,12 +91,7 @@ body.letterbox #cap{bottom:calc((100vh - 100vw/2.39)/2 + 2vh)}
 #hint kbd{font-family:var(--f-mono);font-size:11px;color:var(--ink);border:1px solid var(--ink-faint);border-bottom-width:2px;border-radius:4px;padding:0 5px;background:rgba(0,0,0,.2)}
 @media (max-width:640px){ #cap,#hint{white-space:normal;width:86vw;text-align:center} #cap{padding:12px 16px;font-size:14px} }
 #ret{left:50%;top:50%;width:4px;height:4px;margin:-2px 0 0 -2px;border-radius:50%;background:rgba(255,248,236,.75);box-shadow:0 0 0 1.5px rgba(0,0,0,.35);opacity:0;transition:opacity .3s,transform .2s}
-#ret.on{opacity:1} #ret.hot{transform:scale(2.2);background:var(--amber)}
-#tip{left:0;top:0;transform:translate(14px,-50%);padding:8px 12px 9px;background:var(--plate);border:1px solid rgba(255,236,210,.14);border-radius:6px;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);opacity:0;transition:opacity .2s;min-width:120px;max-width:280px}
-#tip.on{opacity:1}
-#tip .fl{font-family:"Saira Condensed","Arial Narrow",sans-serif;font-weight:600;font-size:12px;letter-spacing:.2em;color:var(--amber);text-transform:uppercase}
-#tip b{display:block;font-family:var(--f-serif);font-weight:500;font-size:17px;letter-spacing:.04em;margin-top:2px}
-#tip span{display:block;font-size:11px;color:var(--ink-dim);letter-spacing:.06em;margin-top:2px}
+#ret.on{opacity:1} #ret.hot{transform:scale(4);background:transparent;box-shadow:inset 0 0 0 .45px var(--amber),0 0 0 .3px rgba(0,0,0,.4)}
 #typed{left:50%;top:58%;transform:translateX(-50%);font-family:"Saira Condensed","Arial Narrow",sans-serif;font-weight:600;font-size:30px;letter-spacing:.2em;color:var(--amber);text-shadow:0 0 18px rgba(255,160,60,.45),0 1px 2px rgba(0,0,0,.8);opacity:0;transition:opacity .25s}
 #typed.on{opacity:1}
 
@@ -128,6 +123,8 @@ body.letterbox #cap{bottom:calc((100vh - 100vw/2.39)/2 + 2vh)}
 .tog{font:inherit;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);background:transparent;border:1px solid var(--ink-faint);border-radius:12px;padding:5px 12px;cursor:pointer}
 .tog[aria-pressed="true"]{border-color:var(--amber);color:var(--amber)}
 .tog:focus-visible,#closeMenu:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.maker{margin:0;font-size:12px;letter-spacing:.08em;color:rgba(246,239,227,.62)} .maker a{color:var(--ink);text-underline-offset:3px}
+#flash{position:fixed;inset:0;z-index:9;background:#eef4ff;opacity:0;pointer-events:none}
 #closeMenu{align-self:flex-start;font:inherit;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink);background:rgba(255,236,210,.08);border:1px solid var(--ink-faint);border-radius:4px;padding:8px 14px;cursor:pointer}
 .keys{display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:11px;color:var(--ink-dim);align-items:center}
 .keys kbd{font-family:var(--f-mono);font-size:10px;color:var(--ink);border:1px solid var(--ink-faint);border-bottom-width:2px;border-radius:4px;padding:0 5px;white-space:nowrap;justify-self:start}
@@ -147,13 +144,12 @@ body.rm .cine,body.rm #lb i{transition-duration:.01s}
 <div id="lb" aria-hidden="true"><i id="lbT"></i><i id="lbB"></i></div>
 <div id="credit" class="cine" aria-hidden="true"><span id="creditName"></span><br><span>presents</span></div>
 <div id="logo" class="cine" role="img" aria-label="">
-  <div class="word" id="logoWord"></div>
+  <img class="word" id="logoWord" src="images/as-is-logo.png" alt="" draggable="false">
   <div class="sub"><span class="seal" aria-hidden="true">↑</span><span id="logoSub"></span></div>
 </div>
 <div id="cap" class="ui" aria-live="polite"></div>
 <div id="hint" class="ui"></div>
 <div id="ret" class="ui" aria-hidden="true"></div>
-<div id="tip" class="ui" aria-hidden="true"><div class="fl" id="tipFl"></div><b id="tipName"></b><span id="tipBy"></span></div>
 <div id="typed" class="ui" aria-live="polite"></div>
 <div id="stick" aria-hidden="true"><i id="knob"></i></div>
 <a id="visit" href="#" target="_blank" rel="noopener"><small id="visitSmall">Step out to visit</small><b id="visitName"></b></a>
@@ -174,6 +170,7 @@ body.rm .cine,body.rm #lb i{transition-duration:.01s}
       <kbd>0–9</kbd><span>type a floor number, then wait or press Enter. L for the lobby</span>
       <kbd>F</kbd><span>this list</span>
     </div>
+    <p class="maker">Crafted by Anis Belabbas · <a href="https://www.instagram.com/belabbasanis" target="_blank" rel="noopener">Instagram</a> · <a href="https://x.com/0xBelabbaa" target="_blank" rel="noopener">X</a></p>
     <button id="closeMenu" type="button">Close</button>
   </div>
 </div>
@@ -182,5 +179,6 @@ body.rm .cine,body.rm #lb i{transition-duration:.01s}
   <div class="press wait" id="pressTxt">Wiring the cab…</div>
   <div class="note">Sound on · headphones recommended</div>
 </div>
+<div id="flash" aria-hidden="true"></div>
 <div id="fade"></div>
 <div id="nogl" hidden><div class="panel" id="noglPanel"></div></div>
