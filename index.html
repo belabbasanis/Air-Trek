@@ -2838,6 +2838,7 @@ function boltGeometry() {
 /* ---- sound: thunder at the flash, the track rising with the doors ---- */
 function sfxThunder() {
   if (!A.ctx) return; const t = now_();
+  if (A.smp.thunder) { playBuf(A.smp.thunder, t, { gain: 1 }); thump(t, 60, 26, .35, 1.2); return; }   // the recorded strike, with a little extra low end
   noiseHit(t, 'highpass', 2400, .7, .35, .12); noiseHit(t + .02, 'bandpass', 900, .8, .3, .5);
   noiseHit(t + .05, 'lowpass', 180, .7, .9, 2.8); noiseHit(t + .4, 'lowpass', 120, .7, .6, 3.2); thump(t, 70, 28, .6, 1.4);
 }
@@ -2946,8 +2947,9 @@ function smokeTick(dt, time) {
    ====================================================================== */
 const A = { ctx: null, smp: {} };
 /* ---- recorded sounds (audio/ next to the page). If any fail to load, the generated sound is used instead. ---- */
-const SAMPLES = { song: 'audio/song.mp3', tile: 'audio/steps-tile.mp3', metal: 'audio/steps-metal.mp3', start: 'audio/lift-start.mp3', stop: 'audio/lift-stop.mp3', loop: 'audio/lift-loop.mp3', hidden: HIDDEN.track };
+const SAMPLES = { song: 'audio/song.mp3', tile: 'audio/steps-tile.mp3', metal: 'audio/steps-metal.mp3', start: 'audio/lift-start.mp3', stop: 'audio/lift-stop.mp3', loop: 'audio/lift-loop.mp3', hidden: HIDDEN.track, thunder: 'audio/thunder.mp3', button: 'audio/button.mp3' };
 const STEP_SLOT = { tile: [.5, .45, 8], metal: [1.0, .9, 8] };       // slot length, step length, steps per file
+const BTN_SLOT = [.5, .48, 7];                                          // button.mp3: seven arcade button presses, one per half second
 const LOOP_IN = .5, LOOP_OUT = 27.5;                                    // seamless region of lift-loop.mp3
 const samplesReady = (async () => {
   const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext; if (!OAC) return;
@@ -3074,6 +3076,13 @@ function noiseHit(t, type, f, q, g, dur, dest) {
 function thump(t, f0, f1, g, dur) { const ctx = A.ctx; if (!ctx) return; const o = ctx.createOscillator(); o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur); const e = ctx.createGain(); e.gain.setValueAtTime(g, t); e.gain.exponentialRampToValueAtTime(.0005, t + dur); o.connect(e).connect(A.master); o.start(t); o.stop(t + dur + .05); }
 const now_ = () => A.ctx ? A.ctx.currentTime : 0;
 function sfxClick() { if (!A.ctx) return; const t = now_(); noiseHit(t, 'highpass', 2400, .7, .25, .03); thump(t, 220, 120, .18, .06); noiseHit(t + .07, 'bandpass', 1500, 3, .06, .04); }
+// lift buttons: an arcade button press, a different take each time (the synthesized click if the file is missing)
+let lastBtn = -1;
+function sfxButton() {
+  if (!A.ctx) return; const buf = A.smp.button; if (!buf) return sfxClick();
+  const [slot, len, n] = BTN_SLOT; let i = Math.floor(Math.random() * n); if (i === lastBtn) i = (i + 1) % n; lastBtn = i;
+  playBuf(buf, now_(), { gain: .55 * (.9 + Math.random() * .1), rate: .97 + Math.random() * .06, offset: i * slot, dur: len });
+}
 function sfxDoors(opening, dur) {
   if (!A.ctx) return; const ctx = A.ctx, t = now_();
   const s = ctx.createBufferSource(); s.buffer = A.buf; s.loop = true; const fl = ctx.createBiquadFilter(); fl.type = 'bandpass'; fl.frequency.value = 260; fl.Q.value = 1.4;
@@ -3166,7 +3175,7 @@ function selectFloor(f) {
   if (!(f === 0 || f === ROOF || BY_FLOOR.has(f))) { caption(`No project on floor ${f}`); return; }
   if (lift.phase === 'riding' || lift.phase === 'arrived') { if (f !== lift.target) caption(`On the way to <b>${esc(placeName(lift.target))}</b>`); return; }
   if (!inCab()) { caption('Step into the cab first'); return; }
-  const b = buttonFor(f); if (b) { b.press = 1; sfxClick(); }
+  const b = buttonFor(f); if (b) { b.press = 1; sfxButton(); }
   if (f === lift.floor && lift.phase !== 'closing') { if (lift.doors < 1) doorsTo(1); caption(f === 0 ? 'You are in the lobby' : `You are on <b>${esc(label)}</b>`); return; }
   buttons.forEach(x => { if (x.act.type === 'floor') x.lit = 0; }); if (b) b.lit = 1;
   lift.target = f;
@@ -3308,11 +3317,11 @@ function actOn(a) {
   if (!a) return;
   switch (a.type) {
     case 'floor': selectFloor(a.floor); break;
-    case 'alarm': { const b = buttons.find(x => x.act.type === 'alarm'); b.press = 1; b.lit = 1; b.litT = 1.6; sfxClick(); sfxAlarm(); caption('Alarm bell', 2); break; }
-    case 'stop': sfxClick(); thump(now_(), 120, 60, .2, .12); caption('The stop switch is keyed. Nobody left a key.', 3); break;
-    case 'open': { const b = buttons.find(x => x.act.type === 'open'); b.press = 1; sfxClick(); if (lift.phase === 'closed' || lift.phase === 'closing') { if (lift.phase === 'closing') { lift.onDone = null; lift.target = lift.floor; buttons.forEach(x => { if (x.act.type === 'floor') x.lit = 0; }); } doorsTo(1); } break; }
-    case 'close': { const b = buttons.find(x => x.act.type === 'close'); b.press = 1; sfxClick(); if (lift.phase === 'open') { if (inCab()) doorsTo(0); else caption('Step into the cab first'); } break; }
-    case 'call': { UI3.call.press = 1; sfxClick(); if (hiddenTap()) break; if (lift.floor === 0 && lift.phase === 'closed') doorsTo(1); break; }
+    case 'alarm': { const b = buttons.find(x => x.act.type === 'alarm'); b.press = 1; b.lit = 1; b.litT = 1.6; sfxButton(); sfxAlarm(); caption('Alarm bell', 2); break; }
+    case 'stop': sfxButton(); thump(now_(), 120, 60, .2, .12); caption('The stop switch is keyed. Nobody left a key.', 3); break;
+    case 'open': { const b = buttons.find(x => x.act.type === 'open'); b.press = 1; sfxButton(); if (lift.phase === 'closed' || lift.phase === 'closing') { if (lift.phase === 'closing') { lift.onDone = null; lift.target = lift.floor; buttons.forEach(x => { if (x.act.type === 'floor') x.lit = 0; }); } doorsTo(1); } break; }
+    case 'close': { const b = buttons.find(x => x.act.type === 'close'); b.press = 1; sfxButton(); if (lift.phase === 'open') { if (inCab()) doorsTo(0); else caption('Step into the cab first'); } break; }
+    case 'call': { UI3.call.press = 1; sfxButton(); if (hiddenTap()) break; if (lift.floor === 0 && lift.phase === 'closed') doorsTo(1); break; }
     case 'directory': openMenu(); break;
     case 'visit': triggerVisit('click'); break;
     case 'social': openSocial(a); break;
@@ -3463,7 +3472,7 @@ const D = {
     const k = clamp((t - .4) / 5.9, 0, 1); lift.y = 7 * H * (1 - easeIO(k)); lift.v = -7 * H * (k > 0 && k < 1 ? 1 : 0) * .2;
     if (lift.y > 0) { const cf = Math.round(lift.y / H); setLamp(cf); }
     if (!this.opened) { lift.phase = 'closed'; lift.floor = lift.y < .01 ? 0 : Math.round(lift.y / H); }
-    if (!this.called && t > SHOT.call) { this.called = true; UI3.call.lit = 1; UI3.call.press = 1; sfxClick(); }
+    if (!this.called && t > SHOT.call) { this.called = true; UI3.call.lit = 1; UI3.call.press = 1; sfxButton(); }
     if (!this.dinged && t > SHOT.ding) { this.dinged = true; lift.y = 0; lift.floor = 0; setLamp(0); bell(now_() + .02, 987.77, .22); UI3.call.lit = 0; D.lantern = 1; }
     if (!this.opened && t > SHOT.doors) { this.opened = true; doorsTo(1); }
     // camera: slow push, then ease into first person
@@ -3719,7 +3728,7 @@ function loop(now) {
   camera.position.copy(CAM.s0.p); camera.lookAt(CAM.s0.l); camera.fov = CAM.s0.fov; camera.updateProjectionMatrix();
   setLook(heldPeriod() || periodAt(new Date()), true); lookTick(0);
   D.state = 'gate'; D.fade = 0;
-  if (window.__test) window.__dbg = { D, lift, P, camera, landing, dressLanding, setLook, setLamp, gradeMat, A, selectFloor, ROOF, H, surfaceUnder, hot, HID, startHidden, ROOF_STONES, sfxStep, initAudio };
+  if (window.__test) window.__dbg = { D, lift, P, camera, landing, dressLanding, setLook, setLamp, gradeMat, A, selectFloor, ROOF, H, surfaceUnder, hot, HID, startHidden, actOn, sfxButton, sfxThunder, ROOF_STONES, sfxStep, initAudio };
   requestAnimationFrame(loop);
   // warm up a few frames (shader compile), then fade in from black
   await nextFrame(); await nextFrame(); await nextFrame();

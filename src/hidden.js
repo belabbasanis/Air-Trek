@@ -167,6 +167,7 @@ function boltGeometry() {
 /* ---- sound: thunder at the flash, the track rising with the doors ---- */
 function sfxThunder() {
   if (!A.ctx) return; const t = now_();
+  if (A.smp.thunder) { playBuf(A.smp.thunder, t, { gain: 1 }); thump(t, 60, 26, .35, 1.2); return; }   // the recorded strike, with a little extra low end
   noiseHit(t, 'highpass', 2400, .7, .35, .12); noiseHit(t + .02, 'bandpass', 900, .8, .3, .5);
   noiseHit(t + .05, 'lowpass', 180, .7, .9, 2.8); noiseHit(t + .4, 'lowpass', 120, .7, .6, 3.2); thump(t, 70, 28, .6, 1.4);
 }
