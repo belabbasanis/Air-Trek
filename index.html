@@ -3016,6 +3016,20 @@ function liftStopSound() {
   const t = now_(); playBuf(A.smp.stop, t, { gain: .9 });
   if (A.loop) { const { s, g } = A.loop; g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(0, t + .6); s.stop(t + .7); A.loop = null; }
 }
+// roof track: fetched and decoded the first time the roof is chosen (it is only needed up there), then looped
+const ROOF_SONG = 'audio/roof-song.mp3';
+function loadRoofSong() {
+  if (A.roofLoading || !A.ctx) return; A.roofLoading = true;
+  fetch(ROOF_SONG).then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); }).then(b => A.ctx.decodeAudioData(b)).then(buf => { A.smp.roof = buf; })
+    .catch(() => { console.warn('Sound not loaded:', ROOF_SONG); });
+}
+function roofSongTick(on, t) {
+  if (on && !A.smp.roof) { loadRoofSong(); return; }
+  if (on && !A.roofSong) { const { s, g } = playBuf(A.smp.roof, t, { gain: 0 }); s.loop = true; g.gain.setValueAtTime(0, t); A.roofSong = { s, g, off: 0 }; }
+  const R = A.roofSong; if (!R) return;
+  R.g.gain.setTargetAtTime(on ? .7 : 0, t, on ? .8 : 1.2);
+  if (on) R.off = 0; else if (!R.off) R.off = t; else if (t - R.off > 6) { R.s.stop(); A.roofSong = null; }   // faded out: stop it, the next visit starts it from the top
+}
 function startSong() {
   if (!A.ctx || !A.smp.song) return false;
   const t = now_() + .05; const { s, g } = playBuf(A.smp.song, t, { gain: 0 }); s.loop = true;
@@ -3139,7 +3153,10 @@ function audioTick(dt) {
   A.ambLP.frequency.setTargetAtTime(shut ? 600 : 7000, t, .3);
   A.wind.g.gain.setTargetAtTime(shut ? .03 : lift.floor === ROOF && !P.inCab ? .14 : .055, t, .5);
   // generative music once the intro has played
-  if (A.song) A.song.g.gain.setTargetAtTime(HID.active ? 0 : D.state === 'intro' ? .8 : lift.phase === 'riding' ? .4 : .55, t, HID.active ? .06 : 1.5);   // the hidden lift cuts the music
+  // the roof has its own track: it fades in as the cab nears the roof, before the doors open, and the lobby song steps aside
+  const roofMusic = !HID.active && D.state === 'play' && ((lift.phase === 'riding' && lift.target === ROOF && lift.capped) || (lift.floor === ROOF && lift.phase !== 'riding'));
+  roofSongTick(roofMusic, t);
+  if (A.song) A.song.g.gain.setTargetAtTime(HID.active || roofMusic ? 0 : D.state === 'intro' ? .8 : lift.phase === 'riding' ? .4 : .55, t, HID.active ? .06 : roofMusic ? .8 : 1.5);   // the hidden lift cuts the music
   if (D.state === 'play' && !A.song && !HID.active) {
     A.pad.g.gain.setTargetAtTime(lift.phase === 'riding' ? .028 : .036, t, 1.5);
     if (t > A.pad.next) { A.pad.next = t + 9; setChord((A.pad.chord + 1) % 4, t); }
@@ -3185,7 +3202,7 @@ function selectFloor(f) {
   const b = buttonFor(f); if (b) { b.press = 1; sfxButton(); }
   if (f === lift.floor && lift.phase !== 'closing') { if (lift.doors < 1) doorsTo(1); caption(f === 0 ? 'You are in the lobby' : `You are on <b>${esc(label)}</b>`); return; }
   buttons.forEach(x => { if (x.act.type === 'floor') x.lit = 0; }); if (b) b.lit = 1;
-  lift.target = f;
+  lift.target = f; if (f === ROOF) loadRoofSong();
   if (lift.doors > 0) { caption('Doors closing'); doorsTo(0, depart); } else depart();
 }
 function depart() {
