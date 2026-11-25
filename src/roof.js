@@ -185,7 +185,8 @@ function buildRoof() {
     PERCHES.push(new V3(T.x + dx, .86, T.z + dz));
   }
   for (const o of [...tbl.children]) { o.castShadow = o.receiveShadow = true; }
-  PERCHES.push(new V3(T.x, .75, T.z));
+  campDiorama(tbl, top.position.y + .015);
+  PERCHES.push(new V3(T.x + .3, .75, T.z + .22));   // birds land on the rim, clear of the little camp
   ROOF_OBST.push([T.x - .5, T.x + .5, T.z - .5, T.z + .5], [T.x - .9, T.x - .35, T.z - .45, T.z + .15], [T.x + .35, T.x + .9, T.z - .1, T.z + .5]);
 
   // ---- greenhouse: plank base, white frame, translucent panels, door toward the path ----
@@ -483,11 +484,103 @@ function buildOutside() {
 }
 
 /* ---- per frame ---- */
+/* ---- a tiny camp on the white table: dome tent (after the photo: orange tub, grey fly, dark mesh, black poles), a campfire, a shih tzu ---- */
+function tentTexture() {                 // wraps the half-sphere: u runs round (.75 faces -z, the door), v from the ground (0) to the top (1)
+  const [c, x] = cv(1024, 512), Hh = 512, vy = (v) => (1 - v) * Hh;
+  x.fillStyle = '#cfcbc3'; x.fillRect(0, 0, 1024, Hh);                                   // light grey body
+  x.fillStyle = '#3b3d41'; for (const u0 of [.04, .29, .54]) { x.beginPath(); x.ellipse((u0 + .085) * 1024, vy(.86), .075 * 1024, vy(.74) - vy(.86), 0, 0, Math.PI * 2); x.fill(); }   // dark mesh vents up top
+  x.fillStyle = '#e1692b'; x.beginPath(); x.moveTo(0, Hh);                                // the orange tub, swooping up at the corners like the photo
+  for (let i = 0; i <= 96; i++) { const u = i / 96; x.lineTo(u * 1024, vy(.34 + .16 * Math.pow(Math.abs(Math.cos(u * Math.PI * 4)), 3))); }
+  x.lineTo(1024, Hh); x.closePath(); x.fill();
+  x.strokeStyle = 'rgba(40,36,32,.45)'; x.lineWidth = 3; for (const u of [.125, .375, .625, .875]) { x.beginPath(); x.moveTo(u * 1024, 0); x.lineTo(u * 1024, Hh); x.stroke(); }   // seams under the poles
+  // the door, unzipped and rolled back: dark inside, two sleeping bags on the floor
+  const du = .75 * 1024, dw = 118, top = vy(.8);
+  x.fillStyle = '#17150f'; x.beginPath(); x.moveTo(du - dw, Hh); x.quadraticCurveTo(du - dw * 1.05, top, du, top); x.quadraticCurveTo(du + dw * 1.05, top, du + dw, Hh); x.fill();
+  x.fillStyle = '#d24c9b'; x.beginPath(); x.ellipse(du + 34, vy(.07), 64, 26, 0, 0, Math.PI * 2); x.fill();
+  x.fillStyle = '#8a7a6a'; x.beginPath(); x.ellipse(du - 40, vy(.06), 56, 22, 0, 0, Math.PI * 2); x.fill();
+  x.fillStyle = '#9fa1a5'; x.beginPath(); x.ellipse(du - 52, vy(.12), 20, 14, 0, 0, Math.PI * 2); x.fill();   // a pillow
+  x.strokeStyle = '#a7a199'; x.lineWidth = 14; x.beginPath(); x.moveTo(du - dw, vy(.52)); x.quadraticCurveTo(du, top - 30, du + dw, vy(.52)); x.stroke();   // the rolled flap
+  return ctex(c);
+}
+function flameTexture() {
+  const [c, x] = cv(128, 256); x.translate(64, 246);
+  const g = x.createRadialGradient(0, -60, 4, 0, -70, 110); g.addColorStop(0, 'rgba(255,250,220,1)'); g.addColorStop(.35, 'rgba(255,190,70,1)'); g.addColorStop(.7, 'rgba(230,90,20,.9)'); g.addColorStop(1, 'rgba(120,20,0,0)');
+  x.fillStyle = g; x.beginPath(); x.moveTo(0, -236); x.bezierCurveTo(30, -150, 58, -90, 46, -34); x.bezierCurveTo(36, 4, -36, 4, -46, -34); x.bezierCurveTo(-58, -90, -30, -150, 0, -236); x.fill();
+  return ctex(c);
+}
+function campDiorama(tbl, y0) {
+  const g = new THREE.Group(); g.position.y = y0; tbl.add(g);
+  const r = rng(4242);
+  // tent: a hemisphere stretched to a 30 x 22 cm footprint, 15 cm high, door toward the path (-z)
+  const tw = .135, td = .1, th = .13, tx = -.06, tz = .1;
+  const dome = new THREE.SphereGeometry(1, 40, 14, 0, Math.PI * 2, 0, Math.PI / 2);
+  const tent = new THREE.Mesh(dome, new THREE.MeshStandardMaterial({ map: tentTexture(), roughness: .8, side: THREE.DoubleSide }));
+  tent.scale.set(tw, th, td); tent.position.set(tx, 0, tz); tent.castShadow = tent.receiveShadow = true; g.add(tent);
+  // poles: two arcs crossing corner to corner, and the brow pole over the door
+  const poleM = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: .4, metalness: .5 });
+  // a pole is half a great circle: from one corner, over the top, down to the opposite corner, just proud of the fabric
+  const arc = (a0) => { const pts = []; for (let i = 0; i <= 32; i++) { const b = i / 32 * Math.PI, cx = Math.cos(b) * Math.cos(a0), cz = -Math.cos(b) * Math.sin(a0), cy = Math.sin(b); pts.push(new V3(tx + cx * tw * 1.02, cy * th * 1.02, tz + cz * td * 1.02)); } return new THREE.CatmullRomCurve3(pts); };
+  for (const a0 of [Math.PI * .25, Math.PI * .75]) { const p = new THREE.Mesh(new THREE.TubeGeometry(arc(a0), 48, .002, 6), poleM); p.castShadow = true; g.add(p); }
+  const brow = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new V3(tx - tw * .62, th * .8, tz - td * .58), new V3(tx, th * .93, tz - td * .62), new V3(tx + tw * .62, th * .8, tz - td * .58)]), 16, .0017, 6), poleM); g.add(brow);
+  // the green slippers by the door
+  const slipM = new THREE.MeshStandardMaterial({ color: 0x9db89a, roughness: .9 });
+  for (const [sx, a] of [[-.012, .15], [.014, -.1]]) { const sl = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 6), slipM); sl.scale.set(.008, .005, .017); sl.position.set(tx + sx, .004, tz - td - .045); sl.rotation.y = a; g.add(sl); }
+  // campfire: a ring of stones, crossed logs, embers, two crossed flame cards that flicker, a warm pool on the table
+  const fx = .1, fz = -.13, FS = 1.35;   // a little over true scale so it reads from a step away
+  const stoneM = new THREE.MeshStandardMaterial({ color: 0x8a857c, roughness: .9 });
+  for (let i = 0; i < 9; i++) { const a = i / 9 * Math.PI * 2, st = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 0), stoneM); st.scale.set((.011 + r() * .004) * FS, (.008 + r() * .003) * FS, (.009 + r() * .003) * FS); st.position.set(fx + Math.cos(a) * .042 * FS, .005 * FS, fz + Math.sin(a) * .042 * FS); st.rotation.set(r() * 3, r() * 3, r() * 3); st.castShadow = true; g.add(st); }
+  const logM = new THREE.MeshStandardMaterial({ color: 0x5a3a22, roughness: .9 });
+  for (let i = 0; i < 5; i++) {   // a little teepee of sticks over the flame: feet spread out, tops leaning in
+    const a = i / 5 * Math.PI * 2 + .4, L = .055 * FS, lean = .62, d = new V3(-Math.cos(a) * Math.sin(lean), Math.cos(lean), -Math.sin(a) * Math.sin(lean));
+    const lg = new THREE.Mesh(new THREE.CylinderGeometry(.0032 * FS, .0042 * FS, L, 6), logM); lg.quaternion.setFromUnitVectors(new V3(0, 1, 0), d);
+    lg.position.set(fx + Math.cos(a) * .024 * FS - d.x * L * .5 + d.x * L * .5, d.y * L * .5 + .002, fz + Math.sin(a) * .024 * FS - d.z * L * .5 + d.z * L * .5);
+    lg.position.x = fx + Math.cos(a) * .024 * FS + d.x * L * .5; lg.position.z = fz + Math.sin(a) * .024 * FS + d.z * L * .5; lg.castShadow = true; g.add(lg); }
+  const ember = new THREE.Mesh(new THREE.SphereGeometry(.016 * FS, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshBasicMaterial({ color: new THREE.Color(3.2, .9, .2) })); ember.position.set(fx, .002, fz); ember.scale.y = .4; g.add(ember);
+  const fm = new THREE.MeshBasicMaterial({ map: flameTexture(), color: new THREE.Color(3.2, 2.0, 1.0), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const flames = [0, Math.PI / 2].map((ry) => { const f = new THREE.Mesh(new THREE.PlaneGeometry(.045 * FS, .075 * FS), fm); f.geometry.translate(0, .0375 * FS, 0); f.position.set(fx, .006, fz); f.rotation.y = ry; f.renderOrder = 7; g.add(f); return f; });
+  const [pc, px] = cv(128, 128), pg = px.createRadialGradient(64, 64, 2, 64, 64, 64); pg.addColorStop(0, 'rgba(255,255,255,1)'); pg.addColorStop(.4, 'rgba(120,120,120,1)'); pg.addColorStop(1, 'rgba(0,0,0,1)'); px.fillStyle = pg; px.fillRect(0, 0, 128, 128);
+  const glow = new THREE.Mesh(new THREE.PlaneGeometry(.3, .3), new THREE.MeshBasicMaterial({ map: ctex(pc), color: new THREE.Color(.5, .22, .06), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 }));
+  glow.rotation.x = -Math.PI / 2; glow.position.set(fx, .0008, fz); g.add(glow);
+  roofLive.fire = { flames, glow, ember };
+  // the shih tzu, after the photo: sitting, a big round fluffy white head, one dark ear (its left), dark eyes, a black button nose,
+  // a grey beard, and a navy-and-white striped shirt; by the fire, turned three-quarters toward the path so the face shows
+  const dog = new THREE.Group(); dog.position.set(-.06, 0, -.17); dog.rotation.y = 2.62; g.add(dog);
+  const fur = (hex) => new THREE.MeshStandardMaterial({ color: hex, roughness: 1 });
+  const W_ = fur(0xf2efe9), G_ = fur(0xc8c5bf), E_ = fur(0x2b2927), M_ = fur(0x55524e), K_ = new THREE.MeshStandardMaterial({ color: 0x080706, roughness: .15, metalness: .1 });
+  const fluff = (m, s_, p_, rot = [0, 0, 0], amp = .1) => { const geo = new THREE.IcosahedronGeometry(1, 3), a = geo.attributes.position;
+    for (let k = 0; k < a.count; k++) { const x_ = a.getX(k), y_ = a.getY(k), z_ = a.getZ(k), f = 1 + (Math.sin(x_ * 29 + y_ * 13) * Math.sin(z_ * 23 + y_ * 17) + Math.sin(y_ * 41 + z_ * 7) * .5) * amp; a.setXYZ(k, x_ * f, y_ * f, z_ * f); }
+    geo.computeVertexNormals(); const o = new THREE.Mesh(geo, m); o.scale.set(...s_); o.position.set(...p_); o.rotation.set(...rot); o.castShadow = true; dog.add(o); return o; };
+  fluff(G_, [.023, .021, .024], [0, .021, -.006]);                         // haunches, sat down
+  for (const sx of [-1, 1]) { fluff(G_, [.008, .007, .013], [sx * .016, .006, .008]);   // back feet tucked forward
+    fluff(W_, [.0055, .016, .006], [sx * .009, .017, .017], [-.12, 0, 0], .06);           // front legs
+    fluff(W_, [.006, .0035, .0075], [sx * .009, .003, .021], [0, 0, 0], .05); }          // front paws
+  // the striped shirt round the chest and back
+  const [sc, sx_] = cv(64, 256); for (let k = 0; k < 16; k++) { sx_.fillStyle = k % 2 ? '#f1eee8' : '#1d2848'; sx_.fillRect(0, k * 16, 64, 16); }
+  const shirt = new THREE.Mesh(new THREE.SphereGeometry(1, 28, 16, 0, Math.PI * 2, Math.PI * .3, Math.PI * .5), new THREE.MeshStandardMaterial({ map: ctex(sc), roughness: .85, side: THREE.DoubleSide }));
+  shirt.scale.set(.0205, .027, .0195); shirt.position.set(0, .041, .004); shirt.rotation.x = -.22; shirt.castShadow = true; dog.add(shirt);
+  fluff(W_, [.016, .01, .012], [0, .058, .012], [0, 0, 0], .08);           // ruff of white fur at the neck, over the collar
+  // head: big and round, a mop of white on top, the flat face
+  fluff(W_, [.022, .021, .02], [0, .076, .013]);
+  fluff(W_, [.02, .011, .016], [0, .091, .01], [-.2, 0, 0], .14);           // the fringe swept up and over
+  fluff(E_, [.0075, .015, .009], [.02, .072, .004], [0, 0, -.25], .12);    // the dark ear (its left)
+  fluff(G_, [.0075, .014, .009], [-.02, .072, .004], [0, 0, .25], .12);    // the other one, pale grey
+  fluff(G_, [.011, .0085, .008], [0, .064, .028], [0, 0, 0], .12);         // grey beard
+  fluff(M_, [.0055, .0028, .004], [0, .06, .034], [0, 0, 0], .06);         // the darker mouth under it
+  for (const sx of [-1, 1]) { const eye = new THREE.Mesh(new THREE.SphereGeometry(.0043, 12, 8), K_); eye.position.set(sx * .0078, .077, .03); dog.add(eye); }
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(.0038, 12, 8), K_); nose.scale.set(1.15, .8, .8); nose.position.set(0, .069, .034); dog.add(nose);
+  fluff(G_, [.007, .007, .012], [0, .048, -.028], [.9, 0, 0], .14);       // plumed tail curled up behind
+}
+function campfireTick(time) {
+  const F = roofLive.fire, n = (a, b) => Math.sin(time * a + b);
+  F.flames.forEach((f, i) => { f.scale.set(1 + n(13, i) * .08, 1 + n(9.3, i * 2) * .14 + n(21, i) * .06, 1); f.rotation.z = n(5.1, i * 3) * .06; });
+  const k = .85 + n(11, 0) * .1 + n(23, 1) * .05; F.glow.material.color.setRGB(.5 * k, .22 * k, .06 * k); F.ember.material.color.setRGB(3.2 * k, .9 * k, .2 * k);
+}
 function roofTick(dt, time) {
   const near = lift.y > ROOF * H - 2.5 * H || lift.target === ROOF;
   roof.visible = near; outside.visible = near && (lift.floor === ROOF && lift.phase !== 'riding');
   if (!roof.visible) return;
   if (roofLive.rotor) roofLive.rotor.rotation.z += dt * (2.2 + Math.sin(time * .3) * 1.4);
+  if (roofLive.fire) campfireTick(time);
   for (const c of roofLive.cloth) { c.m.rotation.x = Math.sin(time * 1.9 + c.ph) * .16 + Math.sin(time * 3.7 + c.ph) * .05 - .08; }
   const onRoof = D.state === 'play' && lift.floor === ROOF && !P.inCab;
   tickChickens(dt, time); tickBirds(dt, time, P.pos.x, P.pos.z, onRoof);
