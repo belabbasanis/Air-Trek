@@ -215,7 +215,9 @@ function hiddenTick(dt, time) {
   if (!HID.active) return;
   HID.t += dt;
   switch (HID.stage) {
-    case 'flash': if (lift.phase === 'closed' && HID.t > .9) { setStage('down'); liftStartSound(); } break;
+    case 'flash':
+      if (lift.phase === 'open' || lift.phase === 'opening') doorsTo(0);   // started while the doors were still on their way open
+      if (lift.phase === 'closed' && HID.t > .9) { setStage('down'); liftStartSound(); } break;
     case 'down':   // something comes down the shaft: swap the cab while the doors are shut
       if (HID.t > .2 && !HID.wiz.visible) { cab.visible = false; HID.wiz.visible = true; }
       if (HID.t > HIDDEN.travel) { liftStopSound(); const t = now_(); bell(t + .05, 493.88, .2); bell(t + .55, 466.16, .18); setStage('opening'); doorsTo(1); startHiddenTrack(2.7); } break;
@@ -232,6 +234,8 @@ function hiddenTick(dt, time) {
       if (HID.t > .6 && lift.phase === 'closed') doorsTo(1);
       if (lift.phase === 'open') { HID.active = false; HID.stage = ''; } break;
   }
+  // safety net: no stage should ever take this long; if one does, put the ordinary lift back rather than leave the player stuck
+  if (HID.active && HID.t > 25) { stopHiddenTrack(.5); if (A.loop) liftStopSound(); HID.wiz.visible = false; cab.visible = true; HID.active = false; HID.stage = ''; if (lift.phase !== 'open') doorsTo(1); return; }
   HID.chase = HID.stage === 'down' || HID.stage === 'up' || HID.stage === 'flash';
   // the cab's own light, the gems, the idle sway, the smoke
   HID.light.intensity = HID.wiz.visible ? 4.5 + Math.sin(time * 37) * Math.sin(time * 3.1) * .4 : 0;

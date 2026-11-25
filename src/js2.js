@@ -1018,6 +1018,12 @@ function buildCab() {
       const sxo = c % 2 ? .05 : -.05;
       s.position.set(x + sxo, y + (rng(f)() - .5) * .01, PZ + .0205); s.rotation.z = (rng(f * 7)() - .5) * .3; s.receiveShadow = true; cab.add(s);
       s.userData.act = { type: 'floor', floor: f }; hot.push(s);
+    } else if (f === ROOF) {
+      // the Sleeping Forest sticker, stuck beside the R button (images/sleeping-forest.png, white background cut away); it presses R too
+      const map = new THREE.TextureLoader().load('images/sleeping-forest.png'); map.colorSpace = THREE.SRGBColorSpace; map.anisotropy = Math.min(8, MAX_ANISO);
+      const s = new THREE.Mesh(new THREE.PlaneGeometry(.078, .057), new THREE.MeshStandardMaterial({ map, transparent: true, alphaTest: .02, roughness: .42, metalness: 0, envMapIntensity: .8, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+      s.position.set(x + (c % 2 ? .071 : -.071), y + .004, PZ + .0205); s.rotation.z = -.06; s.receiveShadow = true; cab.add(s);
+      s.userData.act = { type: 'floor', floor: f }; hot.push(s);
     }
   });
   makeButton(cab, 'ALARM', new V3(PX, PY + ph / 2 - .065, PZ + .02), rot, { type: 'alarm' });
