@@ -18,6 +18,8 @@
    url     opens in a new tab when a visitor steps out onto the landing.
    sticker an emoji or up to 3 characters, a data:image/... URI, or an image path in this site (images/...).
    stickerBg  optional sticker background colour; gallery: true makes the floor the As Is gallery.
+   A floor whose url is empty or still on example.com is a placeholder: its lift button is dark, has no sticker
+   and can't be chosen. Give it a real url and it lights up.
            (The artifact host blocks images from other sites, so a plain https image URL will not load.)
    These entries are placeholders: replace them with the real list.
    ===================================================================== */
@@ -244,7 +246,8 @@ const FLOORS = (() => {
     const floor = Math.round(+p.floor);
     if (!(floor >= 1) || seen.has(floor)) { console.warn('Skipped project (floor must be a whole number from 1, each floor once):', p); continue; }
     seen.add(floor);
-    out.push({ floor, name: String(p.name || 'Untitled'), author: String(p.author || ''), url: String(p.url || '#'), sticker: String(p.sticker || '★'), stickerBg: p.stickerBg ? String(p.stickerBg) : '', gallery: !!p.gallery });
+    const url = String(p.url || '#'), live = !!p.gallery || (/^https?:\/\//.test(url) && !/^https?:\/\/(www\.)?example\.com\b/.test(url));   // placeholders stay dark
+    out.push({ floor, name: String(p.name || 'Untitled'), author: String(p.author || ''), url, sticker: String(p.sticker || '★'), stickerBg: p.stickerBg ? String(p.stickerBg) : '', gallery: !!p.gallery, live });
   }
   return out.sort((a, b) => a.floor - b.floor);
 })();
@@ -1844,7 +1847,51 @@ function keepSharp(m) {
   }
   m.needsUpdate = true; return m;
 }
-function makeButton(parent, label, pos, rot, act) {
+/* ---- the dead floors' buttons, each broken its own way: cracked glass, smashed in, gone (wires out; one lies on the floor), hanging by its wires, taped over ---- */
+const BROKEN = ['crack', 'missing', 'tape', 'hang', 'shatter', 'crack', 'missing', 'hang', 'tape-ooo', 'shatter', 'crack'];
+let brokenN = 0;
+function crackTex(seed, hole) {
+  const [c, x] = cv(256, 256), r = rng(seed), ix = 128 + (r() - .5) * 70, iy = 128 + (r() - .5) * 70, arms = [];
+  if (hole) {   // the smashed-in middle: a jagged black hole with a pale broken rim
+    x.beginPath(); const n = 11; for (let i = 0; i <= n; i++) { const a = i / n * Math.PI * 2, rr = 26 + r() * 30; const px = ix + Math.cos(a) * rr, py = iy + Math.sin(a) * rr; i ? x.lineTo(px, py) : x.moveTo(px, py); }
+    x.closePath(); x.fillStyle = 'rgba(4,3,3,.96)'; x.fill(); x.strokeStyle = 'rgba(235,235,230,.7)'; x.lineWidth = 2; x.stroke();
+  }
+  x.lineCap = 'round';
+  for (let k = 0; k < 9 + Math.floor(r() * 4); k++) {   // radial cracks out from the impact
+    let a = k / 10 * Math.PI * 2 + r() * .5, px = ix, py = iy; const pts = [[px, py]];
+    for (let s_ = 0; s_ < 7; s_++) { a += (r() - .5) * .5; const L = 14 + r() * 18; px += Math.cos(a) * L; py += Math.sin(a) * L; pts.push([px, py]); }
+    arms.push(pts); x.strokeStyle = `rgba(240,240,236,${.55 + r() * .35})`; x.lineWidth = 1.1 + r() * 1.3; x.beginPath(); pts.forEach(([u, v], i) => i ? x.lineTo(u, v) : x.moveTo(u, v)); x.stroke();
+  }
+  for (const ring of [2, 4]) { x.strokeStyle = 'rgba(230,230,226,.45)'; x.lineWidth = 1; x.beginPath();   // the web between them
+    arms.forEach((pts, i) => { const q = pts[Math.min(ring, pts.length - 1)]; i ? x.lineTo(q[0], q[1]) : x.moveTo(q[0], q[1]); }); x.closePath(); x.stroke(); }
+  return ctex(c);
+}
+function brokenButton(parent, g, face, bez, label, pos) {
+  const kind = BROKEN[brokenN % BROKEN.length], fallen = brokenN === 1; brokenN++;
+  const R = .0182, seed = hashStr(label) + 31;
+  const socket = () => { const s_ = new THREE.Mesh(new THREE.CircleGeometry(R * 1.02, 24), new THREE.MeshStandardMaterial({ color: 0x060505, roughness: 1 })); s_.position.z = .0018; g.add(s_); };
+  const wire = (pts, col) => { const w = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(p => new V3(...p))), 12, .00085, 5), new THREE.MeshStandardMaterial({ color: col, roughness: .5 })); w.castShadow = true; g.add(w); };
+  const overlay = (tex, z) => { const m = new THREE.Mesh(new THREE.CircleGeometry(R, 32), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false })); m.position.z = z; g.add(m); return m; };
+  if (kind === 'crack') overlay(crackTex(seed, false), .00865);
+  else if (kind === 'shatter') { face.position.z = .0042; face.rotation.z = .2; overlay(crackTex(seed, true), .0067); }
+  else if (kind === 'missing') {
+    g.remove(face); socket();
+    wire([[-.004, .002, .002], [-.006, -.001, .009], [-.003, -.009, .014]], 0xb8322a); wire([[.003, -.002, .002], [.007, -.004, .01], [.011, -.011, .012]], 0x2d63b4);
+    if (fallen) {   // it's on the floor of the cab, below the panel, face up
+      const f = new THREE.Group(); f.add(bez.clone(), face.clone()); f.position.set(pos.x + .07, .006, CAB.z0 + .32); f.rotation.set(-Math.PI / 2 + .12, 0, .9); parent.add(f);
+    }
+  } else if (kind === 'hang') {
+    g.remove(face); socket();
+    const hf = face.clone(); hf.position.set(.022, -.04, .016); hf.rotation.set(-.35, .25, .75); g.add(hf);
+    wire([[-.002, .001, .002], [.004, -.018, .012], [.016, -.032, .014]], 0xc9a227); wire([[.003, 0, .002], [.011, -.016, .01], [.021, -.03, .013]], 0xb8322a);
+  } else {   // taped over: two strips of masking tape, one of them marked
+    const [tc, tx] = cv(256, 64); tx.fillStyle = 'rgba(232,220,180,.92)'; tx.fillRect(0, 0, 256, 64);
+    if (kind === 'tape-ooo') { tx.fillStyle = '#1d1a16'; tx.font = `600 34px ${FONT_HAND}`; tx.textAlign = 'center'; tx.textBaseline = 'middle'; tx.fillText('out of order', 128, 34); }
+    const tm = new THREE.MeshStandardMaterial({ map: ctex(tc), transparent: true, roughness: .8, depthWrite: false });
+    for (const [a, z] of kind === 'tape-ooo' ? [[-.08, .0096]] : [[.6, .0096], [-.6, .0099]]) { const t = new THREE.Mesh(new THREE.PlaneGeometry(.058, .0145), tm); t.position.z = z; t.rotation.z = a; g.add(t); }
+  }
+}
+function makeButton(parent, label, pos, rot, act, dead = false) {   // dead: a placeholder floor's button, dark and not pressable
   const g = new THREE.Group(); g.position.copy(pos); g.rotation.copy(rot); parent.add(g);
   const prof = [[.0185, 0], [.026, 0], [.027, .003], [.0265, .007], [.024, .0095], [.0205, .0095], [.0185, .008]].map(p => new THREE.Vector2(p[0], p[1]));
   const bez = new THREE.Mesh(new THREE.LatheGeometry(prof, 32).rotateX(Math.PI / 2), M.chromeKeep || (M.chromeKeep = keepSharp(M.chrome.clone()))); bez.castShadow = true; bez.receiveShadow = true; g.add(bez);
@@ -1857,10 +1904,12 @@ function makeButton(parent, label, pos, rot, act) {
   const fg = new THREE.CylinderGeometry(.0182, .0182, .005, 32, 1).rotateX(Math.PI / 2);
   // cap UVs: CylinderGeometry caps are disc mapped in 0..1 already; flip for facing +z
   { const uv = fg.attributes.uv, p = fg.attributes.position; for (let i = 0; i < uv.count; i++) { uv.setXY(i, p.getX(i) / .0364 + .5, p.getY(i) / .0364 + .5); } }
+  if (dead) { fm.color.setRGB(.2, .19, .18); fm.clearcoat = .1; fm.envMapIntensity = .25; }   // greyed out, no backlight
   const face = new THREE.Mesh(fg, fm); face.position.z = .006; face.castShadow = true; face.receiveShadow = true; g.add(face);
-  const btn = { group: g, face, mat: fm, lit: 0, litT: 0, press: 0, label, act, glow: 0 };
+  if (dead) brokenButton(parent, g, face, bez, label, pos);
+  const btn = { group: g, face, mat: fm, lit: 0, litT: 0, press: 0, label, act, glow: 0, dead };
   face.userData.act = act; bez.userData.act = act; face.userData.btn = btn; bez.userData.btn = btn;
-  hot.push(face, bez); buttons.push(btn);
+  if (!dead) hot.push(face, bez); buttons.push(btn);
   return btn;
 }
 
@@ -1931,8 +1980,9 @@ function buildCab() {
     const c = Math.floor(i / rows), r = i % rows;
     const x = gx(c) + (c % 2 ? -.018 : .018), y = top - (rows - 1 - r) * sp;
     const f = lab === 'L' ? 0 : lab === 'R' ? ROOF : +lab;
-    makeButton(cab, lab, new V3(x, y, PZ + .02), rot, { type: 'floor', floor: f });
-    if (f > 0 && f !== ROOF) {
+    const live = f === 0 || f === ROOF || !!BY_FLOOR.get(f)?.live;
+    makeButton(cab, lab, new V3(x, y, PZ + .02), rot, { type: 'floor', floor: f }, !live);
+    if (f > 0 && f !== ROOF && live) {
       const k = FLOORS.findIndex(p => p.floor === f), cell = TEX.stk.cell(k), t = TEX.stk.tex.clone(); t.repeat.set(cell.s, cell.s); t.offset.set(cell.x, cell.y); t.needsUpdate = true;
       const s = new THREE.Mesh(new THREE.PlaneGeometry(.05, .05), new THREE.MeshStandardMaterial({ map: t, transparent: true, roughness: .42, metalness: 0, envMapIntensity: .8, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
       const sxo = c % 2 ? .05 : -.05;
@@ -3957,6 +4007,7 @@ function selectFloor(f) {
   if (D.state !== 'play') return;
   const label = f === 0 ? 'the lobby' : f === ROOF ? 'the roof' : (BY_FLOOR.get(f)?.name || 'floor ' + f);
   if (!(f === 0 || f === ROOF || BY_FLOOR.has(f))) { caption(`No project on floor ${f}`); return; }
+  if (f !== 0 && f !== ROOF && !BY_FLOOR.get(f).live) { caption(`Nothing on floor ${f} yet`); return; }   // typed numbers can't reach a dark floor either
   if (lift.phase === 'riding' || lift.phase === 'arrived') { if (f !== lift.target) caption(`On the way to <b>${esc(placeName(lift.target))}</b>`); return; }
   if (!inCab()) { caption('Step into the cab first'); return; }
   const b = buttonFor(f); if (b) { b.press = 1; sfxButton(); }
@@ -4426,7 +4477,8 @@ function tick(dt, time) {
     b.press = Math.max(0, b.press - dt * 7); b.face.position.z = .006 - b.press * .0028;
     if (b.litT > 0) { b.litT -= dt; if (b.litT <= 0) b.lit = 0; }
     const isHover = hover && hover.object.userData.btn === b;
-    const target = b.lit ? (b.label === 'ALARM' ? 2.2 + Math.sin(time * 40) * 1.2 : 3.4) : isHover ? .35 + LOOK.btnGlow : LOOK.btnGlow;
+    const idle = LOOK.btnGlow + (b.act && b.act.type === 'floor' ? .28 : 0);   // floors you can go to keep a soft amber backlight
+    const target = b.dead ? 0 : b.lit ? (b.label === 'ALARM' ? 2.2 + Math.sin(time * 40) * 1.2 : 3.4) : isHover ? .35 + idle : idle;
     b.glow = damp(b.glow, target, b.lit ? 9 : 5, dt); b.mat.emissiveIntensity = b.glow;
   }
   // arrival lantern in the lobby

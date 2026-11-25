@@ -30,7 +30,8 @@ const FLOORS = (() => {
     const floor = Math.round(+p.floor);
     if (!(floor >= 1) || seen.has(floor)) { console.warn('Skipped project (floor must be a whole number from 1, each floor once):', p); continue; }
     seen.add(floor);
-    out.push({ floor, name: String(p.name || 'Untitled'), author: String(p.author || ''), url: String(p.url || '#'), sticker: String(p.sticker || '★'), stickerBg: p.stickerBg ? String(p.stickerBg) : '', gallery: !!p.gallery });
+    const url = String(p.url || '#'), live = !!p.gallery || (/^https?:\/\//.test(url) && !/^https?:\/\/(www\.)?example\.com\b/.test(url));   // placeholders stay dark
+    out.push({ floor, name: String(p.name || 'Untitled'), author: String(p.author || ''), url, sticker: String(p.sticker || '★'), stickerBg: p.stickerBg ? String(p.stickerBg) : '', gallery: !!p.gallery, live });
   }
   return out.sort((a, b) => a.floor - b.floor);
 })();

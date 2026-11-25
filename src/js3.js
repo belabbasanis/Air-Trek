@@ -253,6 +253,7 @@ function selectFloor(f) {
   if (D.state !== 'play') return;
   const label = f === 0 ? 'the lobby' : f === ROOF ? 'the roof' : (BY_FLOOR.get(f)?.name || 'floor ' + f);
   if (!(f === 0 || f === ROOF || BY_FLOOR.has(f))) { caption(`No project on floor ${f}`); return; }
+  if (f !== 0 && f !== ROOF && !BY_FLOOR.get(f).live) { caption(`Nothing on floor ${f} yet`); return; }   // typed numbers can't reach a dark floor either
   if (lift.phase === 'riding' || lift.phase === 'arrived') { if (f !== lift.target) caption(`On the way to <b>${esc(placeName(lift.target))}</b>`); return; }
   if (!inCab()) { caption('Step into the cab first'); return; }
   const b = buttonFor(f); if (b) { b.press = 1; sfxButton(); }
@@ -722,7 +723,8 @@ function tick(dt, time) {
     b.press = Math.max(0, b.press - dt * 7); b.face.position.z = .006 - b.press * .0028;
     if (b.litT > 0) { b.litT -= dt; if (b.litT <= 0) b.lit = 0; }
     const isHover = hover && hover.object.userData.btn === b;
-    const target = b.lit ? (b.label === 'ALARM' ? 2.2 + Math.sin(time * 40) * 1.2 : 3.4) : isHover ? .35 + LOOK.btnGlow : LOOK.btnGlow;
+    const idle = LOOK.btnGlow + (b.act && b.act.type === 'floor' ? .28 : 0);   // floors you can go to keep a soft amber backlight
+    const target = b.dead ? 0 : b.lit ? (b.label === 'ALARM' ? 2.2 + Math.sin(time * 40) * 1.2 : 3.4) : isHover ? .35 + idle : idle;
     b.glow = damp(b.glow, target, b.lit ? 9 : 5, dt); b.mat.emissiveIntensity = b.glow;
   }
   // arrival lantern in the lobby
