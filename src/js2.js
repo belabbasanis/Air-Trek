@@ -23,12 +23,14 @@ const FONT_EMOJI = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Seg
 async function loadFonts() {
   const want = [`600 64px "Saira Condensed"`, `400 64px "Saira Stencil One"`, `500 32px "Shippori Mincho B1"`, `800 32px "Shippori Mincho B1"`, `500 32px "IBM Plex Mono"`, `400 32px "IBM Plex Mono"`, `400 64px "Permanent Marker"`, `400 64px "Sedgwick Ave Display"`];
   const jp = document.fonts.load(`800 64px "Shippori Mincho B1"`, GRAF_JP);   // the kanji in the graffiti come from their own font subset
-  try { await Promise.race([Promise.all([...want.map(f => document.fonts.load(f)), jp]), new Promise(r => setTimeout(r, 3500))]); } catch (e) { }
+  const cn = document.fonts.load(`400 64px "Ma Shan Zheng"`, GRAF_CN);        // brush-script Chinese, loaded for just these characters
+  try { await Promise.race([Promise.all([...want.map(f => document.fonts.load(f)), jp, cn]), new Promise(r => setTimeout(r, 3500))]); } catch (e) { }
 }
 
-/* ---- back-wall graffiti: years of tags over a sun-faded spray burst. Marker tags with drips, a red brush-kanji tag (無意識, "the unconscious"),
+/* ---- back-wall graffiti: years of tags over a sun-faded spray burst. Marker tags with drips, a red brush-script Chinese tag (two lines),
    blue marker over blue/white/orange bursts, scribbles, splatter and a taped flyer. Drawn here, no images ---- */
-const GRAF_JP = '無意識夢上下';
+const GRAF_JP = '夢';
+const GRAF_CN = '我不想 辈子让人踩在脚下';   // red tag, as given; split over two lines at the space
 const GRAF = { w: 2048, h: 1072, mw: 6.5, mh: 3.4, y0: .05, door: [-.8, .8, 2.8] };   // canvas px; wall metres; door + transom opening (x0, x1, top)
 function grafTex() {
   const { w: W, h: Hh } = GRAF, K = W / GRAF.mw, r = rng(404);
@@ -73,28 +75,30 @@ function grafTex() {
     for (let i = 0; i < 7; i++) { const px = X(-2.9) + r() * 1500, py = Y(3.4) + r() * 60, len = 120 + r() * 380; mx.lineWidth = 2 + r() * 4; mx.beginPath(); mx.moveTo(px, py); mx.lineTo(px + (r() - .5) * 6, py + len); mx.stroke(); } }, '#111', { wear: .6, alpha: .85 });
   // 4. big black marker tags
   layer((mx) => {
-    text(mx, 'SLOWBURN', `400 158px ${HAND}`, X(-3.18), Y(2.45), -.05);
-    text(mx, 'KROMA', `400 88px ${HAND}`, X(2.15), Y(3.2), .04); text(mx, 'deep end', `400 88px ${MARK}`, X(-2.4), Y(3.12), -.03);
+    text(mx, 'HOPIUM', `400 170px ${HAND}`, X(-3.18), Y(2.45), -.05);
+    text(mx, 'KROMA', `400 88px ${HAND}`, X(2.15), Y(3.2), .04); text(mx, 'spicy food tour', `400 66px ${MARK}`, X(-2.75), Y(3.12), -.03);
     text(mx, 'LOOP', `400 110px ${HAND}`, X(-3.0), Y(.75), .03); text(mx, 'ZZZ', `400 90px ${HAND}`, X(1.6), Y(.42), -.05);
-    text(mx, 'nobody home', `400 112px ${MARK}`, X(.95), Y(2.8), .03);
+    text(mx, 'cowboy bebop', `400 100px ${MARK}`, X(.95), Y(2.8), .03);
     text(mx, 'AS IS', `400 128px ${HAND}`, X(-.62), Y(2.95), -.02);
     text(mx, 'GHO$T', `400 96px ${HAND}`, X(.95), Y(1.05), -.08);
     scrawl(mx, X(-3.0), Y(3.38), 360, 50, 7, 7); scrawl(mx, X(.9), Y(2.42), 520, 60, 9, 9); scrawl(mx, X(-2.0), Y(1.0), 300, 40, 6, 6);
   }, '#121212', { drips: 110, dripLen: 150, alpha: .92, mist: 5 });
-  // 5. red brush kanji: 無意識, "the unconscious", with a slashed underline
-  layer((mx) => { text(mx, '無意識', `800 190px ${JP}`, X(1.25), Y(1.95), -.06, { skew: -.18 }); mx.lineWidth = 9; mx.beginPath(); mx.moveTo(X(1.2), Y(1.82)); mx.quadraticCurveTo(X(2.0), Y(1.72), X(3.0), Y(1.86)); mx.stroke(); },
+  // 5. red brush-script Chinese over two lines, with a slashed underline
+  layer((mx) => { const [l1, l2] = GRAF_CN.split(' '), CNF = `400 84px "Ma Shan Zheng",${JP}`;
+    text(mx, l1, CNF, X(.92), Y(2.25), -.04, { skew: -.12 }); text(mx, l2, CNF, X(.92), Y(1.96), -.04, { skew: -.12 });
+    mx.lineWidth = 8; mx.beginPath(); mx.moveTo(X(1.0), Y(1.8)); mx.quadraticCurveTo(X(2.0), Y(1.7), X(3.05), Y(1.84)); mx.stroke(); },
     '#a8302a', { drips: 45, dripLen: 160, alpha: .88, mist: 4 });
   // 6. blue marker over the bursts
   layer((mx) => {
-    text(mx, 'mothlight', `400 84px ${MARK}`, X(-3.05), Y(1.62), -.02); text(mx, 'VEIN', `400 92px ${HAND}`, X(2.05), Y(1.25), .05);
+    text(mx, 'mothlight', `400 84px ${MARK}`, X(-3.05), Y(1.62), -.02); text(mx, 'MADAD', `400 92px ${HAND}`, X(2.0), Y(1.25), .05);
     text(mx, '夢', `800 120px ${JP}`, X(-1.2), Y(2.05), .1);
   }, '#2b5bb4', { drips: 26, dripLen: 90, alpha: .9, mist: 3 });
   // 6b. chalky white marker on the teal below
-  layer((mx) => { text(mx, 'still here', `400 70px ${MARK}`, X(-2.55), Y(.5), -.04); text(mx, 'L', `400 120px ${HAND}`, X(2.85), Y(.4), .1); text(mx, 'up is down', `400 52px ${MARK}`, X(1.0), Y(1.05), .06);
+  layer((mx) => { text(mx, 'still here', `400 70px ${MARK}`, X(-2.55), Y(.5), -.04); text(mx, 'L', `400 120px ${HAND}`, X(2.85), Y(.4), .1); text(mx, 'over motion', `400 52px ${MARK}`, X(1.0), Y(1.05), .06);
     for (let i = 0; i < 8; i++) scrawl(mx, X(-3.1 + r() * 6), Y(.15 + r() * 1.0), 70 + r() * 120, 14 + r() * 20, 5, 2.5); }, '#e6e2d6', { drips: 14, dripLen: 50, alpha: .75, wear: .8 });
   // 7. small scribbles, numbers, hearts and crowns
   layer((mx) => {
-    const notes = [['33·37·13', -2.9, 1.25, 40], ['4  4', -1.9, 1.05, 44], ['kiki+mo', 1.05, .78, 40], ['↑ 22', 2.6, 2.35, 46], ['B3', -1.15, 2.55, 50], ['was here', 2.15, .55, 34], ['R?', -2.45, 2.2, 48], ['wake up', 1.0, 2.3, 38], ['0', -3.0, .3, 60], ['no lift', 2.55, 1.05, 34]];
+    const notes = [['33·37·13', -2.9, 1.25, 40], ['4  4', -1.9, 1.05, 44], ['kiki+mo', 1.05, .78, 40], ['↑ 22', 2.75, 2.62, 46], ['B3', -1.15, 2.55, 50], ['was here', 2.15, .55, 34], ['R?', -2.45, 2.2, 48], ['wake up', 1.0, 2.62, 38], ['0', -3.0, .3, 60], ['no lift', 2.55, 1.05, 34]];
     for (const [t_, xm, ym, fs] of notes) text(mx, t_, `400 ${fs}px ${MARK}`, X(xm), Y(ym), (r() - .5) * .25);
     mx.lineWidth = 4;
     for (const [xm, ym] of [[-1.9, 1.4], [2.8, .8], [1.3, 2.6]]) { const px = X(xm), py = Y(ym); mx.beginPath(); mx.moveTo(px, py + 18); mx.bezierCurveTo(px - 30, py - 4, px - 14, py - 26, px, py - 8); mx.bezierCurveTo(px + 14, py - 26, px + 30, py - 4, px, py + 18); mx.stroke(); }
@@ -120,7 +124,7 @@ const SOCIAL = [
   { key: 'instagram', label: 'Instagram', handle: '@belabbasanis', url: 'https://www.instagram.com/belabbasanis' },
   { key: 'x', label: 'X', handle: '@0xBelabbaa', url: 'https://x.com/0xBelabbaa' },
 ];
-const TAG = { w: 1024, h: 600, mw: .92, x: 1.98, y: .66, icon: 128, iconY: 452, iconX: [404, 620] };   // canvas px, metres, and where the two logos sit on the canvas
+const TAG = { w: 1024, h: 600, mw: .46, x: 1.98, y: .82, icon: 128, iconY: 452, iconX: [404, 620] };   // canvas px, metres, and where the two logos sit on the canvas
 function tagTex() {
   const { w: W, h: Hh } = TAG, r = rng(77);
   const [m, mx] = cv(W, Hh);     // the stencil mask: what the cut-out lets through

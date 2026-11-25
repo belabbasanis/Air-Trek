@@ -228,7 +228,9 @@ function hiddenTick(dt, time) {
         // the ordinary cab is back: let the needle unwind to the lobby without spinning a hundred turns
         const target = dialAngle(0), z = UI3.needle.rotation.z; UI3.needle.rotation.z = target + (((z - target) % (Math.PI * 2)) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
       } break;
-    case 'back': if (HID.t > .6) { HID.active = false; HID.stage = ''; doorsTo(1); } break;
+    case 'back':   // reopen the ordinary cab; stay 'active' until it is fully open, so the lobby stays walkable meanwhile
+      if (HID.t > .6 && lift.phase === 'closed') doorsTo(1);
+      if (lift.phase === 'open') { HID.active = false; HID.stage = ''; } break;
   }
   HID.chase = HID.stage === 'down' || HID.stage === 'up' || HID.stage === 'flash';
   // the cab's own light, the gems, the idle sway, the smoke
