@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "tripo": {
+      "command": "npx",
+      "args": ["-y", "tripo-cli@0.11.4", "mcp"],
+      "env": {
+        "NODE_USE_ENV_PROXY": "1",
+        "TRIPO_ANALYTICS_ENABLED": "0",
+        "TRIPO_NO_UPDATE_CHECK": "1",
+        "TRIPO_API_KEY": "tsk_proxy_injected"
+      }
+    }
+  }
+}

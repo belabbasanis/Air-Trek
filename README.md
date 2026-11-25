@@ -21,3 +21,13 @@ The entries in the repo are placeholders.
 - `src/js1.js`: renderer, post-processing (light shafts, SSAO, bloom, depth of field, grading, FXAA) and the material baker.
 - `src/js2.js`: textures, geometry, ivy and the lobby, shaft, cab and landing.
 - `src/js3.js`: audio, lift logic, controls, intro sequence and the frame loop.
+
+## Generating 3D assets with Tripo
+
+Claude Code sessions on this repo can generate models with [Tripo](https://developers.tripo3d.ai/en/mcp):
+
+- `tools/tripo` runs the Tripo CLI (for example `tools/tripo make "mossy stone planter" --json`). In a Claude Code cloud session on the `air-trek` environment, the network proxy adds the Tripo API key, so no key is stored in the repo.
+- `.mcp.json` registers Tripo's MCP server (`npx -y tripo-cli mcp`) for Claude Code sessions opened on this repo.
+- On your own machine, run `npm i -g tripo-cli` and `tripo login` instead.
+
+Generating uses Tripo API credits.

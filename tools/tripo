@@ -1,0 +1,9 @@
+#!/bin/bash
+# Tripo CLI for this repo's Claude Code cloud sessions.
+# The session's network proxy adds the real Tripo API key to requests to openapi.tripo3d.ai and
+# api.tripo3d.ai, so TRIPO_API_KEY only needs a placeholder here. Node's fetch needs NODE_USE_ENV_PROXY
+# to go through the proxy. On your own machine, run `tripo login` instead and use `tripo` directly.
+export NODE_USE_ENV_PROXY=1 TRIPO_ANALYTICS_ENABLED=0 TRIPO_NO_UPDATE_CHECK=1
+export TRIPO_API_KEY="${TRIPO_API_KEY:-tsk_proxy_injected}"
+command -v tripo >/dev/null 2>&1 || npm install -g tripo-cli@0.11.4 >&2
+exec tripo "$@" 2> >(grep -v -e EnvHttpProxyAgent -e 'trace-warnings' >&2)
