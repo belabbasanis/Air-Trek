@@ -1,4 +1,4 @@
-<title>As Is</title>
+<title>Air Trek</title>
 <script>
 /* =====================================================================
    PROJECTS: one entry per floor. Add people here and nothing else needs to change.
@@ -6,30 +6,46 @@
    name    shown on the landing wall, the arrival caption and the floor list.
    author  shown under the name.
    url     opens in a new tab when a visitor steps out onto the landing.
-   sticker an emoji or up to 3 characters, or a data:image/... URI.
+   sticker an emoji or up to 3 characters, a data:image/... URI, or an image path in this site (images/...).
+   stickerBg  optional sticker background colour; gallery: true makes the floor the As Is gallery.
            (The artifact host blocks images from other sites, so a plain https image URL will not load.)
    These entries are placeholders: replace them with the real list.
    ===================================================================== */
 const PROJECTS = [
-  { floor: 2,  name: 'Night Garden',     author: 'Your Name', url: 'https://example.com/night-garden',   sticker: '🌙' },
-  { floor: 3,  name: 'Paper Boats',      author: 'Your Name', url: 'https://example.com/paper-boats',    sticker: '⛵' },
-  { floor: 5,  name: 'Tidepool',         author: 'Your Name', url: 'https://example.com/tidepool',       sticker: '🐚' },
-  { floor: 6,  name: 'Static Choir',     author: 'Your Name', url: 'https://example.com/static-choir',   sticker: '📻' },
-  { floor: 8,  name: 'Slow Clock',       author: 'Your Name', url: 'https://example.com/slow-clock',     sticker: '⏳' },
-  { floor: 9,  name: 'Moth Lamp',        author: 'Your Name', url: 'https://example.com/moth-lamp',      sticker: '🦋' },
-  { floor: 11, name: 'Ink Weather',      author: 'Your Name', url: 'https://example.com/ink-weather',    sticker: '🌧' },
-  { floor: 13, name: 'Glass Orchard',    author: 'Your Name', url: 'https://example.com/glass-orchard',  sticker: '🍐' },
-  { floor: 14, name: 'Pocket Comet',     author: 'Your Name', url: 'https://example.com/pocket-comet',   sticker: '☄' },
-  { floor: 17, name: 'Low Tide Radio',   author: 'Your Name', url: 'https://example.com/low-tide-radio', sticker: '🎧' },
-  { floor: 20, name: 'Kite Theory',      author: 'Your Name', url: 'https://example.com/kite-theory',    sticker: '🪁' },
-  { floor: 22, name: 'Rooftop Cinema',   author: 'Your Name', url: 'https://example.com/rooftop-cinema', sticker: '🎞' },
+  { floor: 1,  name: 'Paper Boats',      author: 'Your Name', url: 'https://example.com/paper-boats',    sticker: '⛵' },
+  { floor: 2,  name: 'As Is',            author: 'Gallery · tonight\'s projects', url: '', sticker: 'images/as-is-logo.png', stickerBg: '#141414', gallery: true },
+  { floor: 3,  name: 'Tidepool',         author: 'Your Name', url: 'https://example.com/tidepool',       sticker: '🐚' },
+  { floor: 4,  name: 'Static Choir',     author: 'Your Name', url: 'https://example.com/static-choir',   sticker: '📻' },
+  { floor: 5,  name: 'Slow Clock',       author: 'Your Name', url: 'https://example.com/slow-clock',     sticker: '⏳' },
+  { floor: 6,  name: 'Moth Lamp',        author: 'Your Name', url: 'https://example.com/moth-lamp',      sticker: '🦋' },
+  { floor: 7,  name: 'Ink Weather',      author: 'Your Name', url: 'https://example.com/ink-weather',    sticker: '🌧' },
+  { floor: 8,  name: 'Glass Orchard',    author: 'Your Name', url: 'https://example.com/glass-orchard',  sticker: '🍐' },
+  { floor: 9,  name: 'Pocket Comet',     author: 'Your Name', url: 'https://example.com/pocket-comet',   sticker: '☄' },
+  { floor: 10, name: 'Low Tide Radio',   author: 'Your Name', url: 'https://example.com/low-tide-radio', sticker: '🎧' },
+  { floor: 11, name: 'Kite Theory',      author: 'Your Name', url: 'https://example.com/kite-theory',    sticker: '🪁' },
+  { floor: 12, name: 'Rooftop Cinema',   author: 'Your Name', url: 'https://example.com/rooftop-cinema', sticker: '🎞' },
 ];
-const TITLE  = 'As Is';         // title card and start screen
+/* =====================================================================
+   GALLERY: the pieces on floor 2 (As Is), one per project presented tonight.
+   id      which piece in the room shows it (fixed: rapailler, stm, hope, hands, sfmap)
+   title, author, medium, blurb   printed on the wall label
+   url     opens in a new tab when the piece or its label is clicked (leave empty for none)
+   ===================================================================== */
+const GALLERY = [
+  { id: 'rapailler', title: 'Rapailler la langue', author: 'Pascal Huynh', medium: 'Le Centre du français laurentien · design social, graphique et de service', blurb: 'Designing a democratic written system for Québécois.', url: 'https://www.figma.com/deck/2hi6S4RJpQG5paXR71TXMM/Le-Fran%C3%A7ais-Laurentien?node-id=6008-228' },
+  { id: 'stm',       title: 'STM Surfer', author: '', medium: 'browser game · unofficial fan project, not affiliated with the STM', blurb: 'A three-lane runner through the Montreal metro. Run every line, station by station, and ride the train roofs.', url: 'https://stm-surfer.vercel.app/' },
+  { id: 'hope',      title: 'Hope Library', author: '', medium: 'website · 48 documentaries, series and films', blurb: 'People are already building the future.', url: 'https://hopelibrary.github.io/' },
+  { id: 'hands',     title: 'Untitled (hands)', author: '', medium: '', blurb: '', url: '' },
+  { id: 'sfmap',     title: 'Untitled (San Francisco)', author: '', medium: '', blurb: '', url: '' },
+];
+const TITLE  = 'Air Trek';      // title card and start screen
 const STUDIO = 'Bermuda DPT';   // credit line: "<STUDIO> presents"
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@500;800&family=Cormorant+Garamond:ital,wght@0,500;1,500&family=IBM+Plex+Mono:wght@400;500&family=Saira+Condensed:wght@600&family=Saira+Stencil+One&family=Permanent+Marker&family=Sedgwick+Ave+Display&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&family=Newsreader:ital,opsz,wght@1,6..72,400&family=Barlow+Condensed:wght@600;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&display=block&text=%E3%82%A8%E3%82%A2%E3%83%BB%E3%83%88%E3%83%AC%E3%83%83%E3%82%AFAIRTEK">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&display=swap&text=%E6%88%91%E4%B8%8D%E6%83%B3%E8%BE%88%E5%AD%90%E8%AE%A9%E4%BA%BA%E8%B8%A9%E5%9C%A8%E8%84%9A%E4%B8%8B">
 <style>
 /* Layout: full-bleed WebGL viewport; cinematic type sits over the live scene, captions low and centred, one small menu button in the corner. */
@@ -64,10 +80,10 @@ body.letterbox #lb i{height:calc((100vh - 100vw/2.39)/2)}
 #credit.on{transform:none}
 #logo{left:9vw;top:40%;text-align:left;transform:translateX(-18px)}
 #logo.on{transform:none}
-#logo .word{display:block;height:clamp(38px,5.9vw,94px);width:auto;filter:drop-shadow(0 2px 2px rgba(0,0,0,.35)) drop-shadow(0 6px 18px rgba(0,0,0,.45));user-select:none}
+#logo .word{display:block;width:clamp(260px,40vw,640px);height:auto;overflow:visible;filter:drop-shadow(0 2px 2px rgba(0,0,0,.35)) drop-shadow(0 6px 18px rgba(0,0,0,.45));user-select:none}
 #logo .sub{display:flex;align-items:center;gap:14px;margin-top:18px;font-family:var(--f-serif);font-weight:500;font-size:clamp(12px,1.1vw,15px);letter-spacing:.32em;text-transform:uppercase;color:#fffbf3;text-shadow:0 1px 2px rgba(0,0,0,.6),0 2px 14px rgba(0,0,0,.5)}
 .seal{display:inline-grid;place-items:center;width:1.9em;height:1.9em;background:#b3261e;color:#f8e9dc;font-size:1.15em;letter-spacing:0;border-radius:50%;box-shadow:0 0 0 1px rgba(255,255,255,.08),0 4px 12px rgba(0,0,0,.35)}
-@media (max-width:640px){ #credit{right:6vw;top:40%} #logo{left:6vw;right:6vw;top:34%} #logo .sub{flex-wrap:wrap;gap:8px 10px;letter-spacing:.18em} #logo .word{height:12vw} }
+@media (max-width:640px){ #credit{right:6vw;top:40%} #logo{left:6vw;right:6vw;top:34%} #logo .sub{flex-wrap:wrap;gap:8px 10px;letter-spacing:.18em} #logo .word{width:82vw} }
 
 /* start screen: Updraft's card, set over the live lobby shot instead of black */
 #start{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;cursor:pointer;transition:opacity 1.6s ease;outline:none;
@@ -119,6 +135,10 @@ body.letterbox #cap{bottom:calc((100vh - 100vw/2.39)/2 + 2vh)}
 #list a:focus-visible{box-shadow:inset 0 0 0 1px var(--amber)}
 #list .n{font-family:"Saira Condensed","Arial Narrow",sans-serif;font-weight:600;font-size:18px;letter-spacing:.1em;color:var(--amber);font-variant-numeric:tabular-nums;grid-row:span 2}
 #list .t{font-family:var(--f-serif);font-size:16px;letter-spacing:.03em;min-width:0;overflow-wrap:anywhere}
+#list .gal{display:grid;grid-template-columns:3.2em 1fr;gap:2px 12px;padding:9px 4px 4px}
+#list .sub{list-style:none;margin:0 0 8px 3.6em;padding:0;display:flex;flex-direction:column;gap:2px}
+#list .sub a{display:block;padding:4px 4px}
+#list .sub span{display:block;padding:4px 4px;color:var(--ink-dim);font-size:14px}
 #list .a{font-size:11px;color:var(--ink-dim);letter-spacing:.05em;min-width:0;overflow-wrap:anywhere}
 .row{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center}
 .tog{font:inherit;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);background:transparent;border:1px solid var(--ink-faint);border-radius:12px;padding:5px 12px;cursor:pointer}
@@ -141,11 +161,27 @@ body.rm .cine,body.rm #lb i{transition-duration:.01s}
 </style>
 
 <canvas id="c" aria-hidden="true" tabindex="-1"></canvas>
-<h1 class="sr" id="srTitle">As Is: a lift to the projects on each floor</h1>
+<h1 class="sr" id="srTitle">Air Trek: a lift to the projects on each floor</h1>
 <div id="lb" aria-hidden="true"><i id="lbT"></i><i id="lbB"></i></div>
 <div id="credit" class="cine" aria-hidden="true"><span id="creditName"></span><br><span>presents</span></div>
 <div id="logo" class="cine" role="img" aria-label="">
-  <img class="word" id="logoWord" src="images/as-is-logo.png" alt="" draggable="false">
+  <svg id="logoWord" class="word" viewBox="0 0 1520 500" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Air Trek">
+    <g transform="translate(110 0) skewX(-12)">
+      <g fill="#000">
+        <polygon points="1290,96 1500,70 1478,118 1286,138"/>
+        <polygon points="1316,170 1470,152 1452,190 1310,204"/>
+        <polygon points="1300,236 1420,224 1404,254 1294,262"/>
+      </g>
+      <g font-family="'Dela Gothic One', 'Saira Condensed', sans-serif" font-size="222" letter-spacing="-16">
+        <text x="40" y="290" fill="#000" stroke="#000" stroke-width="36" stroke-linejoin="miter" transform="translate(18 18)">エア・トレック</text>
+        <text x="40" y="290" fill="#000" stroke="#000" stroke-width="36" stroke-linejoin="miter">エア・トレック</text>
+        <text x="40" y="290" fill="#fff" stroke="#fff" stroke-width="3">エア・トレック</text>
+      </g>
+      <polygon points="330,330 1250,330 1228,458 308,458" fill="#000" transform="translate(14 12)"/>
+      <polygon points="330,330 1250,330 1228,458 308,458" fill="#fff" stroke="#000" stroke-width="13" stroke-linejoin="miter"/>
+      <text x="779" y="439" text-anchor="middle" font-family="'Dela Gothic One', 'Saira Condensed', sans-serif" font-size="114" letter-spacing="4" fill="#000">AIR TREK</text>
+    </g>
+  </svg>
   <div class="sub"><span class="seal" aria-hidden="true">↑</span><span id="logoSub"></span></div>
 </div>
 <div id="cap" class="ui" aria-live="polite"></div>

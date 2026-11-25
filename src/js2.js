@@ -21,7 +21,7 @@ const FONT_SERIF = '"Shippori Mincho B1","Cormorant Garamond",Georgia,serif';
 const FONT_MONO = '"IBM Plex Mono",ui-monospace,Menlo,monospace';
 const FONT_EMOJI = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Segoe UI Symbol",sans-serif';
 async function loadFonts() {
-  const want = [`600 64px "Saira Condensed"`, `400 64px "Saira Stencil One"`, `500 32px "Shippori Mincho B1"`, `800 32px "Shippori Mincho B1"`, `500 32px "IBM Plex Mono"`, `400 32px "IBM Plex Mono"`, `400 64px "Permanent Marker"`, `400 64px "Sedgwick Ave Display"`];
+  const want = [`600 64px "Saira Condensed"`, `400 64px "Saira Stencil One"`, `500 32px "Shippori Mincho B1"`, `800 32px "Shippori Mincho B1"`, `500 32px "IBM Plex Mono"`, `400 32px "IBM Plex Mono"`, `400 64px "Permanent Marker"`, `400 64px "Sedgwick Ave Display"`, `800 64px "Bricolage Grotesque"`, `italic 400 32px "Newsreader"`, `800 64px "Barlow Condensed"`, `600 32px "Barlow Condensed"`];
   const jp = document.fonts.load(`800 64px "Shippori Mincho B1"`, GRAF_JP);   // the kanji in the graffiti come from their own font subset
   const cn = document.fonts.load(`400 64px "Ma Shan Zheng"`, GRAF_CN);        // brush-script Chinese, loaded for just these characters
   try { await Promise.race([Promise.all([...want.map(f => document.fonts.load(f)), jp, cn]), new Promise(r => setTimeout(r, 3500))]); } catch (e) { }
@@ -216,10 +216,10 @@ function buttonAtlas() {
 const STK_COLORS = ['#e8b04a', '#e0644f', '#5fa58a', '#4f7fd1', '#c9a6e8', '#f2d7a6', '#7bc4d8', '#e98bb3', '#9ccf6a', '#f0e6d0', '#2f3e46', '#ffcf5c'];
 const stickerImgs = new Map();
 async function preloadStickerImages() {
-  await Promise.all(FLOORS.filter(p => /^data:image\//.test(p.sticker)).map(p => new Promise(res => { const im = new Image(); im.onload = () => { stickerImgs.set(p.floor, im); res(); }; im.onerror = res; im.src = p.sticker; })));
+  await Promise.all(FLOORS.filter(p => /^data:image\/|^images\/[\w./-]+\.(png|webp|jpe?g|svg)$/i.test(p.sticker)).map(p => new Promise(res => { const im = new Image(); im.onload = () => { stickerImgs.set(p.floor, im); res(); }; im.onerror = res; im.src = p.sticker; })));
 }
 function drawSticker(c, cx, cy, size, p) {
-  const r = rng(hashStr(p.name + '#' + p.floor)); const shape = Math.floor(r() * 4); const col = STK_COLORS[Math.floor(r() * STK_COLORS.length)];
+  const r = rng(hashStr(p.name + '#' + p.floor)); const shape = Math.floor(r() * 4); const col = p.stickerBg || STK_COLORS[Math.floor(r() * STK_COLORS.length)];
   const rot = (r() - .5) * .5, R = size * .44;
   const path = (k) => {
     c.beginPath(); const rr = R * k;
@@ -235,7 +235,7 @@ function drawSticker(c, cx, cy, size, p) {
   path(.86); const g = c.createLinearGradient(0, -R, 0, R); g.addColorStop(0, col); g.addColorStop(1, shade(col, -.18)); c.fillStyle = g; c.fill();
   c.save(); path(.86); c.clip();
   const im = stickerImgs.get(p.floor);
-  if (im) { const s = R * 1.5; c.drawImage(im, -s / 2, -s / 2, s, s); }
+  if (im) { const s = R * 1.38, k = Math.min(s / im.width, s / im.height); c.drawImage(im, -im.width * k / 2, -im.height * k / 2, im.width * k, im.height * k); }
   else {
     const s = p.sticker; const emoji = /\p{Extended_Pictographic}/u.test(s);
     c.textAlign = 'center'; c.textBaseline = 'middle';
@@ -1122,7 +1122,7 @@ function buildLanding() {
   doors.landL = dg(-1); doors.landR = dg(1);
 }
 function dressLanding(f) {
-  const p = BY_FLOOR.get(f); if (!p) { landing.visible = false; return; }
+  const p = BY_FLOOR.get(f); if (!p || p.gallery) { landing.visible = false; return; }   // the gallery floor has a room of its own
   landing.position.set(0, f * H, 0); landing.visible = true;
   const r = rng(hashStr(p.name) + f);
   const hue = r(), tint = new THREE.Color().setHSL(hue, .35 + r() * .3, .5);
@@ -1285,7 +1285,7 @@ async function buildScene(progress) {
   progress('Hanging the ivy…');
   scene.environment = envMap();
   TEX.btn = buttonAtlas(); TEX.stk = stickerAtlas();
-  buildLobby(); buildShaft(); buildCab(); buildHidden(); buildLanding();
+  buildLobby(); buildShaft(); buildCab(); buildHidden(); buildLanding(); buildGallery();
   // vines + instanced foliage per parent
   const leafGeo = leafGeometry(), mossGeo = mossGeometry(), flGeo = flowerGeometry();
   for (const parent of [world, cab, landing]) {

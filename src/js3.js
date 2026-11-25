@@ -30,6 +30,7 @@ function stepSample(file, gain = 1, rate = 1, dest) {
 function surfaceUnder() {
   const x = P.pos.x, z = P.pos.z;
   if (z < CAB.z1 + .02 && Math.abs(x) < CAB.x1 + .05) return 'metal';
+  if (lift.floor === GALLERY_FLOOR && lift.phase !== 'riding' && z > WALL_Z + .05) return 'stone';   // the gallery's bare concrete
   if (lift.floor === ROOF && lift.phase !== 'riding') {
     if (z < WALL_Z + .1 && Math.abs(x) < DOOR_W / 2 + .1) return 'tile';          // the brass sill
     return ROOF_STONES.some(q => x > q[0] && x < q[1] && z > q[2] && z < q[3]) ? 'stone' : 'grass';
@@ -292,6 +293,7 @@ function liftTick(dt) {
   const lo = atLobby ? o : 0; doors.lobL.position.x = -.265 - lo; doors.lobR.position.x = .265 + lo;
   const atLand = landing.visible && lift.phase !== 'riding' && Math.abs(lift.y - landing.position.y) < .01;
   const la = atLand ? o : 0; doors.landL.position.x = -.265 - la; doors.landR.position.x = .265 + la;
+  if (doors.galL) { const ga = lift.floor === GALLERY_FLOOR && lift.phase !== 'riding' && Math.abs(lift.y - GALLERY_FLOOR * H) < .01 ? o : 0; doors.galL.position.x = -.265 - ga; doors.galR.position.x = .265 + ga; }
   if (doors.roofL) { const ra = lift.floor === ROOF && lift.phase !== 'riding' && Math.abs(lift.y - ROOF * H) < .01 ? o : 0; doors.roofL.position.x = -.265 - ra; doors.roofR.position.x = .265 + ra; }
   cab.position.y = lift.y;
   // hall dial follows the cab
@@ -301,6 +303,7 @@ function onDoorsOpen() {
   if (D.state !== 'play' || HID.active) return;
   const p = BY_FLOOR.get(lift.floor);
   if (p) { caption(`<b>${esc(p.name)}</b>${p.author ? ' · by ' + esc(p.author) : ''}`, 4.5); showVisit(p); hint(isTouch ? 'Walk out, or tap the painted wall, to visit' : 'Walk out, click the painted wall, or press <kbd>Enter</kbd> to visit', 6); }
+  else if (lift.floor === GALLERY_FLOOR) { caption('<b>As Is</b> · tonight\'s projects', 4); hint(isTouch ? 'Tap a piece to open its project' : 'Walk up to a piece and click it to open its project', 6); }
   else if (lift.floor === 0) caption('Lobby', 2.4);
   else if (lift.floor === ROOF) { caption('<b>Roof garden</b>', 3.5); hint('Walk around the roof · take the lift back down when you are done', 6); }
 }
@@ -316,7 +319,7 @@ const visitA = $('visit');
 function showVisit(p) { visitA.href = p.url; $('visitName').textContent = p.name + ' ↗'; $('visitSmall').textContent = `Floor ${p.floor} · step out to visit`; visitA.classList.add('on'); visitA.dataset.floor = p.floor; }
 function hideVisit() { visitA.classList.remove('on', 'pulse'); }
 function triggerVisit(how) {
-  const p = BY_FLOOR.get(lift.floor); if (!p || lift.doors < .9 || lift.phase === 'riding') return false;
+  const p = BY_FLOOR.get(lift.floor); if (!p || p.gallery || lift.doors < .9 || lift.phase === 'riding') return false;
   if (P.visited && how === 'step') return false;
   P.visited = true;
   // a real link clicked inside the user's gesture: pop-up blockers allow this
@@ -360,6 +363,7 @@ function rects() {
   else if (lift.doors > .92 && lift.phase === 'open') {
     out.push([-DOOR_W / 2 + .19, DOOR_W / 2 - .19, CAB.z1 - .4, WALL_Z + .6]);
     if (lift.floor === 0) out.push([LOBBY.x0 + r, LOBBY.x1 - r, WALL_Z + r, LOBBY.z1 - r]);
+    else if (lift.floor === GALLERY_FLOOR) out.push([GAL.x0 + r, GAL.x1 - r, WALL_Z + r, GAL.z1 - r]);
     else if (lift.floor === ROOF) { const e = .25 + r; out.push([RF.x0 + e, RF.x1 - e, .3 + r, RF.z1 - e], [RF.x0 + e, HH.x0 - .05 - r, RF.z0 + e, 1], [HH.x1 + .3 + r, RF.x1 - e, RF.z0 + e, 1]); }
     else out.push([LAND.x0 + r, LAND.x1 - r, WALL_Z + r, LAND.z1 - r]);
   }
@@ -370,7 +374,7 @@ function moveTo(nx, nz) {
   const R = rects();
   if (!inRects(P.pos.x, P.pos.z, R)) { const q = R[0]; P.pos.x = clamp(P.pos.x, q[0], q[1]); P.pos.z = clamp(P.pos.z, q[2], q[3]); }
   if (lift.floor === 0 && nz > WALL_Z) { const dx = nx - CARPET.x, dz = nz - CARPET.z, d = Math.hypot(dx, dz); if (d < .42) { nx = CARPET.x + dx / d * .42; nz = CARPET.z + dz / d * .42; } }
-  const ok = (x, z) => inRects(x, z, R) && !(lift.floor === 0 && x > STALL.box[0] && x < STALL.box[1] && z > STALL.box[2]) && !(lift.floor === ROOF && z > .2 && ROOF_OBST.some(q => x > q[0] - .2 && x < q[1] + .2 && z > q[2] - .2 && z < q[3] + .2));
+  const ok = (x, z) => inRects(x, z, R) && !(lift.floor === GALLERY_FLOOR && z > WALL_Z + .1 && GAL_OBST.some(q => x > q[0] - .2 && x < q[1] + .2 && z > q[2] - .2 && z < q[3] + .2)) && !(lift.floor === 0 && x > STALL.box[0] && x < STALL.box[1] && z > STALL.box[2]) && !(lift.floor === ROOF && z > .2 && ROOF_OBST.some(q => x > q[0] - .2 && x < q[1] + .2 && z > q[2] - .2 && z < q[3] + .2));
   if (ok(nx, nz)) { P.pos.x = nx; P.pos.z = nz; return; }
   if (ok(nx, P.pos.z)) { P.pos.x = nx; return; }
   if (ok(P.pos.x, nz)) { P.pos.z = nz; return; }
@@ -399,6 +403,8 @@ function actOn(a) {
     case 'directory': openMenu(); break;
     case 'visit': triggerVisit('click'); break;
     case 'social': openSocial(a); break;
+    case 'link': openLink(a); break;
+    case 'note': sfxClick(); caption(a.text, 3); break;
   }
 }
 // clickable things: the mouse cursor turns to a hand, and the centre dot (pointer lock) grows into a ring
@@ -663,6 +669,7 @@ let exposure = .95;
 function tick(dt, time) {
   lookTick(dt);
   roofTick(dt, time);
+  galleryTick(dt, time);
   D.tick(dt, time);
   if (D.state === 'intro' || D.state === 'play') liftTick(dt);
   playerTick(dt, time);
@@ -685,7 +692,8 @@ function tick(dt, time) {
   // what the sun's shadow camera frames: the lobby, the cab in the shaft, or a landing
   const inLobby = D.state !== 'play' || (lift.floor === 0 && lift.phase !== 'riding' && (lift.doors > 0 || !P.inCab));
   const onRoof = D.state === 'play' && lift.floor === ROOF && lift.phase !== 'riding' && (lift.doors > 0 || !P.inCab);
-  const onLanding = !onRoof && D.state === 'play' && lift.floor > 0 && lift.phase !== 'riding' && lift.doors > 0;
+  const onGallery = galleryHere();
+  const onLanding = !onRoof && !onGallery && D.state === 'play' && lift.floor > 0 && lift.phase !== 'riding' && lift.doors > 0;
   if (inLobby) { sunFocus.set(-.8, 1.5, 1.4); setShadowExtent(5.4); }
   else if (onRoof) { sunFocus.set(clamp(P.pos.x, -3, 3), lift.y + 1.5, clamp(P.pos.z, 1, 7)); setShadowExtent(8.5); }
   else if (onLanding) { sunFocus.set(-.2, lift.y + 1.4, .6); setShadowExtent(3.3); }
@@ -698,10 +706,11 @@ function tick(dt, time) {
   UI3.cabBounce.intensity = damp(UI3.cabBounce.intensity, 1.5 * ov * LOOK.sunI / 9.5, 12, dt);
   UI3.lobbyBounce.intensity = 2.2 * LOOK.sunI / 9.5;
   // exposure: open up a little inside the cab
-  exposure = damp(exposure, (inLobby ? .95 : onRoof ? .72 : onLanding ? 1.0 : 1.18)*LOOK.exp, 1.5, dt);
+  exposure = damp(exposure, (inLobby ? .95 : onRoof ? .72 : onGallery ? 1.15 : onLanding ? 1.0 : 1.18)*LOOK.exp, 1.5, dt);
   if (onRoof) hemi.intensity *= 2.4;
+  if (onGallery) { sun.intensity = 0; hemi.intensity *= .22; }   // a windowless cellar: only its own warm lamps
   gradeMat.uniforms.uExposure.value = exposure;
-  volMat.uniforms.uDensity.value = (inLobby ? .32 : onRoof ? .03 : .45)*LOOK.vol;
+  volMat.uniforms.uDensity.value = (inLobby ? .32 : onRoof ? .03 : onGallery ? 0 : .45)*LOOK.vol;
   // buttons: press travel and amber glow
   for (const b of buttons) {
     b.press = Math.max(0, b.press - dt * 7); b.face.position.z = .006 - b.press * .0028;
@@ -802,7 +811,7 @@ function loop(now) {
   camera.position.copy(CAM.s0.p); camera.lookAt(CAM.s0.l); camera.fov = CAM.s0.fov; camera.updateProjectionMatrix();
   setLook(heldPeriod() || periodAt(new Date()), true); lookTick(0);
   D.state = 'gate'; D.fade = 0;
-  if (window.__test) window.__dbg = { D, lift, P, camera, landing, dressLanding, setLook, setLamp, gradeMat, A, selectFloor, ROOF, H, surfaceUnder, hot, HID, startHidden, actOn, sfxButton, sfxThunder, ROOF_STONES, sfxStep, initAudio };
+  if (window.__test) window.__dbg = { D, lift, P, camera, landing, dressLanding, setLook, setLamp, gradeMat, A, selectFloor, ROOF, H, surfaceUnder, hot, HID, startHidden, gallery, GAL_LIVE, GALLERY_FLOOR, GAL_OBST, moveTo, actOn, sfxButton, sfxThunder, ROOF_STONES, sfxStep, initAudio };
   requestAnimationFrame(loop);
   // warm up a few frames (shader compile), then fade in from black
   await nextFrame(); await nextFrame(); await nextFrame();

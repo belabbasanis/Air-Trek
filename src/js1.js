@@ -30,7 +30,7 @@ const FLOORS = (() => {
     const floor = Math.round(+p.floor);
     if (!(floor >= 1) || seen.has(floor)) { console.warn('Skipped project (floor must be a whole number from 1, each floor once):', p); continue; }
     seen.add(floor);
-    out.push({ floor, name: String(p.name || 'Untitled'), author: String(p.author || ''), url: String(p.url || '#'), sticker: String(p.sticker || '★') });
+    out.push({ floor, name: String(p.name || 'Untitled'), author: String(p.author || ''), url: String(p.url || '#'), sticker: String(p.sticker || '★'), stickerBg: p.stickerBg ? String(p.stickerBg) : '', gallery: !!p.gallery });
   }
   return out.sort((a, b) => a.floor - b.floor);
 })();
@@ -38,7 +38,7 @@ const BY_FLOOR = new Map(FLOORS.map(p => [p.floor, p]));
 const TOP = Math.max(3, ...FLOORS.map(p => p.floor));
 const ROOF = TOP + 1;            // the roof garden: a stop of its own above the top floor, not a project
 const floorTag = (f) => f === 0 ? 'L' : f === ROOF ? 'R' : String(f);
-const T_TITLE = (typeof TITLE !== 'undefined' && TITLE) ? String(TITLE) : 'As Is';
+const T_TITLE = (typeof TITLE !== 'undefined' && TITLE) ? String(TITLE) : 'Air Trek';
 const T_STUDIO = (typeof STUDIO !== 'undefined' && STUDIO) ? String(STUDIO) : '';
 const floorLabel = (f) => f === 0 ? 'Lobby' : f === ROOF ? 'Roof' : 'Floor ' + f;
 
@@ -52,6 +52,19 @@ $('menuLede').textContent = `Every floor is someone's project. Ride the lift, or
 function buildList(el) {
   el.innerHTML = '';
   for (const p of FLOORS) {
+    if (p.gallery) {   // the gallery floor: its pieces, each a link of its own
+      const li = document.createElement('li'), head = document.createElement('div'); head.className = 'gal';
+      head.innerHTML = `<span class="n"></span><span class="t"></span><span class="a"></span>`;
+      head.querySelector('.n').textContent = p.floor; head.querySelector('.t').textContent = p.name; head.querySelector('.a').textContent = p.author;
+      const ul = document.createElement('ul'); ul.className = 'sub';
+      for (const g of (typeof GALLERY !== 'undefined' && Array.isArray(GALLERY) ? GALLERY : [])) {
+        const it = document.createElement('li'), t = g.title + (g.author ? ' · ' + g.author : '');
+        if (g.url) { const a = document.createElement('a'); a.href = g.url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = t; it.appendChild(a); }
+        else { const sp = document.createElement('span'); sp.textContent = t; it.appendChild(sp); }
+        ul.appendChild(it);
+      }
+      li.appendChild(head); li.appendChild(ul); el.appendChild(li); continue;
+    }
     const li = document.createElement('li'), a = document.createElement('a');
     a.href = p.url; a.target = '_blank'; a.rel = 'noopener';
     a.innerHTML = `<span class="n"></span><span class="t"></span><span class="a"></span>`;
