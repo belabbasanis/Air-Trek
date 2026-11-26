@@ -35,6 +35,16 @@ function loadLateFonts() {    // the graffiti's and the gallery's typefaces, fet
 const GRAF_JP = '夢';
 const GRAF_CN = '我不想 辈子让人踩在脚下';   // red tag, as given; split over two lines at the space
 const GRAF = { w: 2048, h: 1072, mw: 6.5, mh: 3.4, y0: .05, door: [-.8, .8, 2.8] };   // canvas px; wall metres; door + transom opening (x0, x1, top)
+// Haroon's handle, chalked under MADAD / over motion; clicking it opens his X. x, y: where the text starts (wall metres, baseline)
+const GRAF_HANDLE = { text: '@haroonisdreamin', label: 'Haroon on X', url: 'https://x.com/haroonisdreamin', x: 1.08, y: .86, px: 42, rot: .035 };
+// an invisible click area over Haroon's handle, in the graffiti plane's own frame (x: wall metres from centre, y: from the plane's middle)
+function grafHandleHit() {
+  const Gh = GRAF_HANDLE, K = GRAF.w / GRAF.mw, [, mx] = cv(8, 8); mx.font = `400 ${Gh.px}px "Permanent Marker","Saira Condensed",Impact,sans-serif`;
+  const w = mx.measureText(Gh.text).width / K + .08, h = Gh.px * 1.1 / K;
+  const hit = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false }));
+  hit.position.set(Gh.x - .04 + w / 2, Gh.y + Gh.px * .32 / K - w / 2 * Math.sin(Gh.rot) - (GRAF.y0 + GRAF.mh / 2), .008); hit.rotation.z = -Gh.rot;
+  hit.userData.act = { type: 'social', label: Gh.label, handle: Gh.text, url: Gh.url }; hot.push(hit); return hit;
+}
 function paintGraffiti() { if (!UI3.grafMesh || UI3.grafMesh.visible) return; UI3.grafTex.image = grafTex().image; UI3.grafTex.needsUpdate = true; UI3.grafMesh.visible = true; }
 function grafTex() {
   const { w: W, h: Hh } = GRAF, K = W / GRAF.mw, r = rng(404);
@@ -102,7 +112,7 @@ function grafTex() {
     for (let i = 0; i < 8; i++) scrawl(mx, X(-3.1 + r() * 6), Y(.15 + r() * 1.0), 70 + r() * 120, 14 + r() * 20, 5, 2.5); }, '#e6e2d6', { drips: 14, dripLen: 50, alpha: .75, wear: .8 });
   // 7. small scribbles, numbers, hearts and crowns
   layer((mx) => {
-    const notes = [['33·37·13', -2.9, 1.25, 40], ['4  4', -1.9, 1.05, 44], ['kiki+mo', 1.05, .78, 40], ['↑ 22', 2.75, 2.62, 46], ['B3', -1.15, 2.55, 50], ['was here', 2.15, .55, 34], ['R?', -2.45, 2.2, 48], ['wake up', 1.0, 2.62, 38], ['0', -3.0, .3, 60], ['no lift', 2.55, 1.05, 34]];
+    const notes = [['33·37·13', -2.9, 1.25, 40], ['4  4', -1.9, 1.05, 44], ['kiki+mo', 1.05, .68, 40], ['↑ 22', 2.75, 2.62, 46], ['B3', -1.15, 2.55, 50], ['was here', 2.15, .55, 34], ['R?', -2.45, 2.2, 48], ['wake up', 1.0, 2.62, 38], ['0', -3.0, .3, 60], ['no lift', 2.55, 1.05, 34]];
     for (const [t_, xm, ym, fs] of notes) text(mx, t_, `400 ${fs}px ${MARK}`, X(xm), Y(ym), (r() - .5) * .25);
     mx.lineWidth = 4;
     for (const [xm, ym] of [[-1.9, 1.4], [2.8, .8], [1.3, 2.6]]) { const px = X(xm), py = Y(ym); mx.beginPath(); mx.moveTo(px, py + 18); mx.bezierCurveTo(px - 30, py - 4, px - 14, py - 26, px, py - 8); mx.bezierCurveTo(px + 14, py - 26, px + 30, py - 4, px, py + 18); mx.stroke(); }
@@ -119,6 +129,12 @@ function grafTex() {
     x.font = `400 17px ${MARK}`; x.fillText('one floor, between', fw / 2, fh * .74); x.fillText('3 and 5. if found', fw / 2, fh * .74 + 20); x.fillText('press R', fw / 2, fh * .74 + 40);
     x.fillStyle = 'rgba(214,206,170,.8)'; for (const [tx, ty, a] of [[0, 0, -.6], [fw, 0, .6], [0, fh, .5]]) { x.save(); x.translate(tx, ty); x.rotate(a); x.fillRect(-18, -6, 36, 12); x.restore(); }
     x.restore(); x.textAlign = 'start'; }
+  // 9. Haroon's handle in chalk under MADAD / over motion (the wall carries a click area over it: grafHandleHit)
+  { const hr = rng(505), Gh = GRAF_HANDLE, [o, ox] = cv(W, Hh); ox.fillStyle = '#ece8dc'; ox.lineCap = ox.lineJoin = 'round';
+    text(ox, Gh.text, `400 ${Gh.px}px ${MARK}`, X(Gh.x), Y(Gh.y), Gh.rot);
+    ox.globalCompositeOperation = 'destination-out';
+    for (let i = 0; i < 2600; i++) { ox.fillStyle = `rgba(0,0,0,${.25 + hr() * .5})`; const s_ = .6 + hr() * 1.6; ox.fillRect(X(Gh.x) - 10 + hr() * 520, Y(Gh.y) - 50 + hr() * 70, s_, s_); }
+    x.globalAlpha = .88; x.drawImage(o, 0, 0); x.globalAlpha = 1; }
   // the door and its transom are an opening in the wall: nothing painted there
   x.clearRect(X(GRAF.door[0]), Y(GRAF.door[2]), (GRAF.door[1] - GRAF.door[0]) * K, Hh);
   return ctex(c);
@@ -839,7 +855,8 @@ function buildLobby() {
   // graffiti on the back wall, round the door
   // (the wall is behind you on the start screen and through the intro, so it is painted after the start screen is up: paintGraffiti)
   { UI3.grafTex = ctex(cv(2, 2)[0]); const g = new THREE.Mesh(new THREE.PlaneGeometry(GRAF.mw, GRAF.mh), new THREE.MeshStandardMaterial({ map: UI3.grafTex, transparent: true, depthWrite: false, roughness: .6, metalness: 0, polygonOffset: true, polygonOffsetFactor: -2 }));
-    g.position.set(0, GRAF.y0 + GRAF.mh / 2, L.z1 - .004); g.rotation.y = Math.PI; g.visible = false; world.add(g); UI3.grafMesh = g; }
+    g.position.set(0, GRAF.y0 + GRAF.mh / 2, L.z1 - .004); g.rotation.y = Math.PI; g.visible = false; world.add(g); UI3.grafMesh = g;
+    g.add(grafHandleHit()); }
   // maker's tag sprayed under the directory; each logo has its own invisible hit area that opens the profile
   { const mh = TAG.mw * TAG.h / TAG.w, k = TAG.mw / TAG.w;
     const tag = new THREE.Mesh(new THREE.PlaneGeometry(TAG.mw, mh), new THREE.MeshStandardMaterial({ map: tagTex(), transparent: true, depthWrite: false, roughness: .55, metalness: 0, polygonOffset: true, polygonOffsetFactor: -2 }));
