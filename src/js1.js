@@ -30,8 +30,9 @@ const FLOORS = (() => {
     const floor = Math.round(+p.floor);
     if (!(floor >= 1) || seen.has(floor)) { console.warn('Skipped project (floor must be a whole number from 1, each floor once):', p); continue; }
     seen.add(floor);
-    const url = String(p.url || '#'), live = !!p.gallery || (/^https?:\/\//.test(url) && !/^https?:\/\/(www\.)?example\.com\b/.test(url));   // placeholders stay dark
-    out.push({ floor, name: String(p.name || 'Untitled'), author: String(p.author || ''), url, sticker: String(p.sticker || '★'), stickerBg: p.stickerBg ? String(p.stickerBg) : '', gallery: !!p.gallery, live });
+    const room = p.room ? String(p.room) : '';   // a floor with a room of its own and no link (floor 3: the Updraft sea cliffs)
+    const url = String(p.url || '#'), live = !!p.gallery || !!room || (/^https?:\/\//.test(url) && !/^https?:\/\/(www\.)?example\.com\b/.test(url));   // placeholders stay dark
+    out.push({ floor, name: String(p.name || 'Untitled'), author: String(p.author || ''), url, sticker: String(p.sticker || '★'), stickerBg: p.stickerBg ? String(p.stickerBg) : '', gallery: !!p.gallery, room, live });
   }
   return out.sort((a, b) => a.floor - b.floor);
 })();
@@ -65,6 +66,12 @@ function buildList(el) {
         ul.appendChild(it);
       }
       li.appendChild(head); li.appendChild(ul); el.appendChild(li); continue;
+    }
+    if (p.room) {      // a room to walk around, nothing to open
+      const li = document.createElement('li'), head = document.createElement('div'); head.className = 'gal';
+      head.innerHTML = `<span class="n"></span><span class="t"></span><span class="a"></span>`;
+      head.querySelector('.n').textContent = p.floor; head.querySelector('.t').textContent = p.name; head.querySelector('.a').textContent = p.author;
+      li.appendChild(head); el.appendChild(li); continue;
     }
     const li = document.createElement('li'), a = document.createElement('a');
     a.href = p.url; a.target = '_blank'; a.rel = 'noopener';

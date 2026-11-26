@@ -32,7 +32,8 @@ function stepSample(file, gain = 1, rate = 1, dest) {
 // what is underfoot: the cab's steel floor, tile (lobby, landings), and on the roof stepping stones or grass
 function surfaceUnder() {
   const x = P.pos.x, z = P.pos.z;
-  if (z < CAB.z1 + .02 && Math.abs(x) < CAB.x1 + .05) return 'metal';
+  if (z < CAB.z1 + .02 && Math.abs(x) < CAB.x1 + .05) return SC_LIVE.level > .5 && SC_LIVE.fill > .35 ? 'water' : 'metal';   // the cab takes on water at floor 3
+  if (lift.floor === SC_FLOOR && lift.phase !== 'riding' && z > WALL_Z - .05) return scWaterAt(x, z) ? 'water' : 'grass';
   if (lift.floor === GALLERY_FLOOR && lift.phase !== 'riding' && z > WALL_Z + .05) return 'stone';   // the gallery's bare concrete
   if (lift.floor === ROOF && lift.phase !== 'riding') {
     if (z < WALL_Z + .1 && Math.abs(x) < DOOR_W / 2 + .1) return 'tile';          // the brass sill
@@ -173,6 +174,7 @@ function sfxDoors(opening, dur) {
 }
 function sfxStep(surface) { if (!A.ctx) return; const steel = surface === 'metal';
   if (surface === 'grass') { grassStep(); return; }
+  if (surface === 'water') { waterStep(); return; }
   if (surface === 'carpet') { carpetStep(); return; }
   if (surface === 'stone' ? stepSample('tile', 1.15, .82) : stepSample(steel ? 'metal' : 'tile')) return;
   const t = now_(); noiseHit(t, 'lowpass', steel ? 900 : 620, .8, .12, .09); thump(t, 95, 55, .1, .09); if (steel) noiseHit(t + .005, 'bandpass', 1700 + Math.random() * 400, 9, .035, .14); }
@@ -207,7 +209,8 @@ function audioTick(dt) {
   A.motorG.gain.setTargetAtTime(ride && !rec ? .012 + .03 * vN + .02 * clamp(Math.abs(lift.a) / 2, 0, 1) : 0, t, .2);
   A.rush.g.gain.setTargetAtTime(rec ? 0 : .12 * vN * vN, t, .2); A.rush.fl.frequency.setTargetAtTime(400 + 900 * vN, t, .2);
   A.ambLP.frequency.setTargetAtTime(shut ? 600 : 7000, t, .3);
-  A.wind.g.gain.setTargetAtTime(shut ? .03 : lift.floor === ROOF && !P.inCab ? .14 : .055, t, .5);
+  A.wind.g.gain.setTargetAtTime(shut ? .03 : (lift.floor === ROOF || lift.floor === SC_FLOOR) && !P.inCab ? .14 : .055, t, .5);
+  scAudioTick(t);
   // generative music once the intro has played
   // the roof has its own track: it fades in as the cab nears the roof, before the doors open, and the lobby song steps aside
   const roofMusic = !HID.active && D.state === 'play' && ((lift.phase === 'riding' && lift.target === ROOF && lift.capped) || (lift.floor === ROOF && lift.phase !== 'riding'));
@@ -220,7 +223,7 @@ function audioTick(dt) {
       rhodes(f, t + .02, 1.6 + Math.random() * 1.4, .026 + Math.random() * .012, (Math.random() - .5) * .6);
       if (Math.random() < .35) rhodes(tones[Math.floor(Math.random() * tones.length)], t + .32 + Math.random() * .2, 1.4, .02, (Math.random() - .5) * .6); }
   }
-  if (!shut && (A.nextBird || 0) < t) { A.nextBird = t + 5 + Math.random() * 9; if (D.state !== 'gate') sfxChirps(); }
+  if (!shut && (A.nextBird || 0) < t) { A.nextBird = t + 5 + Math.random() * 9; if (D.state !== 'gate' && !seaCliffsHere()) sfxChirps(); }   // floor 3 has gulls instead
 }
 
 /* ======================================================================
@@ -259,7 +262,7 @@ function selectFloor(f) {
   const b = buttonFor(f); if (b) { b.press = 1; sfxButton(); }
   if (f === lift.floor && lift.phase !== 'closing') { if (lift.doors < 1) doorsTo(1); caption(f === 0 ? 'You are in the lobby' : `You are on <b>${esc(label)}</b>`); return; }
   buttons.forEach(x => { if (x.act.type === 'floor') x.lit = 0; }); if (b) b.lit = 1;
-  lift.target = f; if (f === GALLERY_FLOOR) ensureGallery();
+  lift.target = f; if (f === GALLERY_FLOOR) ensureGallery(); if (f === SC_FLOOR) ensureSeaCliffs();
   if (lift.doors > 0) { caption('Doors closing'); doorsTo(0, depart); } else depart();
 }
 function depart() {
@@ -290,7 +293,7 @@ function liftTick(dt) {
     if (!lift.stopSnd && lift.t > lift.plan.T - .35) { lift.stopSnd = true; liftStopSound(); }
     if (lift.t >= lift.plan.T) arrive();
   } else if (lift.phase === 'arrived') {
-    lift.waitT += dt; if (lift.waitT > .75) doorsTo(1);
+    lift.waitT += dt; if (lift.waitT > (lift.floor === SC_FLOOR && SC_LIVE.built ? SC.inflow : .75)) doorsTo(1);   // at floor 3 the doors hold while the water comes in
   }
   // door panels
   const o = lift.doors * .53;
@@ -308,7 +311,8 @@ function liftTick(dt) {
 function onDoorsOpen() {
   if (D.state !== 'play' || HID.active) return;
   const p = BY_FLOOR.get(lift.floor);
-  if (p) { caption(`<b>${esc(p.name)}</b>${p.author ? ' · by ' + esc(p.author) : ''}`, 4.5); showVisit(p); hint(isTouch ? 'Walk out, or tap the painted wall, to visit' : 'Walk out, click the painted wall, or press <kbd>Enter</kbd> to visit', 6); }
+  if (p && p.room) { caption(`<b>${esc(p.name)}</b> · ${esc(p.author)}`, 4.5); hint('Walk out into the grass · the far wall has come down', 6); }
+  else if (p && !p.gallery) { caption(`<b>${esc(p.name)}</b>${p.author ? ' · by ' + esc(p.author) : ''}`, 4.5); showVisit(p); hint(isTouch ? 'Walk out, or tap the painted wall, to visit' : 'Walk out, click the painted wall, or press <kbd>Enter</kbd> to visit', 6); }
   else if (lift.floor === GALLERY_FLOOR) { caption('<b>As Is</b> · tonight\'s projects', 4); hint(isTouch ? 'Tap a piece to open its project' : 'Walk up to a piece and click it to open its project', 6); }
   else if (lift.floor === 0) caption('Lobby', 2.4);
   else if (lift.floor === ROOF) { caption('<b>Roof garden</b>', 3.5); hint('Walk around the roof · take the lift back down when you are done', 6); }
@@ -325,7 +329,7 @@ const visitA = $('visit');
 function showVisit(p) { visitA.href = p.url; $('visitName').textContent = p.name; visitA.dataset.floor = p.floor; }   // the link stays out of sight: it is what gets clicked to open the tab
 function hideVisit() { visitA.classList.remove('on', 'pulse'); }
 function triggerVisit(how) {
-  const p = BY_FLOOR.get(lift.floor); if (!p || p.gallery || lift.doors < .9 || lift.phase === 'riding') return false;
+  const p = BY_FLOOR.get(lift.floor); if (!p || p.gallery || p.room || lift.doors < .9 || lift.phase === 'riding') return false;
   if (P.visited && how === 'step') return false;
   P.visited = true;
   // a real link clicked inside the user's gesture: pop-up blockers allow this
@@ -368,6 +372,7 @@ function rects() {
     out.push([-DOOR_W / 2 + .19, DOOR_W / 2 - .19, CAB.z1 - .4, WALL_Z + .6]);
     if (lift.floor === 0) out.push([LOBBY.x0 + r, LOBBY.x1 - r, WALL_Z + r, LOBBY.z1 - r]);
     else if (lift.floor === GALLERY_FLOOR) out.push([GAL.x0 + r, GAL.x1 - r, WALL_Z + r, GAL.z1 - r]);
+    else if (lift.floor === SC_FLOOR) out.push([SC.x0 + r, SC.x1 - r, WALL_Z + r, SC.z1 + .1], [SC.op0 + r, SC.op1 - r, SC.z1 - .3, SC.z1 + .7], [-8, 8, SC.z1 + .45, 14]);
     else if (lift.floor === ROOF) { const e = .25 + r; out.push([RF.x0 + e, RF.x1 - e, .3 + r, RF.z1 - e], [RF.x0 + e, HH.x0 - .05 - r, RF.z0 + e, 1], [HH.x1 + .3 + r, RF.x1 - e, RF.z0 + e, 1]); }
     else out.push([LAND.x0 + r, LAND.x1 - r, WALL_Z + r, LAND.z1 - r]);
   }
@@ -378,7 +383,7 @@ function moveTo(nx, nz) {
   const R = rects();
   if (!inRects(P.pos.x, P.pos.z, R)) { const q = R[0]; P.pos.x = clamp(P.pos.x, q[0], q[1]); P.pos.z = clamp(P.pos.z, q[2], q[3]); }
   if (lift.floor === 0 && nz > WALL_Z) { const dx = nx - CARPET.x, dz = nz - CARPET.z, d = Math.hypot(dx, dz); if (d < .42) { nx = CARPET.x + dx / d * .42; nz = CARPET.z + dz / d * .42; } }
-  const ok = (x, z) => inRects(x, z, R) && !(lift.floor === GALLERY_FLOOR && z > WALL_Z + .1 && GAL_OBST.some(q => x > q[0] - .2 && x < q[1] + .2 && z > q[2] - .2 && z < q[3] + .2)) && !(lift.floor === 0 && x > STALL.box[0] && x < STALL.box[1] && z > STALL.box[2]) && !(lift.floor === ROOF && z > .2 && ROOF_OBST.some(q => x > q[0] - .2 && x < q[1] + .2 && z > q[2] - .2 && z < q[3] + .2));
+  const ok = (x, z) => inRects(x, z, R) && !(lift.floor === GALLERY_FLOOR && z > WALL_Z + .1 && GAL_OBST.some(q => x > q[0] - .2 && x < q[1] + .2 && z > q[2] - .2 && z < q[3] + .2)) && !(lift.floor === SC_FLOOR && z > WALL_Z + .1 && SC_OBST.some(q => x > q[0] - .2 && x < q[1] + .2 && z > q[2] - .2 && z < q[3] + .2)) && !(lift.floor === 0 && x > STALL.box[0] && x < STALL.box[1] && z > STALL.box[2]) && !(lift.floor === ROOF && z > .2 && ROOF_OBST.some(q => x > q[0] - .2 && x < q[1] + .2 && z > q[2] - .2 && z < q[3] + .2));
   if (ok(nx, nz)) { P.pos.x = nx; P.pos.z = nz; return; }
   if (ok(nx, P.pos.z)) { P.pos.x = nx; return; }
   if (ok(P.pos.x, nz)) { P.pos.z = nz; return; }
@@ -677,6 +682,7 @@ function tick(dt, time) {
   lookTick(dt);
   roofTick(dt, time);
   galleryTick(dt, time);
+  seaCliffsTick(dt, time);
   D.tick(dt, time);
   if (D.state === 'intro' || D.state === 'play') liftTick(dt);
   playerTick(dt, time);
@@ -696,13 +702,15 @@ function tick(dt, time) {
   const drift = RM ? 0 : 1;
   sunDir.copy(SUN_BASE).applyAxisAngle(new V3(0, 1, 0), drift * (.07 * Math.sin(sunTime * .06) + .02 * Math.sin(sunTime * .17))).normalize();
   sunDir.y = SUN_BASE.y + drift * .02 * Math.sin(sunTime * .045); sunDir.normalize();
+  if (scRoom.visible) sunDir.copy(SC_SUN);   // floor 3 has its own sun: Updraft's late morning, front-left of the view out
   // what the sun's shadow camera frames: the lobby, the cab in the shaft, or a landing
   const inLobby = D.state !== 'play' || (lift.floor === 0 && lift.phase !== 'riding' && (lift.doors > 0 || !P.inCab));
   const onRoof = D.state === 'play' && lift.floor === ROOF && lift.phase !== 'riding' && (lift.doors > 0 || !P.inCab);
-  const onGallery = galleryHere();
-  const onLanding = !onRoof && !onGallery && D.state === 'play' && lift.floor > 0 && lift.phase !== 'riding' && lift.doors > 0;
+  const onGallery = galleryHere(), onCliffs = seaCliffsHere();
+  const onLanding = !onRoof && !onGallery && !onCliffs && D.state === 'play' && lift.floor > 0 && lift.phase !== 'riding' && lift.doors > 0;
   if (inLobby) { sunFocus.set(-.8, 1.5, 1.4); setShadowExtent(5.4); }
   else if (onRoof) { sunFocus.set(clamp(P.pos.x, -3, 3), lift.y + 1.5, clamp(P.pos.z, 1, 7)); setShadowExtent(8.5); }
+  else if (onCliffs) { sunFocus.set(clamp(P.pos.x * .5, -1.5, 1.5), lift.y + 1.4, clamp(P.pos.z, 3.6, 7.5)); setShadowExtent(6.6); }
   else if (onLanding) { sunFocus.set(-.2, lift.y + 1.4, .6); setShadowExtent(3.3); }
   else { sunFocus.set(-.4, lift.y + 1.3, -1.0); setShadowExtent(2.3); }
   updateSun();
@@ -713,11 +721,12 @@ function tick(dt, time) {
   UI3.cabBounce.intensity = damp(UI3.cabBounce.intensity, 1.5 * ov * LOOK.sunI / 9.5, 12, dt);
   UI3.lobbyBounce.intensity = 2.2 * LOOK.sunI / 9.5;
   // exposure: open up a little inside the cab
-  exposure = damp(exposure, (inLobby ? .95 : onRoof ? .72 : onGallery ? 1.15 : onLanding ? 1.0 : 1.18)*LOOK.exp, 1.5, dt);
+  exposure = damp(exposure, (inLobby ? .95 : onRoof ? .72 : onGallery ? 1.15 : onCliffs ? .8 : onLanding ? 1.0 : 1.18)*(onCliffs ? 1 : LOOK.exp), 1.5, dt);
   if (onRoof) hemi.intensity *= 2.4;
   if (onGallery) { sun.intensity = 0; hemi.intensity *= .22; }   // a windowless cellar: only its own warm lamps
+  seaCliffsLight(onCliffs);                                        // the sea cliffs keep Updraft's clear daylight whatever the hour
   gradeMat.uniforms.uExposure.value = exposure;
-  volMat.uniforms.uDensity.value = (inLobby ? .32 : onRoof ? .03 : onGallery ? 0 : .45)*LOOK.vol;
+  volMat.uniforms.uDensity.value = (inLobby ? .32 : onRoof ? .03 : onGallery ? 0 : onCliffs ? .12 : .45)*LOOK.vol;
   // buttons: press travel and amber glow
   for (const b of buttons) {
     b.press = Math.max(0, b.press - dt * 7); b.face.position.z = .006 - b.press * .0028;
@@ -825,7 +834,7 @@ function loop(now) {
   camera.position.copy(CAM.s0.p); camera.lookAt(CAM.s0.l); camera.fov = fovFor(CAM.s0.fov); camera.updateProjectionMatrix();
   setLook(heldPeriod() || periodAt(new Date()), true); lookTick(0);
   D.state = 'gate'; D.fade = 0;
-  if (window.__test) window.__dbg = { D, lift, P, camera, landing, dressLanding, setLook, setLamp, gradeMat, A, selectFloor, ROOF, H, surfaceUnder, hot, HID, startHidden, gallery, GAL_LIVE, GALLERY_FLOOR, GAL_OBST, moveTo, renderer, scene, M, cab, world, actOn, sfxButton, sfxThunder, ROOF_STONES, sfxStep, initAudio };
+  if (window.__test) window.__dbg = { D, lift, P, camera, landing, dressLanding, setLook, setLamp, gradeMat, A, selectFloor, ROOF, H, surfaceUnder, hot, HID, startHidden, gallery, GAL_LIVE, GALLERY_FLOOR, GAL_OBST, moveTo, renderer, scene, M, cab, world, actOn, scRoom, SC_LIVE, SC, SC_FLOOR, ensureSeaCliffs, seaCliffsHere, sfxButton, sfxThunder, ROOF_STONES, sfxStep, initAudio };
   requestAnimationFrame(loop);
   // warm up a few frames (shader compile), then fade in from black
   await nextFrame(); await nextFrame(); await nextFrame();
@@ -841,4 +850,6 @@ function loop(now) {
   await idle(); paintGraffiti();
   await idle(); ensureGallery();
   const was = gallery.visible; gallery.visible = true; try { renderer.compileAsync(gallery, camera, scene).catch(() => { }); } catch (e) { } gallery.visible = was;
+  await idle(); ensureSeaCliffs();
+  const was3 = scRoom.visible; scRoom.visible = true; try { renderer.compileAsync(scRoom, camera, scene).catch(() => { }); } catch (e) { } scRoom.visible = was3;
 })();

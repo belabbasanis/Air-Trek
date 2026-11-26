@@ -1181,7 +1181,7 @@ function buildLanding() {
   doors.landL = dg(-1); doors.landR = dg(1);
 }
 function dressLanding(f) {
-  const p = BY_FLOOR.get(f); if (!p || p.gallery) { landing.visible = false; return; }   // the gallery floor has a room of its own
+  const p = BY_FLOOR.get(f); if (!p || p.gallery || p.room) { landing.visible = false; return; }   // the gallery and the sea cliffs have rooms of their own
   landing.position.set(0, f * H, 0); landing.visible = true;
   const r = rng(hashStr(p.name) + f);
   const hue = r(), tint = new THREE.Color().setHSL(hue, .35 + r() * .3, .5);

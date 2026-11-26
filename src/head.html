@@ -17,7 +17,8 @@
    author  shown under the name.
    url     opens in a new tab when a visitor steps out onto the landing.
    sticker an emoji or up to 3 characters, a data:image/... URI, or an image path in this site (images/...).
-   stickerBg  optional sticker background colour; gallery: true makes the floor the As Is gallery.
+   stickerBg  optional sticker background colour; gallery: true makes the floor the As Is gallery;
+           room: 'cliffs' makes it the Updraft sea cliffs (a room to walk in, no link).
    A floor whose url is empty or still on example.com is a placeholder: its lift button is dark, has no sticker
    and can't be chosen. Give it a real url and it lights up.
            (The artifact host blocks images from other sites, so a plain https image URL will not load.)
@@ -26,7 +27,7 @@
 const PROJECTS = [
   { floor: 1,  name: 'Paper Boats',      author: 'Your Name', url: 'https://example.com/paper-boats',    sticker: '⛵' },
   { floor: 2,  name: 'As Is',            author: 'Gallery · tonight\'s projects', url: '', sticker: 'images/as-is-logo.png', stickerBg: '#141414', gallery: true },
-  { floor: 3,  name: 'Tidepool',         author: 'Your Name', url: 'https://example.com/tidepool',       sticker: '🐚' },
+  { floor: 3,  name: 'Updraft',          author: 'The sea cliffs', url: '', sticker: 'images/cliffs/sticker.webp', stickerBg: '#4a7fb8', room: 'cliffs' },
   { floor: 4,  name: 'Static Choir',     author: 'Your Name', url: 'https://example.com/static-choir',   sticker: '📻' },
   { floor: 5,  name: 'Slow Clock',       author: 'Your Name', url: 'https://example.com/slow-clock',     sticker: '⏳' },
   { floor: 6,  name: 'Moth Lamp',        author: 'Your Name', url: 'https://example.com/moth-lamp',      sticker: '🦋' },
