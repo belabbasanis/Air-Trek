@@ -1021,7 +1021,6 @@ function grafTex() {
     text(mx, 'LOOP', `400 110px ${HAND}`, X(-3.0), Y(.75), .03); text(mx, 'ZZZ', `400 90px ${HAND}`, X(1.6), Y(.42), -.05);
     text(mx, 'cowboy bebop', `400 100px ${MARK}`, X(.95), Y(2.8), .03);
     text(mx, 'AS IS', `400 128px ${HAND}`, X(-.62), Y(2.95), -.02);
-    text(mx, 'GHO$T', `400 96px ${HAND}`, X(.95), Y(1.05), -.08);
     scrawl(mx, X(-3.0), Y(3.38), 360, 50, 7, 7); scrawl(mx, X(.9), Y(2.42), 520, 60, 9, 9); scrawl(mx, X(-2.0), Y(1.0), 300, 40, 6, 6);
   }, '#121212', { drips: 110, dripLen: 150, alpha: .92, mist: 5 });
   // 5. red brush-script Chinese over two lines, with a slashed underline
@@ -1031,14 +1030,19 @@ function grafTex() {
     '#a8302a', { drips: 45, dripLen: 160, alpha: .88, mist: 4 });
   // 6. blue marker over the bursts
   layer((mx) => {
-    text(mx, 'mothlight', `400 84px ${MARK}`, X(-3.05), Y(1.62), -.02); text(mx, 'MADAD', `400 92px ${HAND}`, X(2.0), Y(1.25), .05);
+    text(mx, 'mothlight', `400 84px ${MARK}`, X(-3.05), Y(1.62), -.02);
     text(mx, '夢', `800 120px ${JP}`, X(-1.2), Y(2.05), .1);
   }, '#2b5bb4', { drips: 26, dripLen: 90, alpha: .9, mist: 3 });
   // 6b. chalky white marker on the teal below
-  layer((mx) => { text(mx, 'still here', `400 70px ${MARK}`, X(-2.55), Y(.5), -.04); text(mx, 'L', `400 120px ${HAND}`, X(2.85), Y(.4), .1); text(mx, 'over motion', `400 52px ${MARK}`, X(1.0), Y(1.05), .06);
+  layer((mx) => { text(mx, 'still here', `400 70px ${MARK}`, X(-2.55), Y(.5), -.04); text(mx, 'L', `400 120px ${HAND}`, X(2.85), Y(.4), .1);
+    { const ox0 = X(1.0), oy0 = Y(1.05), sl = .06, up = 56;                                        // MADAD over motion, one white lockup
+      mx.font = `400 52px ${MARK}`; const wo = mx.measureText('over motion').width; mx.font = `400 96px ${HAND}`; const dx = (wo - mx.measureText('MADAD').width) / 2;
+      text(mx, 'over motion', `400 52px ${MARK}`, ox0, oy0, sl);
+      text(mx, 'MADAD', `400 96px ${HAND}`, ox0 + dx * Math.cos(sl) + up * Math.sin(sl), oy0 + dx * Math.sin(sl) - up * Math.cos(sl), sl); }
     for (let i = 0; i < 8; i++) scrawl(mx, X(-3.1 + r() * 6), Y(.15 + r() * 1.0), 70 + r() * 120, 14 + r() * 20, 5, 2.5); }, '#e6e2d6', { drips: 14, dripLen: 50, alpha: .75, wear: .8 });
-  // 7. small scribbles, numbers, hearts and crowns
+  // 7. small scribbles, numbers, hearts and crowns (kept off the MADAD / over motion lockup, so it reads clean)
   layer((mx) => {
+    mx.save(); mx.beginPath(); mx.rect(0, 0, W, Hh); mx.rect(X(.95), Y(1.52), X(2.12) - X(.95), Y(.97) - Y(1.52)); mx.clip('evenodd');
     const notes = [['33·37·13', -2.9, 1.25, 40], ['4  4', -1.9, 1.05, 44], ['kiki+mo', 1.05, .68, 40], ['↑ 22', 2.75, 2.62, 46], ['B3', -1.15, 2.55, 50], ['was here', 2.15, .55, 34], ['R?', -2.45, 2.2, 48], ['wake up', 1.0, 2.62, 38], ['0', -3.0, .3, 60], ['no lift', 2.55, 1.05, 34]];
     for (const [t_, xm, ym, fs] of notes) text(mx, t_, `400 ${fs}px ${MARK}`, X(xm), Y(ym), (r() - .5) * .25);
     mx.lineWidth = 4;
@@ -1046,6 +1050,7 @@ function grafTex() {
     for (const [xm, ym] of [[-2.95, 2.75], [.98, 3.12]]) { const px = X(xm), py = Y(ym); mx.beginPath(); mx.moveTo(px, py); mx.lineTo(px + 10, py - 30); mx.lineTo(px + 24, py - 8); mx.lineTo(px + 38, py - 34); mx.lineTo(px + 50, py - 8); mx.lineTo(px + 64, py - 30); mx.lineTo(px + 72, py); mx.closePath(); mx.stroke(); }
     for (let i = 0; i < 26; i++) scrawl(mx, X(-3.1 + r() * 6), Y(.4 + r() * 2.6), 80 + r() * 140, 16 + r() * 24, 5 + Math.floor(r() * 5), 2.5);
     for (let i = 0; i < 5; i++) { const px = X(2.4 + i * .06), py = Y(.95); mx.lineWidth = 3; mx.beginPath(); mx.moveTo(px, py); mx.lineTo(px, py + 36); mx.stroke(); }
+    mx.restore();
   }, '#1a1a1a', { alpha: .8, wear: .5 });
   // 8. a flyer, taped up and peeling: MISSING / FLOOR 4
   { const fx = X(-2.05), fy = Y(1.95), fw = .34 * K, fh = .46 * K; x.save(); x.translate(fx, fy); x.rotate(.05);
