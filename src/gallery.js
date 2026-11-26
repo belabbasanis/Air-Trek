@@ -275,6 +275,7 @@ function drawSurfer(x, t) {                          // the screen: a three-lane
   x.fillStyle = '#fff'; x.font = `800 12px ${FONT_STM}`; x.fillText(line.name.toUpperCase() + ' · PROCHAINE STATION', 16, 25); x.font = `800 16px ${FONT_STM}`; x.fillText(st, 16, 42);
   x.textAlign = 'right'; x.font = `800 18px ${FONT_STM}`; x.fillText(String(Math.floor(t * 137) % 100000).padStart(6, '0'), W - 10, 26); x.textAlign = 'left';
 }
+const STM_Z = 4.36;                                    // along the right wall, clear of the studio's bay (5.0 on)
 function pieceSTM(G) {
   const p = galPiece('stm'), cab_ = new THREE.Group(), w = .7, D = .86;
   const navy = new THREE.MeshStandardMaterial({ color: 0x10131F, roughness: .45, metalness: .2 });
@@ -297,11 +298,11 @@ function pieceSTM(G) {
   // coin door
   const cd = new THREE.Mesh(new THREE.PlaneGeometry(.22, .26), new THREE.MeshStandardMaterial({ color: 0x23283a, roughness: .5, metalness: .5 })); cd.position.set(0, .5, .782); cab_.add(cd);
   for (const ox of [-.05, .05]) { const sl = new THREE.Mesh(new THREE.PlaneGeometry(.018, .05), new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 1.2, .3) })); sl.position.set(ox, .56, .784); cab_.add(sl); }
-  cab_.rotation.y = -Math.PI / 2; cab_.position.set(G.x1 - .02, 0, 5.35); gallery.add(cab_);
+  cab_.rotation.y = -Math.PI / 2; cab_.position.set(G.x1 - .02, 0, STM_Z); gallery.add(cab_);
   cab_.traverse(o => { if (o.isMesh) { o.userData.act = galAct(p); hot.push(o); } });
-  GAL_OBST.push([G.x1 - .9, G.x1, 5.35 - w / 2 - .05, 5.35 + w / 2 + .05]);
-  pool(gallery, 1.3, .9, new V3(G.x1 - .55, .004, 5.35), 0, -Math.PI / 2, .22);
-  addLabel(p, new V3(G.x1 - .006, 1.35, 4.55), -Math.PI / 2);
+  GAL_OBST.push([G.x1 - .9, G.x1, STM_Z - w / 2 - .05, STM_Z + w / 2 + .05]);
+  pool(gallery, 1.3, .9, new V3(G.x1 - .55, .004, STM_Z), 0, -Math.PI / 2, .22);
+  addLabel(p, new V3(G.x1 - .006, 1.35, STM_Z - .6), -Math.PI / 2);
 }
 
 /* ---- 3 · Hope Library: a video-store wall of its 48 titles, coloured by theme, on a panel in the site's colours ---- */
@@ -398,9 +399,12 @@ function pieceMap(G, TL) {
   addLabel(p, new V3(W / 2 + .32, 1.35, G.z1 - .006), Math.PI);
 }
 
-/* ---- 6 · ZERO*NDA (George Simeo): The Building in Public Show. The deck's title slide as a lightbox on the brick,
-   and the show's set in the corner under it: the guest chair in a coral spot, a mic on a boom, the studio camera with its
-   tally lit, ON AIR over it all. The deck's palette: night navy, coral, cream, a heavy serif. ---- */
+/* ---- 6 · ZERO*NDA (George Simeo): The Building in Public Show. Its studio, rebuilt from a still of the show, fills the
+   last bay of the right wall: a white brick pier between frosted windows, two fluted columns with ceramic heads on top, the
+   tiled counter (a yellow hand planter with a snake plant, a little CRT on colour bars, a pink print), two blue vinyl
+   armchairs turned to each other, the dripping blue globe on its plinth, the walnut cube with a dog's head and a glass of
+   water, all on a red-brown plank floor; "guests sit here" in coral on the brick, its arrow to the guest's chair.
+   The deck's title slide hangs beside it on the back wall, ON AIR over the set. ---- */
 const ZN = { navy: '#061425', coral: '#FD4E4E', cream: '#E5DCCA', plum: '#42212A' };
 const FONT_ZN = '"Shippori Mincho B1","Cormorant Garamond",Georgia,serif';
 function znSlide() {
@@ -435,57 +439,321 @@ function znOnAir() {
   x.fillStyle = '#ff3b2f'; x.font = `800 112px ${FONT_ENG}`; x.textAlign = 'center'; x.textBaseline = 'middle'; if ('letterSpacing' in x) x.letterSpacing = '14px'; x.fillText('ON AIR', 262, 100);
   return ctex(c);
 }
-function znCard() {
-  const [c, x] = cv(256, 128); x.fillStyle = '#f1ece1'; x.fillRect(0, 0, 256, 128);
-  x.fillStyle = '#1a1712'; x.font = `600 52px ${FONT_HAND}`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('guests sit', 128, 46); x.fillText('here', 128, 96);
+/* ---- the studio's surfaces, painted on canvases ---- */
+function znBrick() {                                  // painted white brick, 1 m square: 5 bricks a course, 16 courses, mortar sunk
+  const N = 512, bw = N / 5, ch = N / 16, m = 4, r = rng(7101), nz = fbm(128, 7102, [[8, .5], [16, .3], [32, .2]]);
+  const sh = Array.from({ length: 211 }, () => .93 + r() * .07);
+  const [c, x] = cv(N, N), im = x.createImageData(N, N), H_ = new Float32Array(N * N);
+  for (let y = 0; y < N; y++) for (let i = 0; i < N; i++) {
+    const row = Math.floor(y / ch), xx = (i + ((row & 1) ? bw / 2 : 0)) % N, col = Math.floor(xx / bw), lx = xx - col * bw, ly = y - row * ch;
+    const n = nz[(y >> 2) * 128 + (i >> 2)], mortar = lx < m || ly < m, edge = Math.min(lx - m, bw - lx, ly - m, ch - ly);
+    const v = mortar ? .66 + n * .08 : .87 * sh[(row * 7 + col) % 211] * (.96 + n * .06) - (edge < 3 ? .04 : 0);
+    const k = (y * N + i) * 4; im.data[k] = _g22(v); im.data[k + 1] = _g22(v * .99); im.data[k + 2] = _g22(v * .975); im.data[k + 3] = 255;
+    H_[y * N + i] = mortar ? .35 : .72 + n * .05 - (edge < 4 ? (4 - edge) * .05 : 0);
+  }
+  x.putImageData(im, 0, 0);
+  return { map: galTex(c), normal: galTex(normalCanvas(H_, N, 5), false) };
+}
+function znTiles() {                                  // white glazed tiles, 10 cm, red grout: 4 x 4 on 512 px (0.4 m)
+  const N = 512, t = N / 4, g = 6, [c, x] = cv(N, N), r = rng(7301), H_ = new Float32Array(N * N);
+  x.fillStyle = '#d24c58'; x.fillRect(0, 0, N, N);
+  for (let j = 0; j < 4; j++) for (let i = 0; i < 4; i++) { const v = 236 + Math.round((r() - .5) * 12); x.fillStyle = `rgb(${v},${v - 1},${v - 3})`; x.fillRect(i * t + g / 2, j * t + g / 2, t - g, t - g); }
+  for (let y = 0; y < N; y++) for (let i = 0; i < N; i++) { const a = i % t, b = y % t; H_[y * N + i] = (a < g / 2 || a >= t - g / 2 || b < g / 2 || b >= t - g / 2) ? .2 : .8; }
+  return { map: galTex(c), normal: galTex(normalCanvas(H_, N, 3), false) };
+}
+function znPlanks() {                                 // red-brown hardwood strips, 16 across 1.2 m, running along v, butt joints, varnished
+  const N = 1024, pw = N / 16, n2 = 512, [c, x] = cv(N, N), im = x.createImageData(N, N), H_ = new Float32Array(n2 * n2), r = rng(7401);
+  const gr = fbm(256, 7402, [[8, .35], [32, .35], [128, .3]]);
+  const planks = Array.from({ length: 16 }, () => {   // two joints a strip, at random, wrapping so the texture tiles
+    const a = Math.floor(r() * N), b = (a + Math.floor(N * (.35 + r() * .3))) % N, cuts = [a, b].sort((p, q) => p - q);
+    const tone = () => { const l = .2 + r() * .1; return [l, l * (.32 + r() * .08), l * (.17 + r() * .06), Math.floor(r() * 256)]; };
+    return { cuts, seg: [tone(), tone()] };
+  });
+  for (let y = 0; y < N; y++) for (let i = 0; i < N; i++) {
+    const p = Math.floor(i / pw), lx = i - p * pw, P_ = planks[p], s = (y >= P_.cuts[0] && y < P_.cuts[1]) ? 0 : 1, [R, Gc, B, off] = P_.seg[s];
+    const g = gr[((y >> 2) & 255) * 256 + ((i * 4 + off) & 255)], joint = Math.min(Math.abs(y - P_.cuts[0]), Math.abs(y - P_.cuts[1])) < 2;
+    const gap = lx < 2 || joint, f = gap ? .25 : .72 + g * .56;
+    const k = (y * N + i) * 4; im.data[k] = _g22(R * f); im.data[k + 1] = _g22(Gc * f); im.data[k + 2] = _g22(B * f); im.data[k + 3] = 255;
+    if (!(i & 1) && !(y & 1)) H_[(y >> 1) * n2 + (i >> 1)] = gap ? .2 : .6 + g * .04;
+  }
+  x.putImageData(im, 0, 0);
+  return { map: galTex(c), normal: galTex(normalCanvas(H_, n2, 4), false) };
+}
+function znWalnut() {                                 // dark walnut, grain along v
+  const N = 256, [c, x] = cv(N, N), im = x.createImageData(N, N), gr = fbm(256, 7501, [[4, .4], [16, .35], [64, .25]]);
+  for (let y = 0; y < N; y++) for (let i = 0; i < N; i++) {
+    const g = gr[((y >> 2) & 255) * 256 + ((i * 3) & 255)], f = .7 + g * .6 - (Math.sin(g * 40) > .85 ? .15 : 0);
+    const k = (y * N + i) * 4; im.data[k] = _g22(.12 * f); im.data[k + 1] = _g22(.05 * f); im.data[k + 2] = _g22(.025 * f); im.data[k + 3] = 255;
+  }
+  x.putImageData(im, 0, 0); return galTex(c);
+}
+function znConcrete() {                               // the columns: cast concrete, beige-grey, pitted, streaked down the flutes
+  const W = 256, Hh = 512, [c, x] = cv(W, Hh), im = x.createImageData(W, Hh), a = fbm(256, 7201, [[6, .4], [16, .3], [48, .3]]), r = rng(7202);
+  for (let y = 0; y < Hh; y++) for (let i = 0; i < W; i++) {
+    const n = a[((y >> 1) & 255) * 256 + i], streak = a[((y >> 3) & 255) * 256 + ((i * 3) & 255)];
+    const v = .4 + n * .17 - streak * .07 + (r() - .5) * .05 - (r() < .01 ? .12 : 0);
+    const k = (y * W + i) * 4; im.data[k] = _g22(v * 1.03); im.data[k + 1] = _g22(v * .95); im.data[k + 2] = _g22(v * .86); im.data[k + 3] = 255;
+  }
+  x.putImageData(im, 0, 0); return galTex(c);
+}
+function znFrost() {                                  // frosted glass with daylight behind it, brightest at the top
+  const [c, x] = cv(64, 256), g = x.createLinearGradient(0, 0, 0, 256);
+  g.addColorStop(0, '#ffffff'); g.addColorStop(.5, '#eef3fb'); g.addColorStop(1, '#d6e0f0'); x.fillStyle = g; x.fillRect(0, 0, 64, 256);
+  return galTex(c, true, false);
+}
+function znLeaf() {                                   // snake plant: dark green with pale zigzag bands, yellow margins; v runs base to tip
+  const W = 64, Hh = 256, [c, x] = cv(W, Hh), im = x.createImageData(W, Hh);
+  for (let y = 0; y < Hh; y++) for (let i = 0; i < W; i++) {
+    const u = i / (W - 1), t = 1 - y / Hh, band = .5 + .5 * Math.sin(t * 70 + Math.sin(u * 11) * 2.2), edge = u < .09 || u > .91;
+    let R = .02 + band * .05, G_ = .07 + band * .09, B = .02 + band * .03; if (edge) { R = .5; G_ = .45; B = .05; }
+    const k = (y * W + i) * 4; im.data[k] = _g22(R); im.data[k + 1] = _g22(G_); im.data[k + 2] = _g22(B); im.data[k + 3] = 255;
+  }
+  x.putImageData(im, 0, 0); return galTex(c, true, false);
+}
+function znHead(kind) {                               // the ceramic heads on the columns, painted round a sphere; the face is at u = .25 (+z)
+  const W = 512, Hh = 256, [c, x] = cv(W, Hh), cx = W / 4, r = rng(7700 + kind);
+  x.fillStyle = kind ? '#dcd3d6' : '#ecc7a6'; x.fillRect(0, 0, W, Hh);
+  for (let k = 0; k < 420; k++) { x.fillStyle = `rgba(${kind ? '150,128,140' : '196,140,108'},${r() * .07})`; x.beginPath(); x.arc(r() * W, r() * Hh, 2 + r() * 11, 0, 6.283); x.fill(); }
+  for (const s of [-1, 1]) { const ccx = cx + s * 36, g = x.createRadialGradient(ccx, 138, 2, ccx, 138, 20); g.addColorStop(0, 'rgba(236,104,104,.9)'); g.addColorStop(1, 'rgba(236,104,104,0)'); x.fillStyle = g; x.fillRect(ccx - 22, 116, 44, 44); }
+  x.lineCap = 'round';
+  for (const s of [-1, 1]) {
+    const ex = cx + s * 27, ey = 108;
+    x.fillStyle = '#f6f1ea'; x.strokeStyle = '#4a3933'; x.lineWidth = 2.2;
+    x.beginPath(); x.moveTo(ex - 13, ey); x.quadraticCurveTo(ex, ey - 9, ex + 13, ey); x.quadraticCurveTo(ex, ey + 8, ex - 13, ey); x.fill(); x.stroke();
+    x.fillStyle = kind ? '#62646f' : '#2f2521'; x.beginPath(); x.arc(ex + (kind ? 0 : 6), ey, 4.4, 0, 6.283); x.fill();
+    x.strokeStyle = kind ? '#6b5560' : '#7a5642'; x.lineWidth = 1.8; x.beginPath(); x.moveTo(ex - 13, ey - 14); x.quadraticCurveTo(ex, ey - 20, ex + 13, ey - 13); x.stroke();
+  }
+  x.strokeStyle = kind ? '#8b6f78' : '#a07058'; x.lineWidth = 2; x.beginPath(); x.moveTo(cx - 1, 114); x.lineTo(cx - 5, 138); x.quadraticCurveTo(cx + 1, 144, cx + 7, 139); x.stroke();
+  if (kind) {                                         // the right head's red mouth
+    x.fillStyle = '#e15c3c'; x.beginPath(); x.moveTo(cx - 16, 165); x.quadraticCurveTo(cx - 6, 155, cx, 159); x.quadraticCurveTo(cx + 6, 155, cx + 16, 165); x.quadraticCurveTo(cx, 176, cx - 16, 165); x.fill();
+    x.strokeStyle = '#a83c26'; x.lineWidth = 1.6; x.beginPath(); x.moveTo(cx - 15, 165); x.quadraticCurveTo(cx, 168, cx + 15, 165); x.stroke();
+  }
   return ctex(c);
+}
+function znGlobe() {                                  // the blue globe, marbled, a yellow-green continent, two white spots
+  const W = 256, Hh = 128, [c, x] = cv(W, Hh), im = x.createImageData(W, Hh), a = fbm(256, 7801, [[4, .5], [8, .3], [24, .2]]), b = fbm(256, 7802, [[3, .6], [9, .4]]);
+  for (let y = 0; y < Hh; y++) for (let i = 0; i < W; i++) {
+    const n = a[((y * 2) & 255) * 256 + i], m = b[((y * 2) & 255) * 256 + i];
+    let R = .09 + n * .14, G_ = .14 + n * .16, B = .55 + n * .3; if (m > .6 && y < 62) { R = .55; G_ = .6; B = .2; }
+    const k = (y * W + i) * 4; im.data[k] = _g22(R); im.data[k + 1] = _g22(G_); im.data[k + 2] = _g22(B); im.data[k + 3] = 255;
+  }
+  x.putImageData(im, 0, 0);
+  x.fillStyle = '#f2f2ee'; for (const [px, py, pr] of [[58, 50, 4], [70, 47, 3]]) { x.beginPath(); x.arc(px, py, pr, 0, 6.283); x.fill(); }
+  return ctex(c);
+}
+function znDrip() {                                   // the plinth's front: white, the globe's blue running down it
+  const [c, x] = cv(256, 300); x.fillStyle = '#efeee9'; x.fillRect(0, 0, 256, 300);
+  x.fillStyle = '#3d57c6';
+  x.beginPath(); x.moveTo(112, 0); x.bezierCurveTo(126, 34, 156, 44, 160, 92); x.lineTo(163, 228); x.quadraticCurveTo(168, 240, 173, 228);
+  x.lineTo(177, 96); x.bezierCurveTo(182, 52, 214, 30, 236, 0); x.closePath(); x.fill();
+  x.beginPath(); x.moveTo(166, 200); x.lineTo(170, 284); x.quadraticCurveTo(172, 290, 174, 284); x.lineTo(172, 200); x.fill();
+  x.beginPath(); x.moveTo(190, 30); x.quadraticCurveTo(196, 80, 194, 150); x.quadraticCurveTo(197, 157, 199, 150); x.quadraticCurveTo(201, 80, 206, 26); x.fill();
+  return ctex(c);
+}
+function znPrint() {                                  // the pink print on the counter: two pale towers, blue planets, a white saucer
+  const W = 256, Hh = 340, [c, x] = cv(W, Hh);
+  x.fillStyle = '#f6f3ee'; x.fillRect(0, 0, W, Hh); x.fillStyle = '#ee7660'; x.fillRect(16, 16, W - 32, Hh - 32);
+  for (const tx of [56, 196]) { x.fillStyle = '#ece4d6'; x.fillRect(tx - 9, 78, 18, 160); x.fillStyle = '#7d9be0'; x.beginPath(); x.ellipse(tx, 74, 12, 20, 0, 0, 6.283); x.fill(); }
+  for (const [px, py, pr, col] of [[86, 112, 13, '#2b3d97'], [124, 86, 8, '#4c64c6'], [158, 128, 11, '#283a88'], [94, 196, 16, '#5c86cf'], [176, 266, 20, '#24378e'], [74, 268, 18, '#79a4d6'], [206, 172, 8, '#3b57b6'], [162, 64, 6, '#8eafe0'], [132, 248, 7, '#5f7fd0']]) {
+    x.fillStyle = col; x.beginPath(); x.arc(px, py, pr, 0, 6.283); x.fill(); x.fillStyle = 'rgba(255,255,255,.22)'; x.beginPath(); x.arc(px - pr * .3, py - pr * .3, pr * .38, 0, 6.283); x.fill();
+  }
+  x.fillStyle = '#f3ece2'; x.beginPath(); x.ellipse(136, 170, 42, 14, -.06, 0, 6.283); x.fill(); x.fillStyle = '#f2a070'; x.beginPath(); x.ellipse(136, 162, 18, 12, 0, Math.PI, 0); x.fill();
+  x.fillStyle = '#d4503c'; for (const [px, py] of [[120, 172], [136, 174], [152, 172]]) { x.beginPath(); x.arc(px, py, 2.5, 0, 6.283); x.fill(); }
+  return ctex(c);
+}
+function znBars() {                                   // the little CRT on colour bars
+  const W = 256, Hh = 192, [c, x] = cv(W, Hh);
+  ['#d7dadd', '#3d57d8', '#ec4352', '#ec5ccd', '#86e08c', '#4fd6e3', '#f2df70', '#ebebeb'].forEach((col, i) => { x.fillStyle = col; x.fillRect(i * W / 8, 0, W / 8 + 1, Hh); });
+  x.fillStyle = 'rgba(24,30,70,.6)'; x.fillRect(150, 22, 66, 18); x.fillStyle = '#eef2fb'; x.font = '600 13px "IBM Plex Mono",monospace'; x.fillText('VIDEO', 160, 36);
+  const g = x.createRadialGradient(W / 2, Hh / 2, 40, W / 2, Hh / 2, 150); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.35)'); x.fillStyle = g; x.fillRect(0, 0, W, Hh);
+  return ctex(c);
+}
+const ZN_WORDS = { x0: -.46, x1: 1.0, y0: .98, y1: 1.98 };
+function znWords() {                                  // "guests sit here" in coral marker on the brick, the arrow curving down to the guest's chair
+  const S = 700, B = ZN_WORDS, [c, x] = cv(Math.round((B.x1 - B.x0) * S), Math.round((B.y1 - B.y0) * S));
+  const X = (u) => (u - B.x0) * S, Y = (v) => (B.y1 - v) * S;
+  x.fillStyle = x.strokeStyle = '#f2563f'; x.textAlign = 'center'; x.textBaseline = 'alphabetic';
+  x.font = `600 150px ${FONT_HAND}`; const k = Math.min(1, .74 * S / x.measureText('guests sit').width); x.font = `600 ${Math.round(150 * k)}px ${FONT_HAND}`;
+  x.save(); x.translate(X(0), Y(1.72)); x.rotate(-.05); x.fillText('guests sit', 0, 0); x.restore();
+  x.save(); x.translate(X(.06), Y(1.47)); x.rotate(-.03); x.fillText('here', 0, 0); x.restore();
+  x.lineWidth = 9; x.lineCap = x.lineJoin = 'round';
+  const P0 = [X(.25), Y(1.43)], P1 = [X(.5), Y(1.45)], P2 = [X(.69), Y(1.33)], P3 = [X(.71), Y(1.03)];
+  x.beginPath(); x.moveTo(...P0); x.bezierCurveTo(...P1, ...P2, ...P3); x.stroke();
+  const tx = P3[0] - P2[0], ty = P3[1] - P2[1], L = Math.hypot(tx, ty), ux = tx / L, uy = ty / L;
+  for (const s of [-1, 1]) { const a = s * .55, dx = -(ux * Math.cos(a) - uy * Math.sin(a)) * 40, dy = -(ux * Math.sin(a) + uy * Math.cos(a)) * 40; x.beginPath(); x.moveTo(...P3); x.lineTo(P3[0] + dx, P3[1] + dy); x.stroke(); }
+  return ctex(c);
+}
+// a fluted shaft: 18 shallow flutes, a little hand-made unevenness up its height
+function znShaft(R, h, seed) {
+  const NA = 18 * 6, NY = 10, pos = [], uv = [], idx = [], r = rng(seed), wob = Array.from({ length: NY + 1 }, () => 1 + (r() - .5) * .025);
+  for (let j = 0; j <= NY; j++) for (let i = 0; i <= NA; i++) {
+    const a = i / NA * Math.PI * 2, f = (i % 6) / 6, rr = R * wob[j] * (1 - .085 * Math.sin(Math.PI * f));
+    pos.push(Math.sin(a) * rr, j / NY * h, Math.cos(a) * rr); uv.push(i / NA, j / NY);
+  }
+  for (let j = 0; j < NY; j++) for (let i = 0; i < NA; i++) { const a = j * (NA + 1) + i, b = a + NA + 1; idx.push(a, a + 1, b, a + 1, b + 1, b); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals(); return g;
+}
+// one leaf blade from B along D, arching toward S, its face turned toward F: wide low down, a point at the tip, twisting as it goes
+function znBlade(B, D, S, L, w, twist, F = S) {
+  const n = 9, pos = [], uv = [], idx = []; D = D.clone().normalize(); S = S.clone().normalize(); const across0 = new V3().crossVectors(D, F).normalize();
+  for (let k = 0; k <= n; k++) {
+    const t = k / n, ctr = B.clone().addScaledVector(D, L * t).addScaledVector(S, L * .2 * t * t), hw = w / 2 * (t < .3 ? .55 + 1.5 * t : (1 - t) / .7);
+    const ac = across0.clone().applyAxisAngle(D, twist * t);
+    pos.push(...ctr.clone().addScaledVector(ac, -hw).toArray(), ...ctr.clone().addScaledVector(ac, hw).toArray()); uv.push(0, t, 1, t);
+  }
+  for (let k = 0; k < n; k++) { const a = k * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals(); return g;
 }
 function pieceZeronda(G) {
   const p = galPiece('zeronda'), act = galAct(p), z1 = G.z1, clickable = (o) => { o.userData.act = act; hot.push(o); return o; };
-  // the title slide as a lightbox on the back wall, right of the map
-  const SW = 1.36, SH = SW * 9 / 16, sx = 2.48, sy = 1.98;
+  // the set: x across it (the photo's left to right), y up, z out into the room; its floor is a plank platform PT high
+  const PT = .045, CT = PT + .82, XW = 1.16;
+  const st = new THREE.Group(); st.position.set(G.x1 - .075, 0, 6.2); st.rotation.y = -Math.PI / 2; gallery.add(st);
+  const b = new Bucket(), vc = [];
+  const paint = (g, hex) => { prep(g); const col = new THREE.Color(hex), n = g.attributes.position.count, a = new Float32Array(n * 3); for (let i = 0; i < n; i++) { a[i * 3] = col.r; a[i * 3 + 1] = col.g; a[i * 3 + 2] = col.b; } g.setAttribute('color', new THREE.BufferAttribute(a, 3)); vc.push(g); return g; };
+  const BR = znBrick(), TI = znTiles(), PK = znPlanks();
+  const brickM = new THREE.MeshStandardMaterial({ map: BR.map, normalMap: BR.normal, roughness: .88, envMapIntensity: .25 });
+  const frameM = new THREE.MeshStandardMaterial({ color: 0xc8cbcc, roughness: .55, metalness: .2 });
+  const glassM = new THREE.MeshBasicMaterial({ map: znFrost(), color: new THREE.Color(1.3, 1.36, 1.46) });
+  const concM = new THREE.MeshStandardMaterial({ map: znConcrete(), roughness: .95, envMapIntensity: .2 });
+  const tileM = new THREE.MeshStandardMaterial({ map: TI.map, normalMap: TI.normal, roughness: .22, envMapIntensity: .9 });
+  const plankM = new THREE.MeshStandardMaterial({ map: PK.map, normalMap: PK.normal, roughness: .36, envMapIntensity: .6 });
+  const vinyl = new THREE.MeshStandardMaterial({ color: 0x1c45c6, roughness: .3, envMapIntensity: .9 });
+  const whiteM = new THREE.MeshStandardMaterial({ color: 0xf0efeb, roughness: .8 });
+  const walnut = new THREE.MeshStandardMaterial({ map: znWalnut(), roughness: .42, envMapIntensity: .5 }), darkWood = new THREE.MeshStandardMaterial({ color: 0x1a110c, roughness: .6 });
+  const caseM = new THREE.MeshStandardMaterial({ color: 0xb9bbbb, roughness: .4, metalness: .3, envMapIntensity: .8 });
+  const glaze = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .34, envMapIntensity: .7 });   // the small ceramics and plastics, coloured per vertex
+  // plank floor, the white brick pier, frosted windows either side in pale steel frames
+  b.add(plankM, wuv(bb(-XW, XW, 0, PT, -.07, 1.85), 1.2, 1.2));
+  b.add(brickM, wuv(bb(-.5, .5, PT, 2.36, -.07, 0), 1, 1));
+  for (const s of [-1, 1]) {
+    const lo = (a, c_) => Math.min(s * a, s * c_), hi = (a, c_) => Math.max(s * a, s * c_);
+    const glass = new THREE.Mesh(new THREE.PlaneGeometry(XW - .5, 2.3 - PT).translate(s * (XW + .5) / 2, (PT + 2.3) / 2, -.05), glassM); st.add(clickable(glass));
+    b.add(frameM, bb(lo(.501, .555), hi(.501, .555), PT, 2.3, -.06, -.01));                 // jamb at the pier
+    b.add(frameM, bb(lo(XW - .055, XW), hi(XW - .055, XW), PT, 2.3, -.07, -.01));          // outer jamb
+    for (const y of [.9, 2.0]) b.add(frameM, bb(lo(.555, XW - .055), hi(.555, XW - .055), y, y + .05, -.058, -.012));   // transoms
+    b.add(frameM, bb(lo(.501, XW), hi(.501, XW), PT, PT + .05, -.07, .012));              // sill
+    b.add(frameM, bb(lo(.501, XW), hi(.501, XW), 2.3, 2.36, -.07, 0));                    // head
+  }
+  // two fluted columns in front of the windows, a ceramic head on each
+  const HY = PT + 2.0;
+  for (const s of [-1, 1]) {
+    const col = new THREE.Mesh(znShaft(.135, 2.0, 7960 + s).translate(s * .86, PT, .26), concM); col.castShadow = true; st.add(clickable(col));
+    b.add(concM, new THREE.CylinderGeometry(.143, .15, .05, 36).translate(s * .86, PT + .025, .26));
+    b.add(concM, new THREE.CylinderGeometry(.14, .138, .03, 36).translate(s * .86, HY + .015, .26));
+  }
+  const heads = [[-1, 0, .035, [1, 1.06, .97], .22], [1, 1, .1, [.96, 1.12, .94], -.15]].map(([s, kind, up, sc, turn]) => {
+    const h = new THREE.Mesh(new THREE.SphereGeometry(.125, 48, 32), new THREE.MeshStandardMaterial({ map: znHead(kind), roughness: .38, envMapIntensity: .6 }));
+    h.scale.set(...sc); h.position.set(s * .86, HY + up, .26); h.rotation.y = turn; st.add(clickable(h)); return h;
+  });
+  paint(new THREE.SphereGeometry(.03, 16, 10).scale(1, .75, 1).translate(-.86, heads[0].position.y + .125 * 1.06 + .006, .26), '#3f6ed6');     // the little blue cap
+  { const r = rng(7970), hp = heads[1].position, top = hp.y + .125 * 1.12;                                                       // the crown of roses
+    for (let k = 0; k < 10; k++) {
+      const a = k / 10 * 6.283 + r() * .3, rr = k < 7 ? .07 : .025, y = k < 7 ? top - .028 : top + .004, R_ = .024 + r() * .01, c_ = ['#cf3557', '#e2617f', '#b72a42', '#e8879b'][k % 4];
+      const fx = hp.x + Math.cos(a) * rr, fz = hp.z + Math.sin(a) * rr;
+      paint(new THREE.SphereGeometry(R_, 14, 10).scale(1, .8, 1).translate(fx, y, fz), c_);
+      paint(new THREE.SphereGeometry(R_ * .45, 10, 8).translate(fx, y + R_ * .55, fz), '#8e1f33');
+      if (k % 3 === 0) paint(new THREE.SphereGeometry(.02, 8, 6).scale(1.4, .35, .7).rotateY(a).translate(hp.x + Math.cos(a + .3) * .085, top - .045, hp.z + Math.sin(a + .3) * .085), '#4d7a3a');
+    }
+  }
+  // the counter in white tile and red grout, against the pier
+  b.add(tileM, wuv(bb(-.6, .6, PT, CT, 0, .48), .4, .4, PT));
+  // on it: the yellow hand planter with its snake plant
+  { const hx = -.4, hz = .27, Y = '#f2cc1b', K = 1.25, hand = (g) => paint(g.scale(K, K, K).translate(hx, CT, hz), Y);
+    hand(new THREE.CylinderGeometry(.046, .05, .05, 20).translate(0, .025, 0));
+    hand(new RoundedBoxGeometry(.11, .12, .05, 3, .022).rotateX(-.12).translate(0, .11, .006));
+    [[-.038, .06], [-.013, .072], [.012, .069], [.036, .056]].forEach(([fx, L], i) => hand(new THREE.CapsuleGeometry(.0145, L, 4, 10).rotateZ((i - 1.5) * -.07).rotateX(-.12).translate(fx, .168 + L / 2, .002)));
+    hand(new THREE.CapsuleGeometry(.016, .052, 4, 10).rotateZ(.8).translate(-.074, .11, .014));
+    const leafM2 = new THREE.MeshStandardMaterial({ map: znLeaf(), side: THREE.DoubleSide, roughness: .5 }), r = rng(7980), lb = new Bucket();
+    for (let k = 0; k < 7; k++) {
+      const a = k / 7 * 6.283 + r() * .5, S = new V3(Math.cos(a), 0, Math.sin(a)), t = .1 + r() * .12, D = new V3(Math.cos(a) * t - .08, 1, Math.sin(a) * t * .6);
+      const F = new V3(Math.cos(a) * .45 + (r() - .5) * .4, 0, 1);                       // faces mostly out to the room, as in the photo
+      lb.add(leafM2, znBlade(new V3(hx + Math.cos(a) * .02, CT + .09, hz - .04 + Math.sin(a) * .015), D, S, .38 + r() * .18, .062 + r() * .02, (r() - .5) * .9, F));
+    }
+    lb.build(st, false).forEach(clickable);
+  }
+  // the little CRT on colour bars
+  { const tx = .01, tz = .235, fz = tz + .135;
+    b.add(caseM, new RoundedBoxGeometry(.31, .245, .27, 3, .024).translate(tx, CT + .1225, tz));
+    const bez = new THREE.Mesh(new THREE.PlaneGeometry(.236, .178).translate(tx, CT + .142, fz + .0012), new THREE.MeshStandardMaterial({ color: 0x2a2b2d, roughness: .4 })); st.add(clickable(bez));
+    const scr = new THREE.Mesh(new THREE.PlaneGeometry(.212, .156).translate(tx, CT + .142, fz + .0024), new THREE.MeshBasicMaterial({ map: znBars(), color: new THREE.Color(1.25, 1.25, 1.25) })); st.add(clickable(scr));
+    for (let i = 0; i < 3; i++) paint(new THREE.BoxGeometry(.014, .007, .006).translate(tx + .05 + i * .022, CT + .03, fz), '#77797a');
+    paint(new THREE.CylinderGeometry(.009, .009, .008, 16).rotateX(Math.PI / 2).translate(tx - .02, CT + .03, fz + .002), '#d6d8d8');
+  }
+  // the pink print in a white frame, leaning on the brick
+  { const g = new THREE.Group(); g.position.set(.37, CT, .078); g.rotation.x = -.09; st.add(g);
+    g.add(clickable(new THREE.Mesh(new THREE.BoxGeometry(.3, .4, .018).translate(0, .2, 0), whiteM)));
+    g.add(clickable(new THREE.Mesh(new THREE.PlaneGeometry(.272, .372).translate(0, .2, .0105), new THREE.MeshStandardMaterial({ map: znPrint(), roughness: .75 })))); }
+  // the white plinth between the chairs, the blue globe melting down its front
+  { const pz = .8, dripM = new THREE.MeshStandardMaterial({ map: znDrip(), roughness: .8 }), globeM = new THREE.MeshStandardMaterial({ map: znGlobe(), roughness: .32, envMapIntensity: .8 });
+    const ped = new THREE.Mesh(new THREE.BoxGeometry(.34, .4, .34).translate(0, PT + .2, pz), [whiteM, whiteM, whiteM, whiteM, dripM, whiteM]); ped.castShadow = ped.receiveShadow = true; st.add(clickable(ped));
+    b.add(globeM, new THREE.SphereGeometry(.125, 40, 20, 0, Math.PI * 2, 0, Math.PI / 2 + .25).scale(1, .92, 1).translate(0, PT + .4 + .012, pz));
+    const r = rng(7990), sh = new THREE.Shape();                                       // the puddle: ragged, and over the front edge where the drip starts
+    for (let k = 0; k <= 64; k++) { const a = k / 64 * Math.PI * 2, front = Math.max(0, Math.cos(a + Math.PI / 2 - .25)), rr = .148 + Math.sin(a * 5 + 1.3) * .006 + r() * .004 + Math.pow(front, 6) * .05;
+      const px = Math.cos(a) * rr, py = Math.sin(a) * rr; k ? sh.lineTo(px, py) : sh.moveTo(px, py); }
+    b.add(globeM, new THREE.ExtrudeGeometry(sh, { depth: .008, bevelEnabled: true, bevelThickness: .003, bevelSize: .004, bevelSegments: 2, curveSegments: 4 }).rotateX(-Math.PI / 2).translate(0, PT + .4, pz));
+    b.add(globeM, new THREE.SphereGeometry(.03, 16, 8).scale(1.4, .55, .45).translate(.02, PT + .397, pz + .172)); }
+  // two blue vinyl armchairs on chrome, turned to each other
+  const chair = (cx, cz, rot) => {
+    const M_ = new THREE.Matrix4().compose(new V3(cx, PT, cz), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, rot, 0)), new V3(1, 1, 1)), add = (mat, g) => b.add(mat, g.applyMatrix4(M_));
+    add(vinyl, new RoundedBoxGeometry(.54, .1, .5, 3, .035).translate(0, .44, .02));
+    add(vinyl, new RoundedBoxGeometry(.52, .3, .07, 3, .03).rotateX(-.12).translate(0, .73, -.235));
+    for (const s of [-1, 1]) {
+      const fx = s * .3;
+      add(vinyl, new RoundedBoxGeometry(.055, .035, .4, 2, .014).translate(fx, .655, 0));
+      add(M.chrome, rod(new V3(fx, 0, .21), new V3(fx, .64, .19), .011, 8));
+      add(M.chrome, rod(new V3(fx, .64, .19), new V3(fx, .64, -.22), .011, 8));
+      add(M.chrome, rod(new V3(fx * .95, 0, -.22), new V3(fx * .95, .9, -.27), .011, 8));
+      add(M.chrome, rod(new V3(fx, .38, .19), new V3(fx * .97, .38, -.22), .009, 8));
+    }
+    add(M.chrome, rod(new V3(-.285, .1, -.22), new V3(.285, .1, -.22), .008, 8));
+  };
+  chair(-.74, .98, .62); chair(.74, .98, -.62);
+  // the low walnut cube: a dog's head on stacked rings, a glass of water
+  { const tq = new THREE.Matrix4().compose(new V3(.02, PT, 1.48), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, .07, 0)), new V3(1, 1, 1));
+    b.add(walnut, wuv(bb(-.28, .28, .045, .42, -.28, .28), .56, .56).applyMatrix4(tq)); b.add(darkWood, bb(-.24, .24, 0, .045, -.24, .24).applyMatrix4(tq));
+    const T = tq.clone().multiply(new THREE.Matrix4().compose(new V3(-.1, .42, -.03), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, -2.85, 0)), new V3(1, 1, 1)));
+    const dp = (g, hex) => paint(g.applyMatrix4(T), hex), DOG = '#5c4b41';
+    let y = 0; for (const [rr, h, col] of [[.072, .042, '#2d7343'], [.07, .013, '#e5512d'], [.069, .011, '#f2c02e'], [.068, .011, '#ee7b2a'], [.066, .024, '#86d470']]) { dp(new THREE.CylinderGeometry(rr, rr, h, 32).translate(0, y + h / 2, 0), col); y += h; }
+    dp(new THREE.CylinderGeometry(.036, .04, .05, 20).translate(0, y + .025, 0), '#1c1a19'); y += .05;
+    const H0 = y + .045;
+    dp(new THREE.SphereGeometry(.05, 20, 14).scale(1.15, 1, 1).translate(-.005, H0, 0), DOG);
+    dp(new THREE.CapsuleGeometry(.026, .045, 4, 12).rotateZ(Math.PI / 2).translate(.065, H0 - .005, 0), DOG);
+    dp(new THREE.SphereGeometry(.012, 10, 8).translate(.112, H0 + .004, 0), '#151313');
+    dp(new THREE.CapsuleGeometry(.018, .035, 4, 10).rotateZ(Math.PI / 2 - .4).translate(.055, H0 - .038, 0), DOG);
+    dp(new THREE.CapsuleGeometry(.014, .04, 4, 10).scale(1, 1, .45).rotateZ(Math.PI / 2 - .9).translate(.086, H0 - .047, .012), '#e46f86');
+    for (const s of [-1, 1]) {
+      dp(new THREE.ConeGeometry(.004, .011, 6).rotateX(Math.PI).translate(.093, H0 - .027, s * .014), '#f3efe6');
+      dp(new THREE.SphereGeometry(.03, 12, 10).scale(.55, 1.15, .28).rotateX(s * .3).translate(-.014, H0 - .006, s * .052), '#4a3b32');
+      dp(new THREE.SphereGeometry(.0065, 8, 6).translate(.042, H0 + .022, s * .028), '#0d0c0c');
+    }
+    const gp = new V3(.17, .42, .1).applyMatrix4(tq), glassM2 = new THREE.MeshStandardMaterial({ color: 0xe6eef0, roughness: .06, transparent: true, opacity: .2, envMapIntensity: 1.8, depthWrite: false, side: THREE.DoubleSide });
+    st.add(clickable(new THREE.Mesh(new THREE.CylinderGeometry(.036, .03, .105, 10, 1, true).translate(gp.x, gp.y + .0525, gp.z), glassM2)));
+    st.add(clickable(new THREE.Mesh(new THREE.CylinderGeometry(.031, .031, .008, 10).translate(gp.x, gp.y + .004, gp.z), glassM2)));
+    st.add(clickable(new THREE.Mesh(new THREE.CylinderGeometry(.032, .0305, .05, 10).translate(gp.x, gp.y + .033, gp.z), new THREE.MeshStandardMaterial({ color: 0xcfe3ea, roughness: .03, transparent: true, opacity: .35, depthWrite: false, envMapIntensity: 1.5 })))); }
+  // "guests sit here", the arrow to the guest's chair
+  { const B = ZN_WORDS, map = znWords();
+    const w = new THREE.Mesh(new THREE.PlaneGeometry(B.x1 - B.x0, B.y1 - B.y0).translate((B.x0 + B.x1) / 2, (B.y0 + B.y1) / 2, .006), new THREE.MeshStandardMaterial({ map, transparent: true, depthWrite: false, roughness: .7, emissive: 0xffffff, emissiveMap: map, emissiveIntensity: .35 }));
+    w.renderOrder = 3; st.add(clickable(w)); }
+  b.build(st).forEach(clickable);
+  const vcm = new THREE.Mesh(mergeGeometries(vc), glaze); vcm.castShadow = vcm.receiveShadow = true; st.add(clickable(vcm));
+  // light on the set: warm round the chairs, cool off the windows, a wash on the brick
+  pool(st, 2.2, 1.7, new V3(0, PT + .004, 1.05), 0, -Math.PI / 2, .3);
+  for (const s of [-1, 1]) pool(st, 1.1, 1.0, new V3(s * .84, PT + .005, .45), 0, -Math.PI / 2, .2, [.75, .85, 1]);
+  pool(st, 1.6, 1.6, new V3(0, 1.45, .009), 0, 0, .2, [1, .9, .8]);
+  const S_ = G.yb - .21; spot(G.yb - .19, new V3(1.6, S_, 5.55), new V3(2.3, .55, 5.4)); spot(G.yb - .19, new V3(1.6, S_, 6.4), new V3(2.3, .55, 6.95));
+  // ON AIR over the set
+  const onair = new THREE.Mesh(new THREE.PlaneGeometry(.44, .165), new THREE.MeshBasicMaterial({ map: znOnAir(), color: new THREE.Color(1.6, 1.6, 1.6) }));
+  onair.rotation.y = -Math.PI / 2; onair.position.set(G.x1 - .062, 2.52, 6.2); gallery.add(clickable(onair));
+  gallery.add(new THREE.Mesh(bb(G.x1 - .06, G.x1 - .002, 2.52 - .1, 2.52 + .1, 6.2 - .25, 6.2 + .25), GAL_LIVE.blackM));
+  // the deck's title slide as a lightbox on the back wall beside the set, the label under it
+  const SW = 1.0, SH = SW * 9 / 16, sx = 2.13, sy = 1.74;
   const slide = new THREE.Mesh(new THREE.PlaneGeometry(SW, SH), new THREE.MeshStandardMaterial({ map: znSlide(), roughness: .5, emissive: 0xffffff, emissiveIntensity: .55 }));
   slide.material.emissiveMap = slide.material.map; slide.rotation.y = Math.PI; slide.position.set(sx, sy, z1 - .052); gallery.add(clickable(slide));
   gallery.add(new THREE.Mesh(bb(sx - SW / 2 - .025, sx + SW / 2 + .025, sy - SH / 2 - .025, sy + SH / 2 + .025, z1 - .05, z1 - .002), GAL_LIVE.blackM));
-  // the set: a guest chair in coral, turned toward the camera
-  const set = new THREE.Group(); set.position.set(2.72, 0, 6.82); set.rotation.y = Math.PI + .62; gallery.add(set);
-  const coral = new THREE.MeshStandardMaterial({ color: ZN.coral, roughness: .7 }), steel = GAL_LIVE.blackM;
-  const chair = new Bucket();
-  chair.add(coral, new RoundedBoxGeometry(.46, .07, .44, 2, .025).translate(0, .46, 0)); chair.add(coral, new RoundedBoxGeometry(.46, .38, .06, 2, .025).translate(0, .7, -.21).rotateX(-.08));
-  for (const [lx, lz] of [[-.2, -.18], [.2, -.18], [-.2, .18], [.2, .18]]) chair.add(steel, new THREE.CylinderGeometry(.012, .01, .43, 8).translate(lx, .215, lz));
-  chair.add(steel, new THREE.CylinderGeometry(.01, .01, .44, 8).rotateZ(Math.PI / 2).translate(0, .14, .18)); chair.add(steel, new THREE.CylinderGeometry(.01, .01, .44, 8).rotateZ(Math.PI / 2).translate(0, .14, -.18));
-  chair.build(set).forEach(clickable);
-  const card = new THREE.Mesh(new THREE.PlaneGeometry(.16, .08), new THREE.MeshStandardMaterial({ map: znCard(), roughness: .8, side: THREE.DoubleSide }));
-  card.position.set(.02, .53, .05); card.rotation.set(-.55, 0, .06); set.add(clickable(card));          // a folded card leaning on the seat
-  // a mic on a boom, reaching over to where a guest's mouth would be
-  const boom = new Bucket(), stand = new V3(.38, 0, .16), top = new V3(.38, 1.32, .16), tip = new V3(.04, 1.12, .3);
-  boom.add(steel, new THREE.CylinderGeometry(.16, .16, .015, 20).translate(stand.x, .008, stand.z)); boom.add(steel, rod(stand, top, .011, 8)); boom.add(steel, rod(top.clone().add(new V3(.12, .06, -.04)), tip, .008, 8));
-  boom.build(set).forEach(clickable);
-  const mic = new THREE.Mesh(new THREE.CapsuleGeometry(.03, .1, 6, 12), new THREE.MeshStandardMaterial({ color: 0x15161a, roughness: .9 })); mic.position.copy(tip).add(new V3(-.03, -.04, .03)); mic.rotation.set(.5, 0, .9); set.add(clickable(mic));
-  // the studio camera on its tripod, looking at the chair, tally lit
-  const cam = new THREE.Group(); cam.position.set(1.92, 0, 6.02); cam.rotation.y = Math.atan2(2.72 - 1.92, 6.82 - 6.02); gallery.add(cam);
-  const camB = new Bucket(), grey = new THREE.MeshStandardMaterial({ color: 0x2a2d33, roughness: .45, metalness: .4 });
-  for (let k = 0; k < 3; k++) { const a = k / 3 * 6.283 + .4; camB.add(steel, rod(new V3(0, 1.02, 0), new V3(Math.cos(a) * .36, 0, Math.sin(a) * .36), .012, 6)); }
-  camB.add(steel, new THREE.CylinderGeometry(.04, .05, .08, 12).translate(0, 1.06, 0));
-  camB.add(grey, new RoundedBoxGeometry(.2, .2, .4, 2, .02).translate(0, 1.2, -.02));                      // body
-  camB.add(steel, new THREE.CylinderGeometry(.065, .075, .2, 20).rotateX(Math.PI / 2).translate(0, 1.2, .27));   // lens barrel
-  camB.add(grey, new RoundedBoxGeometry(.13, .1, .14, 2, .015).translate(.0, 1.355, -.12));                 // viewfinder hood
-  camB.add(steel, rod(new V3(.05, 1.08, -.2), new V3(.12, .98, -.55), .01, 6));                              // pan bar
-  camB.build(cam).forEach(clickable);
-  const glassL = new THREE.Mesh(new THREE.CircleGeometry(.058, 24), new THREE.MeshStandardMaterial({ color: 0x0a0c12, roughness: .05, metalness: .2, envMapIntensity: 1.5 })); glassL.position.set(0, 1.2, .371); cam.add(glassL);
-  const tally = new THREE.Mesh(new THREE.BoxGeometry(.04, .025, .02), new THREE.MeshBasicMaterial({ color: new THREE.Color(4, .5, .35) })); tally.position.set(.06, 1.318, .18); cam.add(tally); GAL_LIVE.tally = tally;
-  const stripe = new THREE.Mesh(new THREE.PlaneGeometry(.38, .012), new THREE.MeshBasicMaterial({ color: new THREE.Color(ZN.coral).multiplyScalar(1.2) })); stripe.rotation.y = Math.PI / 2; stripe.position.set(.101, 1.14, -.02); cam.add(stripe);
-  // ON AIR, high on the side wall
-  const onair = new THREE.Mesh(new THREE.PlaneGeometry(.5, .19), new THREE.MeshBasicMaterial({ map: znOnAir(), color: new THREE.Color(1.6, 1.6, 1.6) }));
-  onair.rotation.y = -Math.PI / 2; onair.position.set(G.x1 - .062, 2.3, 6.55); gallery.add(clickable(onair)); GAL_LIVE.onair = onair;
-  gallery.add(new THREE.Mesh(bb(G.x1 - .06, G.x1 - .002, 2.3 - .115, 2.3 + .115, 6.55 - .28, 6.55 + .28), GAL_LIVE.blackM));
-  // the spot: a coral beam and a coral pool on the floor round the chair
-  const coralBeam = SPOT_BEAM.clone(); coralBeam.uniforms = { uColor: { value: new THREE.Color(1, .34, .3) }, uStrength: { value: .09 } };
-  spot(G.yb - .19, new V3(1.6, G.yb - .21, 7.0), new V3(2.66, .3, 6.82), true, coralBeam);
-  pool(gallery, 1.5, 1.5, new V3(2.6, .007, 6.75), 0, -Math.PI / 2, .5, [1, .36, .3]);
   pool(gallery, SW * 1.45, SH * 1.6, new V3(sx, sy + .05, z1 - .009), Math.PI, 0, .26);
-  GAL_OBST.push([2.2, G.x1, 6.25, G.z1], [1.55, 2.25, 5.65, 6.35]);
-  addLabel(p, new V3(1.96, 1.2, z1 - .006), Math.PI);
+  GAL_OBST.push([1.3, G.x1, 4.98, G.z1]);
+  addLabel(p, new V3(1.92, 1.25, z1 - .006), Math.PI);
 }
 
 /* ---- the gorilla: a faceted, lacquered red ape mid-roar, one fist out, one raised ---- */
@@ -599,7 +867,7 @@ function buildGallery() {
   // spots on the rails, one or two per piece
   const S = railY - .02;
   spot(railY, new V3(1.6, S, 1.4), new V3(G.x1, 1.7, 1.7)); spot(railY, new V3(1.6, S, 2.5), new V3(G.x1, 1.6, 2.3));
-  spot(railY, new V3(1.6, S, 5.0), new V3(G.x1 - .4, 1.3, 5.35));
+  spot(railY, new V3(1.6, S, STM_Z - .25), new V3(G.x1 - .4, 1.3, STM_Z));
   spot(railY, new V3(-1.6, S, 4.6), new V3(G.x0, 1.6, 4.8)); spot(railY, new V3(-1.6, S, 5.8), new V3(G.x0, 1.6, 5.6));
   spot(railY, new V3(-1.6, S, 2.05), new V3(G.x0, 1.6, 2.05));
   spot(railY, new V3(-1.6, S, 6.6), new V3(-.4, 1.6, G.z1)); spot(railY, new V3(1.6, S, 6.6), new V3(.4, 1.6, G.z1));
@@ -645,7 +913,6 @@ function galleryTick(dt, time) {
   floatingLogoTick(dt, time);
   if (!near) return;
   catTick(dt, time);
-  if (GAL_LIVE.tally) { const on = Math.sin(time * 1.1) > -.85; GAL_LIVE.tally.material.color.setRGB(on ? 4 : .4, on ? .5 : .06, on ? .35 : .05); }
   // the arcade screen runs at 20 fps while you are in the room
   GAL_LIVE.screenT -= dt;
   if (GAL_LIVE.screen && GAL_LIVE.screenT <= 0 && galleryHere()) { GAL_LIVE.screenT = 1 / 20; drawSurfer(GAL_LIVE.screenCtx, time); GAL_LIVE.screen.needsUpdate = true; }

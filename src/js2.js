@@ -679,6 +679,15 @@ function doorMat() { const m = M.door.clone(); m.userData = {}; m.onBeforeCompil
 // one sliding door leaf, slab z0..z1 in its own frame. The rubber strip caps the meeting edge and the painted slab stops 5 mm inside it,
 // so the slab's edge never shares a plane with the rubber's (that edge flickered while the doors moved). The two strips meet at the seam
 // without overlapping.
+// rubber grooves across a brass sill, as a mipmapped texture rather than strips: n grooves, pitch apart, frac of each pitch rubber,
+// the first cell starting at z0, 1.5 mm proud of the brass. Modelled strips seen edge-on from across the lobby were finer than a
+// pixel and shimmered like z-fighting at the foot of the doors all through the launch shot.
+function sillGrooves(parent, z0, n, pitch, frac, y) {
+  const [c, x] = cv(8, 64), h = Math.round(64 * frac); x.fillStyle = '#000'; x.fillRect(0, 0, 8, 64); x.fillStyle = '#fff'; x.fillRect(0, 32 - h / 2, 8, h);
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1, n); t.anisotropy = Math.min(8, MAX_ANISO);
+  const g = new THREE.Mesh(new THREE.PlaneGeometry(DOOR_W, n * pitch).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: .92, metalness: 0, alphaMap: t, transparent: true, depthWrite: false }));
+  g.position.set(0, y, z0 + n * pitch / 2); g.receiveShadow = true; parent.add(g); return g;
+}
 function doorLeaf(parent, sx, z0, z1) {
   const g = new THREE.Group();
   const m = new THREE.Mesh(wuv(bb(sx > 0 ? -.26 : -.27, sx > 0 ? .27 : .26, 0, DOOR_H, z0, z1), .54, DOOR_H), doorMat()); m.castShadow = m.receiveShadow = true; g.add(m);
@@ -787,7 +796,7 @@ function buildLobby() {
   b.add(M.cream, wuv(bb(DOOR_W / 2, DOOR_W / 2 + .12, 0, DOOR_H, WALL_Z, WALL_Z + .05), .5, DOOR_H + .12));
   b.add(M.cream, wuv(bb(-DOOR_W / 2 - .12, DOOR_W / 2 + .12, DOOR_H, DOOR_H + .14, WALL_Z, WALL_Z + .05), .5, .5, DOOR_H));
   b.add(M.brass, wuv(bb(-DOOR_W / 2, DOOR_W / 2, -.01, .008, 0, WALL_Z + .03), .3, .3));
-  for (let i = 0; i < 9; i++) b.add(M.rubber, bb(-DOOR_W / 2, DOOR_W / 2, .004, .0095, .02 + i * .025, .03 + i * .025));
+  sillGrooves(world, .0125, 9, .025, .4, .0095);
   // radiator under the window
   for (let i = 0; i < 16; i++) { const z = 2.0 + i * .085; b.add(M.ironM, wuv(new RoundedBoxGeometry(.14, .62, .06, 2, .02).translate(L.x0 + .14, .5, z), .3, .3)); }
   b.add(M.ironM, rod(new V3(L.x0 + .14, .22, 1.95), new V3(L.x0 + .14, .22, 3.38), .022));
@@ -1009,7 +1018,7 @@ function buildCab() {
   b.add(M.tread, wuv(bb(C.x0, C.x1, -.04, 0, C.z0, C.z1), .6, .6));
   b.add(M.ironM, wuv(bb(C.x0 - .05, C.x1 + .05, -.3, -.04, C.z0 - .05, -.1), 1, 1));
   b.add(M.brass, wuv(bb(-DOOR_W / 2, DOOR_W / 2, -.012, .004, C.z1, -.06), .3, .3));
-  for (let i = 0; i < 4; i++) b.add(M.rubber, bb(-DOOR_W / 2, DOOR_W / 2, .0, .0055, C.z1 + .012 + i * .022, C.z1 + .02 + i * .022));
+  sillGrooves(cab, C.z1 + .005, 4, .022, .36, .0055);
   for (const g of holedWall('x', C.x0 - .04, C.x0, C.z0 - .04, C.z1 + .04, 0, C.h, [[GRILLE.z0, GRILLE.z1, GRILLE.y0, GRILLE.y1]])) b.add(M.teal, wuv(g, 2.4, C.h));
   for (const g of holedWall('x', C.x1, C.x1 + .04, C.z0 - .04, C.z1 + .04, 0, C.h, [])) b.add(M.teal, wuv(g, 2.4, C.h));
   for (const g of holedWall('z', C.z0 - .04, C.z0, C.x0, C.x1, 0, C.h, [])) b.add(M.teal, wuv(g, 2.4, C.h));

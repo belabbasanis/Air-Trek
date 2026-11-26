@@ -6,7 +6,7 @@
    changes with what the cat is doing (ring eyes, wide eyes, side glances, a blep, eyes shut while licking).
    Cat space: +z is where it faces, y = 0 the floor.
    ====================================================================== */
-const CAT = { g: null, st: 'stop', t: 0, dur: 1.5, x: 1.3, z: 2.9, yaw: 2.4, goal: null, v: 0, ph: 0, sit: 0, groom: 0, face: 0, faceHold: 0, blinkT: 2.5, headYaw: 0, headPitch: 0, lick: 0, wipe: 0, parts: null };
+const CAT = { g: null, st: 'stop', t: 0, dur: 1.5, x: 1.3, z: 2.9, yaw: 2.4, goal: null, flee: false, v: 0, ph: 0, sit: 0, groom: 0, face: 0, faceHold: 0, blinkT: 2.5, headYaw: 0, headPitch: 0, lick: 0, wipe: 0, parts: null };
 const CAT_FACES = { ring: 0, wide: 1, disc: 2, side: 3, blep: 4, lick: 5, blink: 6, small: 7 };
 
 /* ---- the faces, drawn after the drawing: orange (#f29c1b), black pupils, a red tongue ---- */
@@ -110,20 +110,20 @@ function catTick(dt, time) {
   const turn = (target, rate) => { let d = target - CAT.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); CAT.yaw += clamp(d, -rate * dt, rate * dt); return Math.abs(d); };
   let speed = 0;
   if (CAT.st === 'walk') {
-    if (!CAT.goal) CAT.goal = catPickGoal();
+    if (!CAT.goal) { CAT.goal = catPickGoal(); CAT.flee = false; }
     if (!CAT.goal) { CAT.st = 'stop'; CAT.t = 0; CAT.dur = 1.5; }
     else {
       const dx = CAT.goal.x - CAT.x, dz = CAT.goal.z - CAT.z, d = Math.hypot(dx, dz), off = turn(toward(CAT.goal.x, CAT.goal.z), 2.6);
       speed = .26 * clamp(1.4 - off, .15, 1) * clamp(d / .3, .35, 1);
-      if (d < .12) { CAT.goal = null; CAT.t = 0; const r = Math.random(); if (r < .5) { CAT.st = 'sit'; } else { CAT.st = 'stop'; CAT.dur = 1.5 + Math.random() * 3.5; } }
-      if (pd < 1.0 && CAT.st === 'walk') { CAT.st = 'stare'; CAT.t = 0; CAT.dur = 1.5 + Math.random() * 2; }
+      if (d < .12) { CAT.goal = null; CAT.flee = false; CAT.t = 0; const r = Math.random(); if (r < .5) { CAT.st = 'sit'; } else { CAT.st = 'stop'; CAT.dur = 1.5 + Math.random() * 3.5; } }
+      if (pd < 1.0 && CAT.st === 'walk' && !CAT.flee) { CAT.st = 'stare'; CAT.t = 0; CAT.dur = 1.5 + Math.random() * 2; }   // walking off from you, it does not stop to stare again
     }
   } else if (CAT.st === 'stop') {
     if (CAT.t > CAT.dur) { CAT.st = 'walk'; CAT.t = 0; }
     if (pd < 1.0) { CAT.st = 'stare'; CAT.t = 0; CAT.dur = 1.5 + Math.random() * 2; }
   } else if (CAT.st === 'stare') {                                   // you came close: it stops and looks at you
     turn(toward(P.pos.x, P.pos.z), 1.2);
-    if (pd < .55 || (CAT.t > CAT.dur && pd < 1.4)) { CAT.goal = catPickGoal(P.pos.x, P.pos.z); CAT.st = CAT.goal ? 'walk' : 'stop'; CAT.t = 0; CAT.dur = 1; }
+    if (pd < .55 || (CAT.t > CAT.dur && pd < 1.4)) { CAT.goal = catPickGoal(P.pos.x, P.pos.z); CAT.flee = !!CAT.goal; CAT.st = CAT.goal ? 'walk' : 'stop'; CAT.t = 0; CAT.dur = 1; }
     else if (CAT.t > CAT.dur) { CAT.st = 'stop'; CAT.t = 0; CAT.dur = .8; }
   } else if (CAT.st === 'sit') {
     if (CAT.sit > .98) { CAT.st = 'groom'; CAT.t = 0; CAT.dur = 6 + Math.random() * 8; }

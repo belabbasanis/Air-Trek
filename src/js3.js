@@ -445,6 +445,9 @@ canvas.addEventListener('pointermove', (e) => {
   if (!drag.moved && Math.hypot(dx, dy) > 4) drag.moved = true;
   if (drag.moved) { look(e.movementX || dx, e.movementY || dy, .0042); drag.x = e.clientX; drag.y = e.clientY; }
 });
+// a cancelled touch (system gesture, palm, too many fingers) never sends pointerup: treat it as one, or the stick stays pushed
+canvas.addEventListener('pointercancel', (e) => { if (e.pointerType === 'touch') onTouchEnd(e); else drag = null; });
+canvas.addEventListener('lostpointercapture', (e) => { if (e.pointerType === 'touch' && P.joy && e.pointerId === P.joy.id) onTouchEnd(e); });
 canvas.addEventListener('pointerup', (e) => {
   if (e.pointerType === 'touch') return onTouchUp(e);
   if (!drag) return; const d = drag; drag = null;
@@ -457,14 +460,16 @@ function look(dx, dy, k) { P.yaw -= dx * k; P.pitch = clamp(P.pitch - dy * k, -1
 const touches = new Map(); P.joy = null; P.touchAim = null;
 function onTouchDown(e) {
   e.preventDefault(); const left = e.clientX < innerWidth * .42;
-  if (left && !P.joy) { P.joy = { id: e.pointerId, x: e.clientX, y: e.clientY, dx: 0, dy: 0 }; const s = $('stick'); s.style.display = 'block'; s.style.left = e.clientX + 'px'; s.style.top = e.clientY + 'px'; $('knob').style.transform = ''; }
+  if (P.joy && left && P.joy.id !== e.pointerId && performance.now() - (P.joy.seen || 0) > 400) dropTouches();   // no move from the old stick finger for a while: it was lost
+  if (left && !P.joy) { P.joy = { seen: performance.now(), id: e.pointerId, x: e.clientX, y: e.clientY, dx: 0, dy: 0 }; const s = $('stick'); s.style.display = 'block'; s.style.left = e.clientX + 'px'; s.style.top = e.clientY + 'px'; $('knob').style.transform = ''; }
   else touches.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: performance.now(), moved: false });
 }
 function onTouchMove(e) {
-  if (P.joy && e.pointerId === P.joy.id) { let dx = e.clientX - P.joy.x, dy = e.clientY - P.joy.y; const l = Math.hypot(dx, dy), m = 46; if (l > m) { dx *= m / l; dy *= m / l; } P.joy.dx = dx / m; P.joy.dy = dy / m; $('knob').style.transform = `translate(${dx}px,${dy}px)`; return; }
+  if (P.joy && e.pointerId === P.joy.id) { P.joy.seen = performance.now(); let dx = e.clientX - P.joy.x, dy = e.clientY - P.joy.y; const l = Math.hypot(dx, dy), m = 46; if (l > m) { dx *= m / l; dy *= m / l; } P.joy.dx = dx / m; P.joy.dy = dy / m; $('knob').style.transform = `translate(${dx}px,${dy}px)`; return; }
   const t = touches.get(e.pointerId); if (!t) return; const dx = e.clientX - t.x, dy = e.clientY - t.y; t.x = e.clientX; t.y = e.clientY;
   if (Math.hypot(e.clientX - t.sx, e.clientY - t.sy) > 8) t.moved = true; if (t.moved) look(dx, dy, .006);
 }
+function onTouchEnd(e) { if (P.joy && e.pointerId === P.joy.id) { P.joy = null; $('stick').style.display = 'none'; } touches.delete(e.pointerId); }
 function onTouchUp(e) {
   if (pendingExit) { pendingExit = false; triggerVisit('step'); }   // a touch ending is a gesture: open the project the player just walked out to
   if (P.joy && e.pointerId === P.joy.id) { P.joy = null; $('stick').style.display = 'none'; return; }
@@ -490,7 +495,10 @@ window.addEventListener('keydown', (e) => {
   if (pendingExit) { pendingExit = false; triggerVisit('step'); }
 });
 window.addEventListener('keyup', (e) => keys.delete(e.code));
-window.addEventListener('blur', () => keys.clear());
+function dropTouches() { if (P.joy) { P.joy = null; $('stick').style.display = 'none'; } touches.clear(); }
+window.addEventListener('blur', () => { keys.clear(); dropTouches(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { keys.clear(); dropTouches(); } });   // a project opening in a new tab mid-step, the app switcher
+window.addEventListener('pagehide', () => { keys.clear(); dropTouches(); });
 function showTyped() { const t = $('typed'); if (typed) { t.textContent = 'Floor ' + typed + '_'; t.classList.add('on'); } else t.classList.remove('on'); }
 function commitTyped() { const f = parseInt(typed, 10); typed = ''; typedT = 0; showTyped(); if (!isNaN(f)) selectFloor(f); }
 let pendingExit = false;
@@ -600,7 +608,8 @@ function gateCam(time) {
 D.lantern = 0;
 
 /* ======================================================================
-   TIME OF DAY: the art style follows the visitor's local clock.
+   TIME OF DAY: the art style follows the visitor's local clock. SWITCHED OFF for now (TIME_LOOKS below):
+   every hour gets the afternoon light until the painted looks are redone.
    morning 5-11 painterly cool, afternoon 11-17 golden hour, evening 17-21 painterly warm, night 21-5.
    Crossing into the next period blends over about a minute. Add #morning, #afternoon, #evening
    or #night to the URL to hold one period (for reviewing a look).
@@ -635,8 +644,9 @@ function mixLook(a, b, t) {
   if (b.amount === 0) for (const k of ['rampRGB', 'rampMix', 'keepGreen', 'stroke', 'ink', 'grain', 'high']) o[k] = a[k];
   return o;
 }
-function periodAt(d) { const h = d.getHours() + d.getMinutes() / 60; let p = 'night'; for (const [name, at] of PERIODS) if (h >= at) p = name; return p; }
-const heldPeriod = () => { const h = location.hash.replace('#', ''); return h in LOOKS ? h : null; };
+const TIME_LOOKS = false;   // the morning, evening and night looks are off until they are redone: every hour gets the afternoon light
+function periodAt(d) { if (!TIME_LOOKS) return 'afternoon'; const h = d.getHours() + d.getMinutes() / 60; let p = 'night'; for (const [name, at] of PERIODS) if (h >= at) p = name; return p; }
+const heldPeriod = () => { if (!TIME_LOOKS) return null; const h = location.hash.replace('#', ''); return h in LOOKS ? h : null; };
 let LOOK = LOOKS.afternoon, lookKey = null, lookFrom = null, lookT = 1, nsMats = null, lastNs = -1;
 function setLook(key, instant) {
   if (key === lookKey) return;
@@ -761,19 +771,20 @@ function tick(dt, time) {
 const _ivp = new THREE.Matrix4();
 function render(time) {
   frameN++;
+  const fN = window.__test && window.__frame != null ? window.__frame : frameN;   // tests can hold the per-frame noise still
   camera.updateMatrixWorld();
   sky.position.copy(camera.position);
   UNI.sunView.value.copy(sunDir).transformDirection(camera.matrixWorldInverse);
   if (sun.shadow.map) { MOTE_U.tShadow.value = sun.shadow.map.texture; MOTE_U.uShadowMat.value.copy(sun.shadow.matrix); }
   renderer.setRenderTarget(rtMain); renderer.clear(); renderer.render(scene, camera);
   // ambient occlusion
-  aoMat.uniforms.uInvP.value.copy(camera.projectionMatrixInverse); aoMat.uniforms.uP.value.copy(camera.projectionMatrix); aoMat.uniforms.uFrame.value = frameN % 64;
+  aoMat.uniforms.uInvP.value.copy(camera.projectionMatrixInverse); aoMat.uniforms.uP.value.copy(camera.projectionMatrix); aoMat.uniforms.uFrame.value = fN % 64;
   pass(aoMat, rtAO);
   // light shafts through the windows, marched against the sun's shadow map
   const vu = volMat.uniforms;
   vu.tShadow.value = sun.shadow.map ? sun.shadow.map.texture : null; vu.uShadowMat.value.copy(sun.shadow.matrix);
   vu.uInvVP.value.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse).invert();
-  vu.uCam.value.copy(camera.position); vu.uSunDir.value.copy(sunDir); vu.uTime.value = time; vu.uFrame.value = frameN % 64;
+  vu.uCam.value.copy(camera.position); vu.uSunDir.value.copy(sunDir); vu.uTime.value = time; vu.uFrame.value = fN % 64;
   vu.uSunCol.value.set(sun.color.r, sun.color.g, sun.color.b).multiplyScalar(sun.intensity * .5);
   vu.uBoxMin.value.set(LOBBY.x0, Math.min(0, lift.y) - .1, SHAFT.z0); vu.uBoxMax.value.set(LOBBY.x1, Math.max(LOBBY.h, lift.y + LAND.h), LOBBY.z1);
   if (vu.tShadow.value) pass(volMat, rtVol); else { renderer.setRenderTarget(rtVol); renderer.clear(); }
@@ -801,6 +812,7 @@ function debugTick(dtMs) {
   dbgEl.textContent = `${(1000 / ema).toFixed(0)} fps (${ema.toFixed(1)} ms)\nresolution ${W}×${Hh}  scale ${renderScale.toFixed(2)}\nlook ${lookKey}${lookT < 1 ? ' (blending)' : ''}`;
 }
 function adapt(dtMs) {
+  if (window.__test && window.__noAdapt) return;   // tests hold the resolution steady
   ema = ema * .93 + dtMs * .07;
   if (ema > 24) { slowT += dtMs; fastT = 0; } else if (ema < 17.6) { fastT += dtMs; slowT = 0; } else { slowT = 0; fastT = 0; }
   if (slowT > 1500 && renderScale > .56) { renderScale = Math.max(.55, renderScale * .86); slowT = 0; resize(); }
