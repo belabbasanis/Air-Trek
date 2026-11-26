@@ -313,7 +313,7 @@ function onDoorsOpen() {
   const p = BY_FLOOR.get(lift.floor);
   if (p && p.room) { caption(`<b>${esc(p.name)}</b> · ${esc(p.author)}`, 4.5); hint('Walk out into the grass · the far wall has come down', 6); }
   else if (p && !p.gallery) { caption(`<b>${esc(p.name)}</b>${p.author ? ' · by ' + esc(p.author) : ''}`, 4.5); showVisit(p); hint(isTouch ? 'Walk out, or tap the painted wall, to visit' : 'Walk out, click the painted wall, or press <kbd>Enter</kbd> to visit', 6); }
-  else if (lift.floor === GALLERY_FLOOR) { caption('<b>As Is</b> · tonight\'s projects', 4); hint(isTouch ? 'Tap a piece to open its project' : 'Walk up to a piece and click it to open its project', 6); }
+  else if (lift.floor === GALLERY_FLOOR) { caption('<b>As Is</b> · 11.25.2026', 4); hint(isTouch ? 'Tap a piece to open its project' : 'Walk up to a piece and click it to open its project', 6); }
   else if (lift.floor === 0) caption('Lobby', 2.4);
   else if (lift.floor === ROOF) { caption('<b>Roof garden</b>', 3.5); hint('Walk around the roof · take the lift back down when you are done', 6); }
 }
@@ -834,7 +834,7 @@ function loop(now) {
   camera.position.copy(CAM.s0.p); camera.lookAt(CAM.s0.l); camera.fov = fovFor(CAM.s0.fov); camera.updateProjectionMatrix();
   setLook(heldPeriod() || periodAt(new Date()), true); lookTick(0);
   D.state = 'gate'; D.fade = 0;
-  if (window.__test) window.__dbg = { D, lift, P, camera, landing, dressLanding, setLook, setLamp, gradeMat, A, selectFloor, ROOF, H, surfaceUnder, hot, HID, startHidden, gallery, GAL_LIVE, GALLERY_FLOOR, GAL_OBST, moveTo, renderer, scene, M, cab, world, actOn, scRoom, SC_LIVE, SC, SC_FLOOR, ensureSeaCliffs, seaCliffsHere, sfxButton, sfxThunder, ROOF_STONES, sfxStep, initAudio };
+  if (window.__test) window.__dbg = { D, lift, P, camera, landing, dressLanding, setLook, setLamp, gradeMat, A, selectFloor, ROOF, H, surfaceUnder, hot, HID, startHidden, gallery, GAL_LIVE, GALLERY_FLOOR, GAL_OBST, moveTo, renderer, scene, M, cab, world, actOn, scRoom, SC_LIVE, SC, SC_FLOOR, ensureSeaCliffs, seaCliffsHere, CAT, GAL, catTick, WALL_Z, sfxButton, sfxThunder, ROOF_STONES, sfxStep, initAudio };
   requestAnimationFrame(loop);
   // warm up a few frames (shader compile), then fade in from black
   await nextFrame(); await nextFrame(); await nextFrame();

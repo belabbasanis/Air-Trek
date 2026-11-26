@@ -1,6 +1,6 @@
 
 /* ======================================================================
-   FLOOR 2 · AS IS: a cellar gallery for tonight's projects.
+   FLOOR 2 · AS IS: a cellar gallery for the projects presented on 11.25.2026.
    Raw whitewashed plaster with brick showing through, brick jack-arch vaults between black steel beams,
    a scarred concrete floor, track spots on two rails, warm and dim. One piece per project (the list is
    GALLERY in head.html), a red faceted gorilla in the middle, the armoured dove on the vault above it.
@@ -165,7 +165,7 @@ const SPOT_BEAM = new THREE.ShaderMaterial({
     void main() { float edge = pow(abs(dot(normalize(vN), normalize(vV))), 2.); gl_FragColor = vec4(uColor * uStrength * edge * (.2 + .8 * vT * vT), 1.); }`,
   transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
 });
-function spot(rail, from, to, beam = true) {
+function spot(rail, from, to, beam = true, beamMat = SPOT_BEAM) {
   const dir = new V3().subVectors(to, from).normalize();
   const can = new THREE.Group(); can.position.copy(from); can.quaternion.setFromUnitVectors(new V3(0, -1, 0), dir); gallery.add(can);
   const body = new THREE.Mesh(new THREE.CylinderGeometry(.045, .055, .16, 16), GAL_LIVE.blackM); body.position.y = -.02; can.add(body);
@@ -176,13 +176,13 @@ function spot(rail, from, to, beam = true) {
     cone.translate(0, -L / 2 - .1, 0);
     const pa = cone.attributes.position, t = new Float32Array(pa.count); for (let i = 0; i < pa.count; i++) t[i] = 1 + (pa.getY(i) + .1) / L;   // 1 at the lamp, 0 at the far end
     cone.setAttribute('aT', new THREE.BufferAttribute(t, 1));
-    const m = new THREE.Mesh(cone, SPOT_BEAM); m.renderOrder = 5; m.frustumCulled = false; can.add(m);
+    const m = new THREE.Mesh(cone, beamMat); m.renderOrder = 5; m.frustumCulled = false; can.add(m);
   }
   return can;
 }
 // wall pools sit 9 mm off the wall, 3 mm in front of the labels (6 mm), so the glow never shares a plane with a label
-function pool(parent, w, h, pos, rotY, rotX = 0, strength = .3) {
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: GAL_LIVE.poolTex, color: new THREE.Color(1, .74, .46).multiplyScalar(strength), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 }));
+function pool(parent, w, h, pos, rotY, rotX = 0, strength = .3, tint = [1, .74, .46]) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: GAL_LIVE.poolTex, color: new THREE.Color(...tint).multiplyScalar(strength), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 }));
   m.position.copy(pos); m.rotation.set(rotX, rotY, 0, 'YXZ'); m.renderOrder = 4; parent.add(m); return m;
 }
 
@@ -385,7 +385,7 @@ function pieceHands(G, TL) {
   addLabel(p, new V3(G.x0 + .006, 1.35, z - FW / 2 - .32), Math.PI / 2);
 }
 
-/* ---- 5 · Untitled (San Francisco): the map, as a big canvas on the brick ---- */
+/* ---- 5 · Perpetual Unfinished Projects (Mia Zhou): the map, as a big canvas on the brick ---- */
 function pieceMap(G, TL) {
   const p = galPiece('sfmap'), W = 2.3, Hh = W / (2048 / 1609), y = 1.56;
   const map = TL.load('images/gallery/sf-map.webp'); map.colorSpace = THREE.SRGBColorSpace; map.anisotropy = Math.min(8, MAX_ANISO);
@@ -396,6 +396,96 @@ function pieceMap(G, TL) {
   cvs.userData.act = galAct(p); hot.push(cvs);
   pool(gallery, W * 1.4, Hh * 1.45, new V3(0, y + .1, G.z1 - .009), Math.PI, 0, .3);
   addLabel(p, new V3(W / 2 + .32, 1.35, G.z1 - .006), Math.PI);
+}
+
+/* ---- 6 · ZERO*NDA (George Simeo): The Building in Public Show. The deck's title slide as a lightbox on the brick,
+   and the show's set in the corner under it: the guest chair in a coral spot, a mic on a boom, the studio camera with its
+   tally lit, ON AIR over it all. The deck's palette: night navy, coral, cream, a heavy serif. ---- */
+const ZN = { navy: '#061425', coral: '#FD4E4E', cream: '#E5DCCA', plum: '#42212A' };
+const FONT_ZN = '"Shippori Mincho B1","Cormorant Garamond",Georgia,serif';
+function znSlide() {
+  const [c, x] = cv(1280, 720), r = rng(77);
+  x.fillStyle = ZN.navy; x.fillRect(0, 0, 1280, 720);
+  for (let i = 0; i < 1800; i++) { x.fillStyle = `rgba(255,255,255,${r() * .025})`; x.fillRect(r() * 1280, r() * 720, 1, 1); }   // a little print grain
+  x.textBaseline = 'alphabetic';
+  x.fillStyle = ZN.coral; x.font = `800 22px ${FONT_ZN}`; if ('letterSpacing' in x) x.letterSpacing = '3px'; x.fillText('ZERO*NDA', 66, 58); if ('letterSpacing' in x) x.letterSpacing = '0px';
+  x.fillStyle = ZN.cream; x.font = `800 50px ${FONT_ZN}`; x.fillText('A CULTURAL MEDIA OUTLET', 78, 160); x.fillText('FOR WORKS-IN-PROGRESS', 78, 222);
+  x.font = `500 25px ${FONT_ZN}`; x.fillText('We turn what you’re working on into stories that build audiences.', 80, 292);
+  x.font = `800 25px ${FONT_ZN}`; x.fillText('Through content, live experiences and creative spaces.', 80, 334);
+  // the camera on the right and its coral beam falling on the show's name
+  x.fillStyle = 'rgba(253,78,78,.17)'; x.beginPath(); x.moveTo(1092, 420); x.lineTo(560, 520); x.lineTo(700, 690); x.closePath(); x.fill();
+  x.save(); x.translate(1110, 400); x.rotate(-.09);
+  x.fillStyle = ZN.cream; x.fillRect(-40, -62, 74, 14);                                   // viewfinder
+  x.fillStyle = '#0c1a2e'; x.beginPath(); x.roundRect ? x.roundRect(-70, -48, 140, 82, 14) : x.rect(-70, -48, 140, 82); x.fill();
+  x.strokeStyle = ZN.cream; x.lineWidth = 3; x.stroke();
+  x.fillStyle = ZN.coral; x.beginPath(); x.ellipse(-78, -6, 14, 30, 0, 0, 6.283); x.fill();      // the lens, pointing left
+  x.fillStyle = ZN.coral; x.beginPath(); x.arc(52, -32, 7, 0, 6.283); x.fill();                    // tally
+  x.restore();
+  // the coral pill with the show's name stacked in plum echoes, navy on top
+  x.fillStyle = ZN.coral; x.beginPath(); x.ellipse(78 + 400, 430 + 133, 400, 133, 0, 0, 6.283); x.fill();
+  x.font = `800 60px ${FONT_ZN}`; x.textAlign = 'center';
+  const lines = ['THE BUILDING', 'IN PUBLIC SHOW'], cx = 478, cy = 548;
+  for (let k = 0; k < 8; k++) { const a = k / 8 * 6.283; x.fillStyle = ZN.plum; lines.forEach((l, i) => x.fillText(l, cx + Math.cos(a) * 5, cy + i * 66 + Math.sin(a) * 5)); }
+  x.fillStyle = ZN.navy; lines.forEach((l, i) => x.fillText(l, cx, cy + i * 66));
+  x.textAlign = 'left';
+  return ctex(c);
+}
+function znOnAir() {
+  const [c, x] = cv(512, 192); x.fillStyle = '#1c0505'; x.fillRect(0, 0, 512, 192);
+  x.fillStyle = '#ff3b2f'; x.font = `800 112px ${FONT_ENG}`; x.textAlign = 'center'; x.textBaseline = 'middle'; if ('letterSpacing' in x) x.letterSpacing = '14px'; x.fillText('ON AIR', 262, 100);
+  return ctex(c);
+}
+function znCard() {
+  const [c, x] = cv(256, 128); x.fillStyle = '#f1ece1'; x.fillRect(0, 0, 256, 128);
+  x.fillStyle = '#1a1712'; x.font = `600 52px ${FONT_HAND}`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('guests sit', 128, 46); x.fillText('here', 128, 96);
+  return ctex(c);
+}
+function pieceZeronda(G) {
+  const p = galPiece('zeronda'), act = galAct(p), z1 = G.z1, clickable = (o) => { o.userData.act = act; hot.push(o); return o; };
+  // the title slide as a lightbox on the back wall, right of the map
+  const SW = 1.36, SH = SW * 9 / 16, sx = 2.48, sy = 1.98;
+  const slide = new THREE.Mesh(new THREE.PlaneGeometry(SW, SH), new THREE.MeshStandardMaterial({ map: znSlide(), roughness: .5, emissive: 0xffffff, emissiveIntensity: .55 }));
+  slide.material.emissiveMap = slide.material.map; slide.rotation.y = Math.PI; slide.position.set(sx, sy, z1 - .052); gallery.add(clickable(slide));
+  gallery.add(new THREE.Mesh(bb(sx - SW / 2 - .025, sx + SW / 2 + .025, sy - SH / 2 - .025, sy + SH / 2 + .025, z1 - .05, z1 - .002), GAL_LIVE.blackM));
+  // the set: a guest chair in coral, turned toward the camera
+  const set = new THREE.Group(); set.position.set(2.72, 0, 6.82); set.rotation.y = Math.PI + .62; gallery.add(set);
+  const coral = new THREE.MeshStandardMaterial({ color: ZN.coral, roughness: .7 }), steel = GAL_LIVE.blackM;
+  const chair = new Bucket();
+  chair.add(coral, new RoundedBoxGeometry(.46, .07, .44, 2, .025).translate(0, .46, 0)); chair.add(coral, new RoundedBoxGeometry(.46, .38, .06, 2, .025).translate(0, .7, -.21).rotateX(-.08));
+  for (const [lx, lz] of [[-.2, -.18], [.2, -.18], [-.2, .18], [.2, .18]]) chair.add(steel, new THREE.CylinderGeometry(.012, .01, .43, 8).translate(lx, .215, lz));
+  chair.add(steel, new THREE.CylinderGeometry(.01, .01, .44, 8).rotateZ(Math.PI / 2).translate(0, .14, .18)); chair.add(steel, new THREE.CylinderGeometry(.01, .01, .44, 8).rotateZ(Math.PI / 2).translate(0, .14, -.18));
+  chair.build(set).forEach(clickable);
+  const card = new THREE.Mesh(new THREE.PlaneGeometry(.16, .08), new THREE.MeshStandardMaterial({ map: znCard(), roughness: .8, side: THREE.DoubleSide }));
+  card.position.set(.02, .53, .05); card.rotation.set(-.55, 0, .06); set.add(clickable(card));          // a folded card leaning on the seat
+  // a mic on a boom, reaching over to where a guest's mouth would be
+  const boom = new Bucket(), stand = new V3(.38, 0, .16), top = new V3(.38, 1.32, .16), tip = new V3(.04, 1.12, .3);
+  boom.add(steel, new THREE.CylinderGeometry(.16, .16, .015, 20).translate(stand.x, .008, stand.z)); boom.add(steel, rod(stand, top, .011, 8)); boom.add(steel, rod(top.clone().add(new V3(.12, .06, -.04)), tip, .008, 8));
+  boom.build(set).forEach(clickable);
+  const mic = new THREE.Mesh(new THREE.CapsuleGeometry(.03, .1, 6, 12), new THREE.MeshStandardMaterial({ color: 0x15161a, roughness: .9 })); mic.position.copy(tip).add(new V3(-.03, -.04, .03)); mic.rotation.set(.5, 0, .9); set.add(clickable(mic));
+  // the studio camera on its tripod, looking at the chair, tally lit
+  const cam = new THREE.Group(); cam.position.set(1.92, 0, 6.02); cam.rotation.y = Math.atan2(2.72 - 1.92, 6.82 - 6.02); gallery.add(cam);
+  const camB = new Bucket(), grey = new THREE.MeshStandardMaterial({ color: 0x2a2d33, roughness: .45, metalness: .4 });
+  for (let k = 0; k < 3; k++) { const a = k / 3 * 6.283 + .4; camB.add(steel, rod(new V3(0, 1.02, 0), new V3(Math.cos(a) * .36, 0, Math.sin(a) * .36), .012, 6)); }
+  camB.add(steel, new THREE.CylinderGeometry(.04, .05, .08, 12).translate(0, 1.06, 0));
+  camB.add(grey, new RoundedBoxGeometry(.2, .2, .4, 2, .02).translate(0, 1.2, -.02));                      // body
+  camB.add(steel, new THREE.CylinderGeometry(.065, .075, .2, 20).rotateX(Math.PI / 2).translate(0, 1.2, .27));   // lens barrel
+  camB.add(grey, new RoundedBoxGeometry(.13, .1, .14, 2, .015).translate(.0, 1.355, -.12));                 // viewfinder hood
+  camB.add(steel, rod(new V3(.05, 1.08, -.2), new V3(.12, .98, -.55), .01, 6));                              // pan bar
+  camB.build(cam).forEach(clickable);
+  const glassL = new THREE.Mesh(new THREE.CircleGeometry(.058, 24), new THREE.MeshStandardMaterial({ color: 0x0a0c12, roughness: .05, metalness: .2, envMapIntensity: 1.5 })); glassL.position.set(0, 1.2, .371); cam.add(glassL);
+  const tally = new THREE.Mesh(new THREE.BoxGeometry(.04, .025, .02), new THREE.MeshBasicMaterial({ color: new THREE.Color(4, .5, .35) })); tally.position.set(.06, 1.318, .18); cam.add(tally); GAL_LIVE.tally = tally;
+  const stripe = new THREE.Mesh(new THREE.PlaneGeometry(.38, .012), new THREE.MeshBasicMaterial({ color: new THREE.Color(ZN.coral).multiplyScalar(1.2) })); stripe.rotation.y = Math.PI / 2; stripe.position.set(.101, 1.14, -.02); cam.add(stripe);
+  // ON AIR, high on the side wall
+  const onair = new THREE.Mesh(new THREE.PlaneGeometry(.5, .19), new THREE.MeshBasicMaterial({ map: znOnAir(), color: new THREE.Color(1.6, 1.6, 1.6) }));
+  onair.rotation.y = -Math.PI / 2; onair.position.set(G.x1 - .062, 2.3, 6.55); gallery.add(clickable(onair)); GAL_LIVE.onair = onair;
+  gallery.add(new THREE.Mesh(bb(G.x1 - .06, G.x1 - .002, 2.3 - .115, 2.3 + .115, 6.55 - .28, 6.55 + .28), GAL_LIVE.blackM));
+  // the spot: a coral beam and a coral pool on the floor round the chair
+  const coralBeam = SPOT_BEAM.clone(); coralBeam.uniforms = { uColor: { value: new THREE.Color(1, .34, .3) }, uStrength: { value: .09 } };
+  spot(G.yb - .19, new V3(1.6, G.yb - .21, 7.0), new V3(2.66, .3, 6.82), true, coralBeam);
+  pool(gallery, 1.5, 1.5, new V3(2.6, .007, 6.75), 0, -Math.PI / 2, .5, [1, .36, .3]);
+  pool(gallery, SW * 1.45, SH * 1.6, new V3(sx, sy + .05, z1 - .009), Math.PI, 0, .26);
+  GAL_OBST.push([2.2, G.x1, 6.25, G.z1], [1.55, 2.25, 5.65, 6.35]);
+  addLabel(p, new V3(1.96, 1.2, z1 - .006), Math.PI);
 }
 
 /* ---- the gorilla: a faceted, lacquered red ape mid-roar, one fist out, one raised ---- */
@@ -452,14 +542,14 @@ function pieceDove(TL) {
   m.renderOrder = 3; gallery.add(m);
 }
 
-/* ---- the intro wall: As Is, and what is on tonight ---- */
+/* ---- the intro wall: As Is, the night's date, and what was presented ---- */
 function introPanel() {
   const [c, x] = cv(1100, 1000); x.fillStyle = '#121212'; x.fillRect(0, 0, 1100, 1000);
   return new Promise(res => {
     const im = new Image(); im.onload = () => { const w = 300, h = w * im.height / im.width; x.drawImage(im, 70, 70, w, h); fin(); }; im.onerror = fin; im.src = 'images/as-is-logo.png';
     function fin() {
       x.fillStyle = '#f2efe6'; x.font = `600 92px "Cormorant Garamond",Georgia,serif`; x.fillText('As Is', 420, 190);
-      x.font = `500 24px "IBM Plex Mono",monospace`; x.fillStyle = '#b8b2a4'; x.fillText('TONIGHT\'S PROJECTS · FLOOR 2', 424, 240);
+      x.font = `500 24px "IBM Plex Mono",monospace`; x.fillStyle = '#b8b2a4'; x.fillText('11.25.2026 · FLOOR 2', 424, 240);
       const list = [...GAL_PIECES.values()]; x.font = `500 40px "Cormorant Garamond",Georgia,serif`; let y = 470;
       for (const p of list) { x.fillStyle = '#f2efe6'; x.fillText(p.title, 70, y); if (p.author) { x.font = `500 22px "IBM Plex Mono",monospace`; x.fillStyle = '#9a9486'; x.fillText(p.author, 70, y + 32); x.font = `500 40px "Cormorant Garamond",Georgia,serif`; } y += p.author ? 92 : 68; }
       res(ctex(c));
@@ -505,7 +595,7 @@ function buildGallery() {
   b.build(gallery);
   doors.galL = galDoor(-1); doors.galR = galDoor(1);
   // the pieces
-  pieceRapailler(G, TL); pieceSTM(G); pieceHope(G); pieceHands(G, TL); pieceMap(G, TL); pieceGorilla(G); pieceDove(TL); floatingLogo(TL);
+  pieceRapailler(G, TL); pieceSTM(G); pieceHope(G); pieceHands(G, TL); pieceMap(G, TL); pieceZeronda(G); pieceGorilla(G); pieceDove(TL); floatingLogo(TL); buildCat();
   // spots on the rails, one or two per piece
   const S = railY - .02;
   spot(railY, new V3(1.6, S, 1.4), new V3(G.x1, 1.7, 1.7)); spot(railY, new V3(1.6, S, 2.5), new V3(G.x1, 1.6, 2.3));
@@ -554,6 +644,8 @@ function galleryTick(dt, time) {
   gallery.visible = near;
   floatingLogoTick(dt, time);
   if (!near) return;
+  catTick(dt, time);
+  if (GAL_LIVE.tally) { const on = Math.sin(time * 1.1) > -.85; GAL_LIVE.tally.material.color.setRGB(on ? 4 : .4, on ? .5 : .06, on ? .35 : .05); }
   // the arcade screen runs at 20 fps while you are in the room
   GAL_LIVE.screenT -= dt;
   if (GAL_LIVE.screen && GAL_LIVE.screenT <= 0 && galleryHere()) { GAL_LIVE.screenT = 1 / 20; drawSurfer(GAL_LIVE.screenCtx, time); GAL_LIVE.screen.needsUpdate = true; }

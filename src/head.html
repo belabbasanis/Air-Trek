@@ -26,7 +26,7 @@
    ===================================================================== */
 const PROJECTS = [
   { floor: 1,  name: 'Paper Boats',      author: 'Your Name', url: 'https://example.com/paper-boats',    sticker: '⛵' },
-  { floor: 2,  name: 'As Is',            author: 'Gallery · tonight\'s projects', url: '', sticker: 'images/as-is-logo.png', stickerBg: '#141414', gallery: true },
+  { floor: 2,  name: 'As Is',            author: 'Gallery · 11.25.2026', url: '', sticker: 'images/as-is-logo.png', stickerBg: '#141414', gallery: true },
   { floor: 3,  name: 'Updraft',          author: 'The sea cliffs', url: '', sticker: 'images/cliffs/sticker.webp', stickerBg: '#4a7fb8', room: 'cliffs' },
   { floor: 4,  name: 'Static Choir',     author: 'Your Name', url: 'https://example.com/static-choir',   sticker: '📻' },
   { floor: 5,  name: 'Slow Clock',       author: 'Your Name', url: 'https://example.com/slow-clock',     sticker: '⏳' },
@@ -39,7 +39,7 @@ const PROJECTS = [
   { floor: 12, name: 'Rooftop Cinema',   author: 'Your Name', url: 'https://example.com/rooftop-cinema', sticker: '🎞' },
 ];
 /* =====================================================================
-   GALLERY: the pieces on floor 2 (As Is), one per project presented tonight.
+   GALLERY: the pieces on floor 2 (As Is), one per project presented on 11.25.2026.
    id      which piece in the room shows it (fixed: rapailler, stm, hope, hands, sfmap)
    title, author, medium, blurb   printed on the wall label
    url     opens in a new tab when the piece or its label is clicked (leave empty for none)
@@ -49,7 +49,8 @@ const GALLERY = [
   { id: 'stm',       title: 'STM Surfer', author: 'Thai Tran', medium: 'browser game · unofficial fan project, not affiliated with the STM', blurb: 'A three-lane runner through the Montreal metro. Run every line, station by station, and ride the train roofs.', url: 'https://stm-surfer.vercel.app/' },
   { id: 'hope',      title: 'Hope Library', author: 'Quentin Noël Bourbeau', medium: 'website · 48 documentaries, series and films', blurb: 'People are already building the future.', url: 'https://hopelibrary.github.io/' },
   { id: 'hands',     title: 'Everybodywave', author: 'Jasmin Omanovic & Steven Padayas', medium: '', blurb: '', url: 'https://everybodywave.com' },
-  { id: 'sfmap',     title: 'Spark Joy', author: 'Mia Zhou', medium: '', blurb: '', url: '' },
+  { id: 'sfmap',     title: 'Perpetual Unfinished Projects', author: 'Mia Zhou', medium: 'a collection, always in progress', blurb: 'Always strive for progress, not perfection. And most importantly, enjoy the journey :)', url: 'https://docs.google.com/presentation/d/1JZrqaUQtrtUkZD3PY6A86fzlDd0nsRwXtcSKTX6q_8s/edit?usp=sharing' },
+  { id: 'zeronda',   title: 'ZERO*NDA', author: 'George Simeo', medium: 'The Building in Public Show · a cultural media outlet for works-in-progress', blurb: 'Too many great ideas die before anyone ever hears about them. Let\'s change that.', url: 'https://docs.google.com/presentation/d/1pZuNXlk-2w5821nLGhDz5FyvR3WzCY-up1cbDvmNa9M/edit?usp=drivesdk' },
 ];
 const TITLE  = 'Air Trek';      // title card and start screen
 const STUDIO = 'Bermuda DPT';   // credit line: "<STUDIO> presents"

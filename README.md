@@ -20,7 +20,7 @@ The entries in the repo are placeholders.
 - `src/head.html`: project list, styles and page markup.
 - `src/js1.js`: renderer, post-processing (light shafts, SSAO, bloom, depth of field, grading, FXAA) and the material baker.
 - `src/js2.js`: textures, geometry, ivy and the lobby, shaft, cab and landing.
-- `src/roof.js`: the roof garden. `src/hidden.js`: the hidden lift. `src/gallery.js`: the As Is gallery on floor 2.
+- `src/roof.js`: the roof garden. `src/hidden.js`: the hidden lift. `src/gallery.js`: the As Is gallery on floor 2, and `src/cat.js` its black cat.
 - `src/cliffs.js`: floor 3, the Updraft sea cliffs (tall grass, the river, the sea, gulls, the water that comes into the cab). Its paintings are in `images/cliffs/`.
 - `src/js3.js`: audio, lift logic, controls, intro sequence and the frame loop.
 
