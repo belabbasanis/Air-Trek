@@ -918,7 +918,9 @@ function floatingLogoTick(dt, time) {
 function ensureGallery() { if (GAL_LIVE.built) return; GAL_LIVE.built = true; buildGallery(); finishSubtree(gallery); }
 function galleryHere() { return D.state === 'play' && lift.floor === GALLERY_FLOOR && lift.phase !== 'riding' && (lift.doors > 0 || !P.inCab); }
 function galleryTick(dt, time) {
-  const near = (lift.floor === GALLERY_FLOOR || lift.target === GALLERY_FLOOR) && Math.abs(lift.y - GALLERY_FLOOR * H) < 1.2 * H;
+  // only for a ride that stops here, or a stop already made: never as the cab goes past, and never in the intro (the camera waits
+  // in the lobby while the cab comes down through this floor; its lamp lit the lobby through the ceiling for a moment)
+  const near = D.state === 'play' && (lift.target === GALLERY_FLOOR || (lift.floor === GALLERY_FLOOR && lift.phase !== 'riding')) && Math.abs(lift.y - GALLERY_FLOOR * H) < 1.2 * H;
   gallery.visible = near;
   floatingLogoTick(dt, time);
   if (!near) return;

@@ -658,7 +658,9 @@ function scInflowTick(dt) {
   L.cab.m.uniforms.uCamL.value.copy(camera.position).sub(cab.position);
 }
 function seaCliffsTick(dt, time) {
-  const near = SC_LIVE.built && (lift.floor === SC_FLOOR || lift.target === SC_FLOOR) && Math.abs(lift.y - SC_FLOOR * H) < 1.2 * H;
+  // only for a ride that stops here, or a stop already made: never as the cab goes past, and never in the intro. Passing through,
+  // this room's sun and sky took over the lobby for half a second (the sunlight went out and came back)
+  const near = SC_LIVE.built && D.state === 'play' && (lift.target === SC_FLOOR || (lift.floor === SC_FLOOR && lift.phase !== 'riding')) && Math.abs(lift.y - SC_FLOOR * H) < 1.2 * H;
   scRoom.visible = near; sky.visible = !near;
   if (SC_LIVE.dome) { SC_LIVE.dome.visible = near; SC_LIVE.dome.position.copy(camera.position); }
   if (doors.scL) { const o = lift.floor === SC_FLOOR && lift.phase !== 'riding' && Math.abs(lift.y - SC_FLOOR * H) < .01 ? lift.doors * .53 : 0; doors.scL.position.x = -.265 - o; doors.scR.position.x = .265 + o; }
