@@ -3218,7 +3218,8 @@ function smokeTick(dt, time) {
    Every piece with a link opens it in a new tab when clicked.
    ====================================================================== */
 const GALLERY_FLOOR = 2;
-const GAL = { x0: -3.3, x1: 3.3, z1: 7.4, yb: 2.72, rise: .4, beams: [2.6, 5.0] };   // room, springing line of the vaults, their rise, the beams between bays
+const GAL = { x0: -3.3, x1: 3.3, z1: 12.2, yb: 2.72, rise: .4, beams: [2.6, 5.0, 7.4, 9.8] };   // room (five bays long), springing line of the vaults, their rise, the beams between bays
+const GAL_AT = { rapailler: 2.6, hands: 3.4, stm: 5.6, gorilla: 6.2, hope: 8.6, slide: 8.25, studio: 10.16 };   // where along the room each piece stands (z of its centre)
 const gallery = new THREE.Group(); gallery.visible = false; scene.add(gallery);
 const GAL_OBST = [];                 // [x0, x1, z0, z1] the player walks around
 const GAL_LIVE = { screen: null, screenCtx: null, screenT: 0, hands: [], light: null, gems: [] };
@@ -3411,6 +3412,12 @@ function labelCard(p) {
   x.font = `500 19px "IBM Plex Mono",monospace`; x.fillStyle = p.url ? '#8a3a1c' : '#8d887c'; x.fillText(p.url ? '↗  click to open the project' : 'details to come', 30, 378);
   return ctex(c);
 }
+// the rule for cards: always to the right of the piece as you face it, .3 m past its edge, at the same height.
+// at: the piece's centre on its wall; half: its half width along the wall; facing: the way it faces, into the room
+function labelRight(p, at, half, facing) {
+  const right = new V3(0, 1, 0).cross(facing), pos = at.clone().addScaledVector(right, half + .3).addScaledVector(facing, .006); pos.y = 1.35;
+  return addLabel(p, pos, Math.atan2(facing.x, facing.z));
+}
 function addLabel(p, pos, rotY) {
   const m = new THREE.Mesh(new THREE.PlaneGeometry(.24, .15), new THREE.MeshStandardMaterial({ map: labelCard(p), roughness: .7, emissive: 0xffffff, emissiveIntensity: .12, polygonOffset: true, polygonOffsetFactor: -2 }));
   m.material.emissiveMap = m.material.map; m.position.copy(pos); m.rotation.y = rotY; gallery.add(m);
@@ -3419,14 +3426,14 @@ function addLabel(p, pos, rotY) {
 
 /* ---- 1 · Rapailler la langue (Pascal Huynh): the deck's title slide as a printed panel ---- */
 function pieceRapailler(G, TL) {
-  const p = galPiece('rapailler'), W = 2.3, Hh = W / (2128 / 1180), z = 1.95, y = 1.6;
+  const p = galPiece('rapailler'), W = 2.3, Hh = W / (2128 / 1180), z = GAL_AT.rapailler, y = 1.6;
   const map = TL.load('images/gallery/rapailler.webp'); map.colorSpace = THREE.SRGBColorSpace; map.anisotropy = Math.min(8, MAX_ANISO);
   const panel = new THREE.Mesh(new THREE.PlaneGeometry(W, Hh), new THREE.MeshStandardMaterial({ map, emissiveMap: map, emissive: 0xffffff, emissiveIntensity: .4, roughness: .55, envMapIntensity: .3 }));
   panel.position.set(G.x1 - .016, y, z); panel.rotation.y = -Math.PI / 2; gallery.add(panel);
   const back = new THREE.Mesh(bb(G.x1 - .015, G.x1 - .002, y - Hh / 2, y + Hh / 2, z - W / 2, z + W / 2), GAL_LIVE.blackM); gallery.add(back);
   panel.userData.act = galAct(p); hot.push(panel);
   pool(gallery, W * 1.45, Hh * 1.7, new V3(G.x1 - .009, y + .08, z), -Math.PI / 2, 0, .42);
-  addLabel(p, new V3(G.x1 - .006, 1.35, z + W / 2 + .3), -Math.PI / 2);
+  labelRight(p, new V3(G.x1, 0, z), W / 2, new V3(-1, 0, 0));
   return [z, y];
 }
 
@@ -3486,7 +3493,7 @@ function drawSurfer(x, t) {                          // the screen: a three-lane
   x.fillStyle = '#fff'; x.font = `800 12px ${FONT_STM}`; x.fillText(line.name.toUpperCase() + ' · PROCHAINE STATION', 16, 25); x.font = `800 16px ${FONT_STM}`; x.fillText(st, 16, 42);
   x.textAlign = 'right'; x.font = `800 18px ${FONT_STM}`; x.fillText(String(Math.floor(t * 137) % 100000).padStart(6, '0'), W - 10, 26); x.textAlign = 'left';
 }
-const STM_Z = 4.36;                                    // along the right wall, clear of the studio's bay (5.0 on)
+const STM_Z = GAL_AT.stm;                              // against the right wall, the middle bay
 function pieceSTM(G) {
   const p = galPiece('stm'), cab_ = new THREE.Group(), w = .7, D = .86;
   const navy = new THREE.MeshStandardMaterial({ color: 0x10131F, roughness: .45, metalness: .2 });
@@ -3513,7 +3520,7 @@ function pieceSTM(G) {
   cab_.traverse(o => { if (o.isMesh) { o.userData.act = galAct(p); hot.push(o); } });
   GAL_OBST.push([G.x1 - .9, G.x1, STM_Z - w / 2 - .05, STM_Z + w / 2 + .05]);
   pool(gallery, 1.3, .9, new V3(G.x1 - .55, .004, STM_Z), 0, -Math.PI / 2, .22);
-  addLabel(p, new V3(G.x1 - .006, 1.35, STM_Z - .6), -Math.PI / 2);
+  labelRight(p, new V3(G.x1, 0, STM_Z), w / 2 + .022, new V3(-1, 0, 0));
 }
 
 /* ---- 3 · Hope Library: a video-store wall of its 48 titles, coloured by theme, on a panel in the site's colours ---- */
@@ -3541,7 +3548,7 @@ function hopePanel() {
   return ctex(c);
 }
 function pieceHope(G) {
-  const p = galPiece('hope'), z = 5.2, W = 2.15, Hh = 2.1, y0 = .42;
+  const p = galPiece('hope'), z = GAL_AT.hope, W = 2.15, Hh = 2.1, y0 = .42;
   const panel = new THREE.Mesh(new THREE.PlaneGeometry(W, Hh), new THREE.MeshStandardMaterial({ map: hopePanel(), roughness: .85, emissive: 0xffffff, emissiveIntensity: .06 }));
   panel.material.emissiveMap = panel.material.map; panel.position.set(G.x0 + .006, y0 + Hh / 2, z); panel.rotation.y = Math.PI / 2; gallery.add(panel);
   // 12 x 4 cases face-out on four oak ledges
@@ -3562,12 +3569,12 @@ function pieceHope(G) {
   caseB.build(gallery); ledge.build(gallery);
   for (const o of [panel, fronts]) { o.userData.act = galAct(p); hot.push(o); }
   pool(gallery, W * 1.3, Hh * 1.25, new V3(G.x0 + .012, y0 + Hh / 2 + .1, z), Math.PI / 2, 0, .36);
-  addLabel(p, new V3(G.x0 + .006, 1.35, z - W / 2 - .3), Math.PI / 2);
+  labelRight(p, new V3(G.x0, 0, z), W / 2, new V3(1, 0, 0));
 }
 
 /* ---- 4 · Untitled (hands): the recursive drawing as a lightbox, each level of the recursion a layer deeper ---- */
 function pieceHands(G, TL) {
-  const p = galPiece('hands'), FW = 1.24, FH = FW * 524 / 1080, D = .26, z = 2.05, y = 1.62;
+  const p = galPiece('hands'), FW = 1.24, FH = FW * 524 / 1080, D = .26, z = GAL_AT.hands, y = 1.62;
   const box = new THREE.Group(); box.position.set(G.x0, y, z); box.rotation.y = Math.PI / 2; gallery.add(box);
   // case: black lacquer frame with a deep black interior
   const b = new Bucket(), fr = .05, matte = new THREE.MeshStandardMaterial({ color: 0x040404, roughness: 1, metalness: 0, envMapIntensity: 0 });   // matte black inside, so only the lines glow
@@ -3594,7 +3601,7 @@ function pieceHands(G, TL) {
   glass.userData.act = galAct(p); hot.push(glass);
   GAL_OBST.push([G.x0, G.x0 + D + .12, z - FW / 2 - .1, z + FW / 2 + .1]);
   pool(gallery, FW * 1.5, FH * 1.9, new V3(G.x0 + .009, y + .05, z), Math.PI / 2, 0, .16);
-  addLabel(p, new V3(G.x0 + .006, 1.35, z - FW / 2 - .32), Math.PI / 2);
+  labelRight(p, new V3(G.x0, 0, z), FW / 2 + .05, new V3(1, 0, 0));
 }
 
 /* ---- 5 · Perpetual Unfinished Projects (Mia Zhou): the map, as a big canvas on the brick ---- */
@@ -3607,7 +3614,7 @@ function pieceMap(G, TL) {
   cvs.rotation.y = Math.PI; cvs.position.set(0, y, G.z1 - .03); gallery.add(cvs);                                     // ...and the half turn points it into the room
   cvs.userData.act = galAct(p); hot.push(cvs);
   pool(gallery, W * 1.4, Hh * 1.45, new V3(0, y + .1, G.z1 - .009), Math.PI, 0, .3);
-  addLabel(p, new V3(W / 2 + .32, 1.35, G.z1 - .006), Math.PI);
+  labelRight(p, new V3(0, 0, G.z1), W / 2, new V3(0, 0, -1));
 }
 
 /* ---- 6 · ZERO*NDA (George Simeo): The Building in Public Show. Its studio, rebuilt from a still of the show, fills the
@@ -3819,7 +3826,7 @@ function pieceZeronda(G) {
   const p = galPiece('zeronda'), act = galAct(p), z1 = G.z1, clickable = (o) => { o.userData.act = act; hot.push(o); return o; };
   // the set: x across it (the photo's left to right), y up, z out into the room; its floor is a plank platform PT high
   const PT = .045, CT = PT + .82, XW = 1.16;
-  const st = new THREE.Group(); st.position.set(G.x1 - .075, 0, 6.2); st.rotation.y = -Math.PI / 2; gallery.add(st);
+  const ZC = GAL_AT.studio, st = new THREE.Group(); st.position.set(G.x1 - .075, 0, ZC); st.rotation.y = -Math.PI / 2; gallery.add(st);
   const b = new Bucket(), vc = [];
   const paint = (g, hex) => { prep(g); const col = new THREE.Color(hex), n = g.attributes.position.count, a = new Float32Array(n * 3); for (let i = 0; i < n; i++) { a[i * 3] = col.r; a[i * 3 + 1] = col.g; a[i * 3 + 2] = col.b; } g.setAttribute('color', new THREE.BufferAttribute(a, 3)); vc.push(g); return g; };
   const BR = znBrick(), TI = znTiles(), PK = znPlanks();
@@ -3952,19 +3959,19 @@ function pieceZeronda(G) {
   pool(st, 2.2, 1.7, new V3(0, PT + .004, 1.05), 0, -Math.PI / 2, .3);
   for (const s of [-1, 1]) pool(st, 1.1, 1.0, new V3(s * .84, PT + .005, .45), 0, -Math.PI / 2, .2, [.75, .85, 1]);
   pool(st, 1.6, 1.6, new V3(0, 1.45, .009), 0, 0, .2, [1, .9, .8]);
-  const S_ = G.yb - .21; spot(G.yb - .19, new V3(1.6, S_, 5.55), new V3(2.3, .55, 5.4)); spot(G.yb - .19, new V3(1.6, S_, 6.4), new V3(2.3, .55, 6.95));
+  const S_ = G.yb - .21; spot(G.yb - .19, new V3(1.6, S_, ZC - .65), new V3(2.3, .55, ZC - .8)); spot(G.yb - .19, new V3(1.6, S_, ZC + .2), new V3(2.3, .55, ZC + .75));
   // ON AIR over the set
   const onair = new THREE.Mesh(new THREE.PlaneGeometry(.44, .165), new THREE.MeshBasicMaterial({ map: znOnAir(), color: new THREE.Color(1.6, 1.6, 1.6) }));
-  onair.rotation.y = -Math.PI / 2; onair.position.set(G.x1 - .062, 2.52, 6.2); gallery.add(clickable(onair));
-  gallery.add(new THREE.Mesh(bb(G.x1 - .06, G.x1 - .002, 2.52 - .1, 2.52 + .1, 6.2 - .25, 6.2 + .25), GAL_LIVE.blackM));
-  // the deck's title slide as a lightbox on the back wall beside the set, the label under it
-  const SW = 1.0, SH = SW * 9 / 16, sx = 2.13, sy = 1.74;
+  onair.rotation.y = -Math.PI / 2; onair.position.set(G.x1 - .062, 2.52, ZC); gallery.add(clickable(onair));
+  gallery.add(new THREE.Mesh(bb(G.x1 - .06, G.x1 - .002, 2.52 - .1, 2.52 + .1, ZC - .25, ZC + .25), GAL_LIVE.blackM));
+  // the deck's title slide as a lightbox on the right wall, just before the set; the card on the set's right
+  const SW = 1.0, SH = SW * 9 / 16, sz = GAL_AT.slide, sy = 1.62;
   const slide = new THREE.Mesh(new THREE.PlaneGeometry(SW, SH), new THREE.MeshStandardMaterial({ map: znSlide(), roughness: .5, emissive: 0xffffff, emissiveIntensity: .55 }));
-  slide.material.emissiveMap = slide.material.map; slide.rotation.y = Math.PI; slide.position.set(sx, sy, z1 - .052); gallery.add(clickable(slide));
-  gallery.add(new THREE.Mesh(bb(sx - SW / 2 - .025, sx + SW / 2 + .025, sy - SH / 2 - .025, sy + SH / 2 + .025, z1 - .05, z1 - .002), GAL_LIVE.blackM));
-  pool(gallery, SW * 1.45, SH * 1.6, new V3(sx, sy + .05, z1 - .009), Math.PI, 0, .26);
-  GAL_OBST.push([1.3, G.x1, 4.98, G.z1]);
-  addLabel(p, new V3(1.92, 1.25, z1 - .006), Math.PI);
+  slide.material.emissiveMap = slide.material.map; slide.rotation.y = -Math.PI / 2; slide.position.set(G.x1 - .052, sy, sz); gallery.add(clickable(slide));
+  gallery.add(new THREE.Mesh(bb(G.x1 - .05, G.x1 - .002, sy - SH / 2 - .025, sy + SH / 2 + .025, sz - SW / 2 - .025, sz + SW / 2 + .025), GAL_LIVE.blackM));
+  pool(gallery, SW * 1.45, SH * 1.6, new V3(G.x1 - .009, sy + .05, sz), -Math.PI / 2, 0, .26);
+  GAL_OBST.push([1.3, G.x1, ZC - 1.2, ZC + 1.2]);
+  labelRight(p, new V3(G.x1, 0, ZC), XW, new V3(-1, 0, 0));
 }
 
 /* ---- the gorilla: a faceted, lacquered red ape mid-roar, one fist out, one raised ---- */
@@ -3996,19 +4003,21 @@ function gorillaGeometry() {
   merged.computeVertexNormals(); return merged;
 }
 function pieceGorilla(G) {
-  const z = 4.05;
+  const z = GAL_AT.gorilla;
   const plinth = new THREE.Mesh(wuv(bb(-.62, .62, 0, .2, z - .62, z + .62), 1, 1), new THREE.MeshStandardMaterial({ color: 0xe6e2da, roughness: .82 })); plinth.castShadow = plinth.receiveShadow = true; gallery.add(plinth);
   const mat = new THREE.MeshPhysicalMaterial({ color: new THREE.Color(.36, .006, .012), metalness: .45, roughness: .16, clearcoat: 1, clearcoatRoughness: .05, flatShading: true, envMapIntensity: 1.0 });
   const g = new THREE.Mesh(gorillaGeometry(), mat); g.rotation.y = Math.PI; g.position.set(0, .2, z); g.castShadow = true; gallery.add(g);
   GAL_OBST.push([-.75, .75, z - .75, z + .75]);
   pool(gallery, 2.6, 2.6, new V3(0, .006, z), 0, -Math.PI / 2, .45);
   const lab = { title: 'Kong', author: 'after Richard Orlinski', medium: 'faceted lacquered resin, red', blurb: '', url: '' };
-  const m = addLabel(lab, new V3(.36, .205, z - .5), Math.PI); m.rotation.set(Math.PI / 2 - .35, Math.PI, 0); m.userData.act = { type: 'note', text: '<b>Kong</b> · after Richard Orlinski' };
+  const note = { type: 'note', text: '<b>Kong</b> · after Richard Orlinski' };
+  const m = addLabel(lab, new V3(-.36, .205, z - .5), Math.PI); m.rotation.set(Math.PI / 2 - .35, Math.PI, 0); m.userData.act = note;   // on the plinth, to your right as you face it
+  g.userData.act = note; hot.push(g);                                                                                                // a click on the figure is a click on it, not on what is behind
 }
 
 /* ---- the armoured dove, painted on the middle vault ---- */
 function pieceDove(TL) {
-  const G = GAL, z0 = G.beams[0] + .09, z1 = G.beams[1] - .09, Hz = z1 - z0 - .06, W = Hz * 548 / 450, zc = (z0 + z1) / 2, segs = 24;
+  const G = GAL, z0 = G.beams[1] + .09, z1 = G.beams[2] - .09, Hz = z1 - z0 - .06, W = Hz * 548 / 450, zc = (z0 + z1) / 2, segs = 24;
   const pos = [], uv = [], idx = [];
   for (let j = 0; j <= segs; j++) {
     const z = zc - Hz / 2 + Hz * j / segs, t = (z - z0) / (z1 - z0), y = G.yb + G.rise * Math.sin(Math.PI * clamp(t, 0, 1)) - .006;
@@ -4077,17 +4086,18 @@ function buildGallery() {
   pieceRapailler(G, TL); pieceSTM(G); pieceHope(G); pieceHands(G, TL); pieceMap(G, TL); pieceZeronda(G); pieceGorilla(G); pieceDove(TL); floatingLogo(TL); buildCat();
   // spots on the rails, one or two per piece
   const S = railY - .02;
-  spot(railY, new V3(1.6, S, 1.4), new V3(G.x1, 1.7, 1.7)); spot(railY, new V3(1.6, S, 2.5), new V3(G.x1, 1.6, 2.3));
+  const A = GAL_AT;
+  spot(railY, new V3(1.6, S, A.rapailler - .55), new V3(G.x1, 1.7, A.rapailler - .25)); spot(railY, new V3(1.6, S, A.rapailler + .55), new V3(G.x1, 1.6, A.rapailler + .25));
   spot(railY, new V3(1.6, S, STM_Z - .25), new V3(G.x1 - .4, 1.3, STM_Z));
-  spot(railY, new V3(-1.6, S, 4.6), new V3(G.x0, 1.6, 4.8)); spot(railY, new V3(-1.6, S, 5.8), new V3(G.x0, 1.6, 5.6));
-  spot(railY, new V3(-1.6, S, 2.05), new V3(G.x0, 1.6, 2.05));
-  spot(railY, new V3(-1.6, S, 6.6), new V3(-.4, 1.6, G.z1)); spot(railY, new V3(1.6, S, 6.6), new V3(.4, 1.6, G.z1));
-  spot(railY, new V3(-1.6, S, 3.4), new V3(0, 1.4, 4.05)); spot(railY, new V3(1.6, S, 3.4), new V3(0, 1.6, 4.05));
+  spot(railY, new V3(-1.6, S, A.hope - .6), new V3(G.x0, 1.6, A.hope - .4)); spot(railY, new V3(-1.6, S, A.hope + .6), new V3(G.x0, 1.6, A.hope + .4));
+  spot(railY, new V3(-1.6, S, A.hands), new V3(G.x0, 1.6, A.hands));
+  spot(railY, new V3(-1.6, S, G.z1 - .8), new V3(-.4, 1.6, G.z1)); spot(railY, new V3(1.6, S, G.z1 - .8), new V3(.4, 1.6, G.z1));
+  spot(railY, new V3(-1.6, S, A.gorilla - .65), new V3(0, 1.4, A.gorilla)); spot(railY, new V3(1.6, S, A.gorilla + .65), new V3(0, 1.6, A.gorilla));
   // the intro wall, left of the door
   introPanel().then(t => { const m = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 1.82), new THREE.MeshStandardMaterial({ map: t, roughness: .85, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: .1 })); m.position.set(-2.05, 1.5, WALL_Z + .025); gallery.add(m); });
   pool(gallery, 2.6, 2.3, new V3(-2.05, 1.6, WALL_Z + .024), 0, 0, .14);
   // one warm fill from the middle of the room (the landings have one lamp too, so the light count does not change)
-  GAL_LIVE.light = new THREE.PointLight(new THREE.Color(1, .68, .4), 3.2, 9, 1.6); GAL_LIVE.light.position.set(0, 2.45, 3.6); gallery.add(GAL_LIVE.light);
+  GAL_LIVE.light = new THREE.PointLight(new THREE.Color(1, .68, .4), 4.4, 13, 1.6); GAL_LIVE.light.position.set(0, 2.45, 6.2); gallery.add(GAL_LIVE.light);
 }
 
 /* ---- the As Is logo, floating in the air past the lift door: walk through it and it's gone (back on the next arrival) ---- */
@@ -5394,7 +5404,9 @@ if (isTouch) $('menuKeys').hidden = true;
 const P = { pos: new V3(0, 0, 2.1), yaw: 0, pitch: 0, bob: 0, stepD: 0, inCab: false, visited: false, jolt: 0, sway: 0, dip: 0, look: new V3() };
 const keys = new Set();
 let locked = false, lockFailed = false, mouse = { x: -1, y: -1, in: false }, typed = '', typedT = 0;
-const ray = new THREE.Raycaster(); ray.far = 2.5; const _v2 = new THREE.Vector2();
+// reach: the lift's buttons answer within arm's length; a project (a piece, a painted wall, a link) from across the room
+const REACH = 2.5, REACH_FAR = 6.5, FAR_ACTS = new Set(['link', 'note', 'visit', 'social', 'directory']);
+const ray = new THREE.Raycaster(); ray.far = REACH_FAR; const _v2 = new THREE.Vector2();
 let hover = null;
 function groundY() { if (P.pos.z < CAB.z1 + .02) return lift.y; return lift.floor === 0 && lift.phase !== 'riding' ? 0 : lift.floor * H; }
 function rects() {
@@ -5428,7 +5440,12 @@ function updateHover() {
   ray.setFromCamera(_v2, camera);
   const hits = ray.intersectObjects(hot, false);
   let h = null;
-  for (const it of hits) { const a = it.object.userData.act; if (!a) continue; if (a.type === 'visit' && !(landing.visible && lift.doors > .9 && lift.phase === 'open')) continue; if (!it.object.visible || !isVisible(it.object)) continue; h = it; break; }
+  const gy = groundY();
+  for (const it of hits) {
+    const a = it.object.userData.act; if (!a) continue;
+    if (it.distance > (FAR_ACTS.has(a.type) ? REACH_FAR : REACH)) continue;
+    if (it.point.y < gy - .3 || it.point.y > gy + 3.6) continue;   // only what is on this floor: never through a floor or a ceiling to the next
+    if (a.type === 'visit' && !(landing.visible && lift.doors > .9 && lift.phase === 'open')) continue; if (!it.object.visible || !isVisible(it.object)) continue; h = it; break; }
   hover = h;
 }
 function isVisible(o) { while (o) { if (!o.visible) return false; o = o.parent; } return true; }
@@ -5474,7 +5491,7 @@ canvas.addEventListener('pointerdown', (e) => {
 canvas.addEventListener('pointermove', (e) => {
   if (e.pointerType === 'touch') return onTouchMove(e);
   if (!drag || locked) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
-  if (!drag.moved && Math.hypot(dx, dy) > 4) drag.moved = true;
+  if (!drag.moved && Math.hypot(dx, dy) > 9) drag.moved = true;   // a click with a little wobble in it is still a click, not a look
   if (drag.moved) { look(e.movementX || dx, e.movementY || dy, .0042); drag.x = e.clientX; drag.y = e.clientY; }
 });
 // a cancelled touch (system gesture, palm, too many fingers) never sends pointerup: treat it as one, or the stick stays pushed

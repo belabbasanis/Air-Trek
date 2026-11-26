@@ -362,7 +362,9 @@ if (isTouch) $('menuKeys').hidden = true;
 const P = { pos: new V3(0, 0, 2.1), yaw: 0, pitch: 0, bob: 0, stepD: 0, inCab: false, visited: false, jolt: 0, sway: 0, dip: 0, look: new V3() };
 const keys = new Set();
 let locked = false, lockFailed = false, mouse = { x: -1, y: -1, in: false }, typed = '', typedT = 0;
-const ray = new THREE.Raycaster(); ray.far = 2.5; const _v2 = new THREE.Vector2();
+// reach: the lift's buttons answer within arm's length; a project (a piece, a painted wall, a link) from across the room
+const REACH = 2.5, REACH_FAR = 6.5, FAR_ACTS = new Set(['link', 'note', 'visit', 'social', 'directory']);
+const ray = new THREE.Raycaster(); ray.far = REACH_FAR; const _v2 = new THREE.Vector2();
 let hover = null;
 function groundY() { if (P.pos.z < CAB.z1 + .02) return lift.y; return lift.floor === 0 && lift.phase !== 'riding' ? 0 : lift.floor * H; }
 function rects() {
@@ -396,7 +398,12 @@ function updateHover() {
   ray.setFromCamera(_v2, camera);
   const hits = ray.intersectObjects(hot, false);
   let h = null;
-  for (const it of hits) { const a = it.object.userData.act; if (!a) continue; if (a.type === 'visit' && !(landing.visible && lift.doors > .9 && lift.phase === 'open')) continue; if (!it.object.visible || !isVisible(it.object)) continue; h = it; break; }
+  const gy = groundY();
+  for (const it of hits) {
+    const a = it.object.userData.act; if (!a) continue;
+    if (it.distance > (FAR_ACTS.has(a.type) ? REACH_FAR : REACH)) continue;
+    if (it.point.y < gy - .3 || it.point.y > gy + 3.6) continue;   // only what is on this floor: never through a floor or a ceiling to the next
+    if (a.type === 'visit' && !(landing.visible && lift.doors > .9 && lift.phase === 'open')) continue; if (!it.object.visible || !isVisible(it.object)) continue; h = it; break; }
   hover = h;
 }
 function isVisible(o) { while (o) { if (!o.visible) return false; o = o.parent; } return true; }
@@ -442,7 +449,7 @@ canvas.addEventListener('pointerdown', (e) => {
 canvas.addEventListener('pointermove', (e) => {
   if (e.pointerType === 'touch') return onTouchMove(e);
   if (!drag || locked) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
-  if (!drag.moved && Math.hypot(dx, dy) > 4) drag.moved = true;
+  if (!drag.moved && Math.hypot(dx, dy) > 9) drag.moved = true;   // a click with a little wobble in it is still a click, not a look
   if (drag.moved) { look(e.movementX || dx, e.movementY || dy, .0042); drag.x = e.clientX; drag.y = e.clientY; }
 });
 // a cancelled touch (system gesture, palm, too many fingers) never sends pointerup: treat it as one, or the stick stays pushed
