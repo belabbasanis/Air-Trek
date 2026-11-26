@@ -676,6 +676,15 @@ function weathered(mat, o = {}) {
 }
 let doorSeed = 10;
 function doorMat() { const m = M.door.clone(); m.userData = {}; m.onBeforeCompile = () => { }; return weathered(m, { moss: .6, seed: doorSeed++ }); }
+// one sliding door leaf, slab z0..z1 in its own frame. The rubber strip caps the meeting edge and the painted slab stops 5 mm inside it,
+// so the slab's edge never shares a plane with the rubber's (that edge flickered while the doors moved). The two strips meet at the seam
+// without overlapping.
+function doorLeaf(parent, sx, z0, z1) {
+  const g = new THREE.Group();
+  const m = new THREE.Mesh(wuv(bb(sx > 0 ? -.26 : -.27, sx > 0 ? .27 : .26, 0, DOOR_H, z0, z1), .54, DOOR_H), doorMat()); m.castShadow = m.receiveShadow = true; g.add(m);
+  g.add(new THREE.Mesh(bb(sx > 0 ? -.265 : .255, sx > 0 ? -.255 : .265, 0, DOOR_H, z0 - .002, z1 + .002), M.rubber));
+  parent.add(g); return g;
+}
 async function buildMaterials(progress) {
   const B = {};
   progress('Painting the steel…');
@@ -757,7 +766,8 @@ function buildLobby() {
   // window frame: mullions and transoms (these draw the stripes)
   const wb = new Bucket();
   for (let i = 0; i <= 6; i++) { const z = lerp(WIN.z0, WIN.z1, i / 6); wb.add(M.ironM, wuv(bb(L.x0 - .2, L.x0 - .14, WIN.y0, WIN.y1, z - .025, z + .025), .5, .5)); }
-  for (const y of [WIN.y0 + .02, 1.55, 2.15, 2.74, WIN.y1 - .02]) wb.add(M.ironM, wuv(bb(L.x0 - .2, L.x0 - .14, y - .02, y + .02, WIN.z0, WIN.z1), .5, .5));
+  // the cross bars sit 5 mm inside the mullions' depth so the two never share a face where they cross
+  for (const y of [WIN.y0 + .02, 1.55, 2.15, 2.74, WIN.y1 - .02]) wb.add(M.ironM, wuv(bb(L.x0 - .195, L.x0 - .145, y - .02, y + .02, WIN.z0, WIN.z1), .5, .5));
   for (let i = 0; i < 18; i++) { const z = lerp(WIN.z0, WIN.z1, (i + .5) / 18); wb.add(M.ironM, rod(new V3(L.x0 - .1, WIN.y0, z), new V3(L.x0 - .1, WIN.y1, z), .009, 6)); }
   // a few broken glass panes left in the frame
   wb.build(world);
@@ -773,8 +783,8 @@ function buildLobby() {
   const transom = new THREE.Mesh(new THREE.PlaneGeometry(1.46, .4), new THREE.MeshBasicMaterial({ color: new THREE.Color(3.2, 2.2, 1.3) })); transom.position.set(0, 2.53, L.z1 + .12); transom.rotation.y = Math.PI; world.add(transom);
   for (let i = 1; i < 6; i++) b.add(M.ironM, bb(-.73 + i * .243 - .012, -.73 + i * .243 + .012, 2.33, 2.73, L.z1 + .06, L.z1 + .1));
   // elevator surround: cream architrave, brass sill
-  b.add(M.cream, wuv(bb(-DOOR_W / 2 - .12, -DOOR_W / 2, 0, DOOR_H + .12, WALL_Z, WALL_Z + .05), .5, DOOR_H + .12));
-  b.add(M.cream, wuv(bb(DOOR_W / 2, DOOR_W / 2 + .12, 0, DOOR_H + .12, WALL_Z, WALL_Z + .05), .5, DOOR_H + .12));
+  b.add(M.cream, wuv(bb(-DOOR_W / 2 - .12, -DOOR_W / 2, 0, DOOR_H, WALL_Z, WALL_Z + .05), .5, DOOR_H + .12));
+  b.add(M.cream, wuv(bb(DOOR_W / 2, DOOR_W / 2 + .12, 0, DOOR_H, WALL_Z, WALL_Z + .05), .5, DOOR_H + .12));
   b.add(M.cream, wuv(bb(-DOOR_W / 2 - .12, DOOR_W / 2 + .12, DOOR_H, DOOR_H + .14, WALL_Z, WALL_Z + .05), .5, .5, DOOR_H));
   b.add(M.brass, wuv(bb(-DOOR_W / 2, DOOR_W / 2, -.01, .008, 0, WALL_Z + .03), .3, .3));
   for (let i = 0; i < 9; i++) b.add(M.rubber, bb(-DOOR_W / 2, DOOR_W / 2, .004, .0095, .02 + i * .025, .03 + i * .025));
@@ -867,8 +877,7 @@ function buildLobby() {
   // a sunlit-floor bounce
   UI3.lobbyBounce = new THREE.PointLight(new THREE.Color(1, .66, .38), 2.2, 7, 2); UI3.lobbyBounce.position.set(-.9, .55, 1.9); world.add(UI3.lobbyBounce);
   // lobby doors
-  const dg2 = (sx) => { const g = new THREE.Group(); const m = new THREE.Mesh(wuv(bb(-.27, .27, 0, DOOR_H, 0, .035), .54, DOOR_H), doorMat()); m.castShadow = m.receiveShadow = true; g.add(m);
-    const e = new THREE.Mesh(bb(sx > 0 ? -.27 : .255, sx > 0 ? -.255 : .27, 0, DOOR_H, -.002, .037), M.rubber); g.add(e); world.add(g); g.position.set(sx * .265, 0, .035); return g; };
+  const dg2 = (sx) => { const g = doorLeaf(world, sx, 0, .035); g.position.set(sx * .265, 0, .035); return g; };
   doors.lobL = dg2(-1); doors.lobR = dg2(1);
   // vision strip on lobby doors: none (period steel doors) — a painted floor number plate instead
 }
@@ -883,7 +892,7 @@ function buildShaft() {
   b.add(M.conc, wuv(bb(S.x0 - .2, S.x1 + .2, yTop, yTop + .3, S.z0 - .2, WALL_Z), 2, 2));
   // front wall above the lobby: one slab per floor, with the doorway
   for (let f = 1; f <= TOP; f++) for (const g of holedWall('z', 0, WALL_Z, S.x0 - .2, 1.85, Math.max(LOBBY.h, f * H - .0), Math.min(yTop, (f + 1) * H), [[-DOOR_W / 2, DOOR_W / 2, f * H - .01, f * H + DOOR_H]])) b.add(M.teal, wuv(g, 2.4, H, f * H));
-  b.add(M.teal, wuv(bb(S.x0 - .2, 1.85, LOBBY.h, H - .002, 0, WALL_Z), 2.4, 1));
+  b.add(M.teal, wuv(bb(S.x0 - .2, 1.85, LOBBY.h + .003, H - .002, 0, WALL_Z), 2.4, 1));   // its underside hidden inside the lobby ceiling, not level with it
   // window frames and a diamond lattice in each window
   for (const [z0, z1, y0, y1] of wins) {
     const cz = (z0 + z1) / 2, cy = (y0 + y1) / 2;
@@ -894,7 +903,7 @@ function buildShaft() {
         if (c) bars.add(M.iron, bar(new V3(S.x0 - .1 + k * .012, c[1], c[0]), new V3(S.x0 - .1 + k * .012, c[3], c[2]), .016));
       }
     }
-    for (const y of [y0, y1]) bars.add(M.iron, bb(S.x0 - .17, S.x0 - .03, y - .02, y + .02, z0, z1));
+    for (const y of [y0, y1]) bars.add(M.iron, bb(S.x0 - .168, S.x0 - .032, y - .02, y + .02, z0 + .003, z1 - .003));
     for (const z of [z0, z1]) bars.add(M.iron, bb(S.x0 - .17, S.x0 - .03, y0, y1, z - .02, z + .02));
   }
   // guide rails
@@ -954,8 +963,8 @@ function brokenButton(parent, g, face, bez, label, pos) {
   const socket = () => { const s_ = new THREE.Mesh(new THREE.CircleGeometry(R * 1.02, 24), new THREE.MeshStandardMaterial({ color: 0x060505, roughness: 1 })); s_.position.z = .0018; g.add(s_); };
   const wire = (pts, col) => { const w = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(p => new V3(...p))), 12, .00085, 5), new THREE.MeshStandardMaterial({ color: col, roughness: .5 })); w.castShadow = true; g.add(w); };
   const overlay = (tex, z) => { const m = new THREE.Mesh(new THREE.CircleGeometry(R, 32), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false })); m.position.z = z; g.add(m); return m; };
-  if (kind === 'crack') overlay(crackTex(seed, false), .00865);
-  else if (kind === 'shatter') { face.position.z = .0042; face.rotation.z = .2; overlay(crackTex(seed, true), .0067); }
+  if (kind === 'crack') overlay(crackTex(seed, false), .0093);
+  else if (kind === 'shatter') { face.position.z = .0042; face.rotation.z = .2; overlay(crackTex(seed, true), .0075); }
   else if (kind === 'missing') {
     g.remove(face); socket();
     wire([[-.004, .002, .002], [-.006, -.001, .009], [-.003, -.009, .014]], 0xb8322a); wire([[.003, -.002, .002], [.007, -.004, .01], [.011, -.011, .012]], 0x2d63b4);
@@ -1010,10 +1019,11 @@ function buildCab() {
   b.add(M.ironM, wuv(bb(C.x0, C.x1, C.h - .012, C.h, C.z1 - .05, C.z1), 1, 1));
   // grille bars and frame
   for (let z = GRILLE.z0 + .04; z < GRILLE.z1 - .02; z += .072) b.add(M.iron, rod(new V3(C.x0 - .02, GRILLE.y0, z), new V3(C.x0 - .02, GRILLE.y1, z), .0085, 8));
-  b.add(M.iron, bb(C.x0 - .035, C.x0 + .012, GRILLE.y0 - .025, GRILLE.y0, GRILLE.z0 - .025, GRILLE.z1 + .025));
-  b.add(M.iron, bb(C.x0 - .035, C.x0 + .012, GRILLE.y1, GRILLE.y1 + .025, GRILLE.z0 - .025, GRILLE.z1 + .025));
-  b.add(M.iron, bb(C.x0 - .035, C.x0 + .012, GRILLE.y0, GRILLE.y1, GRILLE.z0 - .025, GRILLE.z0));
-  b.add(M.iron, bb(C.x0 - .035, C.x0 + .012, GRILLE.y0, GRILLE.y1, GRILLE.z1, GRILLE.z1 + .025));
+  b.add(M.iron, bb(C.x0 - .035, C.x0 + .012, GRILLE.y0 - .025, GRILLE.y0 + .003, GRILLE.z0 - .025, GRILLE.z1 + .025));
+  b.add(M.iron, bb(C.x0 - .035, C.x0 + .012, GRILLE.y1 - .003, GRILLE.y1 + .025, GRILLE.z0 - .025, GRILLE.z1 + .025));
+  // the uprights stop 1 mm short of the rails' ends so their outer faces never share a plane where they overlap
+  b.add(M.iron, bb(C.x0 - .034, C.x0 + .011, GRILLE.y0, GRILLE.y1, GRILLE.z0 - .024, GRILLE.z0 + .003));
+  b.add(M.iron, bb(C.x0 - .034, C.x0 + .011, GRILLE.y0, GRILLE.y1, GRILLE.z1 - .003, GRILLE.z1 + .024));
   b.add(M.iron, rod(new V3(C.x0 - .02, (GRILLE.y0 + GRILLE.y1) / 2, GRILLE.z0), new V3(C.x0 - .02, (GRILLE.y0 + GRILLE.y1) / 2, GRILLE.z1), .007, 6));
   // handrails
   for (const x of [C.x0 + .055, C.x1 - .055]) {
@@ -1068,20 +1078,20 @@ function buildCab() {
       const k = FLOORS.findIndex(p => p.floor === f), cell = TEX.stk.cell(k), t = TEX.stk.tex.clone(); t.repeat.set(cell.s, cell.s); t.offset.set(cell.x, cell.y); t.needsUpdate = true;
       const s = new THREE.Mesh(new THREE.PlaneGeometry(.05, .05), new THREE.MeshStandardMaterial({ map: t, transparent: true, roughness: .42, metalness: 0, envMapIntensity: .8, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
       const sxo = c % 2 ? .05 : -.05;
-      s.position.set(x + sxo, y + (rng(f)() - .5) * .01, PZ + .0205); s.rotation.z = (rng(f * 7)() - .5) * .3; s.receiveShadow = true; cab.add(s);
+      s.position.set(x + sxo, y + (rng(f)() - .5) * .01, PZ + .0218); s.rotation.z = (rng(f * 7)() - .5) * .3; s.receiveShadow = true; cab.add(s);
       s.userData.act = { type: 'floor', floor: f }; hot.push(s);
     } else if (f === ROOF) {
       // the Sleeping Forest sticker, stuck beside the R button (images/sleeping-forest.png, white background cut away); it presses R too
       const map = new THREE.TextureLoader().load('images/sleeping-forest.png'); map.colorSpace = THREE.SRGBColorSpace; map.anisotropy = Math.min(8, MAX_ANISO);
       const s = new THREE.Mesh(new THREE.PlaneGeometry(.078, .057), new THREE.MeshStandardMaterial({ map, transparent: true, alphaTest: .02, roughness: .42, metalness: 0, envMapIntensity: .8, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
-      s.position.set(x + (c % 2 ? .071 : -.071), y + .004, PZ + .0205); s.rotation.z = -.06; s.receiveShadow = true; cab.add(s);
+      s.position.set(x + (c % 2 ? .071 : -.071), y + .004, PZ + .0218); s.rotation.z = -.06; s.receiveShadow = true; cab.add(s);
       s.userData.act = { type: 'floor', floor: f }; hot.push(s);
     }
   });
   makeButton(cab, 'ALARM', new V3(PX, PY + ph / 2 - .065, PZ + .02), rot, { type: 'alarm' });
   makeButton(cab, 'OPEN', new V3(PX - pw / 2 + .07, PY - ph / 2 + .085, PZ + .02), rot, { type: 'open' });
   makeButton(cab, 'CLOSE', new V3(PX - pw / 2 + .07, PY - ph / 2 + .17, PZ + .02), rot, { type: 'close' });
-  for (const [t, y] of [['OPEN', PY - ph / 2 + .085], ['CLOSE', PY - ph / 2 + .17]]) { const lp = new THREE.Mesh(new THREE.PlaneGeometry(.06, .017), new THREE.MeshStandardMaterial({ map: labelTex(t, '#111', '#e9e3d6'), roughness: .5 })); lp.position.set(PX - pw / 2 + .07, y - .038, PZ + .0205); cab.add(lp); }
+  for (const [t, y] of [['OPEN', PY - ph / 2 + .085], ['CLOSE', PY - ph / 2 + .17]]) { const lp = new THREE.Mesh(new THREE.PlaneGeometry(.06, .017), new THREE.MeshStandardMaterial({ map: labelTex(t, '#111', '#e9e3d6'), roughness: .5 })); lp.position.set(PX - pw / 2 + .07, y - .038, PZ + .0211); cab.add(lp); }
   // STOP: a yellow keyed box
   const sbx = PX + pw / 2 - .085, sby = PY - ph / 2 + .12;
   const stop = new THREE.Mesh(wuv(new RoundedBoxGeometry(.11, .12, .05, 3, .012).translate(sbx, sby, PZ + .045), .4, .4), M.yellow); stop.castShadow = stop.receiveShadow = true; cab.add(stop);
@@ -1090,7 +1100,7 @@ function buildCab() {
   const slot = new THREE.Mesh(new THREE.BoxGeometry(.003, .014, .002), M.rubber); slot.position.set(sbx, sby - .008, PZ + .0825); cab.add(slot);
   stop.userData.act = { type: 'stop' }; key.userData.act = { type: 'stop' }; hot.push(stop, key);
   // capacity plate
-  const cp = new THREE.Mesh(new THREE.PlaneGeometry(.17, .03), new THREE.MeshStandardMaterial({ map: labelTex('600 KG · 8 PERSONS', '#1a1410', '#d8c08a', 512, 90), roughness: .4, metalness: .3 })); cp.position.set(PX, PY + ph / 2 - .12, PZ + .0205); cab.add(cp);
+  const cp = new THREE.Mesh(new THREE.PlaneGeometry(.17, .03), new THREE.MeshStandardMaterial({ map: labelTex('600 KG · 8 PERSONS', '#1a1410', '#d8c08a', 512, 90), roughness: .4, metalness: .3 })); cp.position.set(PX, PY + ph / 2 - .12, PZ + .0211); cab.add(cp);
   // marker scribbles and tape, like a panel people have used for decades
   const [mc, mx] = cv(512, 1024); const mr = rng(77);
   mx.lineCap = 'round';
@@ -1115,9 +1125,7 @@ function buildCab() {
   dryLeaves(cab, C.x0 + .05, C.x1 - .05, C.z0 + .05, C.z1 - .05, 0, 22, 19, true);
   b.build(cab);
   // cab doors
-  const dg = (sx) => { const g = new THREE.Group(); const m = new THREE.Mesh(wuv(bb(-.27, .27, 0, DOOR_H, -.015, .015), .54, DOOR_H), doorMat()); m.castShadow = m.receiveShadow = true; g.add(m);
-    const e = new THREE.Mesh(bb(sx > 0 ? -.27 : .255, sx > 0 ? -.255 : .27, 0, DOOR_H, -.017, .017), M.rubber); g.add(e);
-    cab.add(g); g.position.set(sx * .265, 0, -.1); return g; };
+  const dg = (sx) => { const g = doorLeaf(cab, sx, -.015, .015); g.position.set(sx * .265, 0, -.1); return g; };
   doors.cabL = dg(-1); doors.cabR = dg(1);
 }
 
@@ -1136,12 +1144,12 @@ function buildLanding() {
   b.add(M.ironM, wuv(bb(L.x0, L.x1, 1.08, 1.12, L.z1 - .03, L.z1), .6, .6));
   b.add(M.conc, wuv(bb(L.x0 - .05, L.x0 + .08, .95, 1.0, WIN.z0 - .04, WIN.z1 + .04), .5, .5));
   for (let i = 0; i <= 3; i++) { const z = lerp(WIN.z0, WIN.z1, i / 3); b.add(M.ironM, bb(L.x0 - .14, L.x0 - .09, WIN.y0, WIN.y1, z - .022, z + .022)); }
-  for (const y of [WIN.y0 + .02, 1.55, 2.08, WIN.y1 - .02]) b.add(M.ironM, bb(L.x0 - .14, L.x0 - .09, y - .02, y + .02, WIN.z0, WIN.z1));
+  for (const y of [WIN.y0 + .02, 1.55, 2.08, WIN.y1 - .02]) b.add(M.ironM, bb(L.x0 - .135, L.x0 - .095, y - .02, y + .02, WIN.z0, WIN.z1));   // inside the uprights' depth: no shared faces
   for (let i = 0; i < 9; i++) b.add(M.iron, rod(new V3(L.x0 - .05, WIN.y0, lerp(WIN.z0, WIN.z1, (i + .5) / 9)), new V3(L.x0 - .05, WIN.y1, lerp(WIN.z0, WIN.z1, (i + .5) / 9)), .008, 6));
   b.add(M.landTeal, wuv(bb(L.x0 - .2, SHAFT.x0 - .2, 0, L.h, 0, WALL_Z), 2.4, L.h));
   // architrave on the landing side
-  b.add(M.cream, wuv(bb(-DOOR_W / 2 - .12, -DOOR_W / 2, 0, DOOR_H + .12, WALL_Z, WALL_Z + .05), .5, DOOR_H + .12));
-  b.add(M.cream, wuv(bb(DOOR_W / 2, DOOR_W / 2 + .12, 0, DOOR_H + .12, WALL_Z, WALL_Z + .05), .5, DOOR_H + .12));
+  b.add(M.cream, wuv(bb(-DOOR_W / 2 - .12, -DOOR_W / 2, 0, DOOR_H, WALL_Z, WALL_Z + .05), .5, DOOR_H + .12));
+  b.add(M.cream, wuv(bb(DOOR_W / 2, DOOR_W / 2 + .12, 0, DOOR_H, WALL_Z, WALL_Z + .05), .5, DOOR_H + .12));
   b.add(M.cream, wuv(bb(-DOOR_W / 2 - .12, DOOR_W / 2 + .12, DOOR_H, DOOR_H + .14, WALL_Z, WALL_Z + .05), .5, .5, DOOR_H));
   b.add(M.brass, wuv(bb(-DOOR_W / 2, DOOR_W / 2, -.01, .008, 0, WALL_Z + .03), .3, .3));
   // pendant lamp
@@ -1169,8 +1177,7 @@ function buildLanding() {
   moss(landing, new V3(L.x0 + .02, 1.005, (WIN.z0 + WIN.z1) / 2), 26, new V3(.08, .01, 1.5), 93, .035);
   dryLeaves(landing, L.x0 + .1, L.x1 - .1, WALL_Z + .1, L.z1 - .1, 0, 60, 29, true);
   b.build(landing);
-  const dg = (sx) => { const g = new THREE.Group(); const m = new THREE.Mesh(wuv(bb(-.27, .27, 0, DOOR_H, 0, .035), .54, DOOR_H), doorMat()); m.castShadow = m.receiveShadow = true; g.add(m);
-    const e = new THREE.Mesh(bb(sx > 0 ? -.27 : .255, sx > 0 ? -.255 : .27, 0, DOOR_H, -.002, .037), M.rubber); g.add(e); landing.add(g); g.position.set(sx * .265, 0, .035); return g; };
+  const dg = (sx) => { const g = doorLeaf(landing, sx, 0, .035); g.position.set(sx * .265, 0, .035); return g; };
   doors.landL = dg(-1); doors.landR = dg(1);
 }
 function dressLanding(f) {

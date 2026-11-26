@@ -153,8 +153,7 @@ function lunetteGeometry(x, z0, z1, facing) {         // the wall above the spri
   if (facing > 0) g.index.array.reverse(); g.computeVertexNormals(); return g;   // the (u, v) -> (z, y) swap mirrors the shape: it faces -x unless reversed
 }
 function galDoor(sx) {
-  const g = new THREE.Group(); const m = new THREE.Mesh(wuv(bb(-.27, .27, 0, DOOR_H, 0, .035), .54, DOOR_H), doorMat()); m.castShadow = m.receiveShadow = true; g.add(m);
-  const e = new THREE.Mesh(bb(sx > 0 ? -.27 : .255, sx > 0 ? -.255 : .27, 0, DOOR_H, -.002, .037), M.rubber); g.add(e); gallery.add(g); g.position.set(sx * .265, 0, .035); return g;
+  const g = doorLeaf(gallery, sx, 0, .035); g.position.set(sx * .265, 0, .035); return g;
 }
 
 /* ---- light: track spots (fixture, faint beam), pools on the walls, one warm fill ---- */
@@ -181,6 +180,7 @@ function spot(rail, from, to, beam = true) {
   }
   return can;
 }
+// wall pools sit 9 mm off the wall, 3 mm in front of the labels (6 mm), so the glow never shares a plane with a label
 function pool(parent, w, h, pos, rotY, rotX = 0, strength = .3) {
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: GAL_LIVE.poolTex, color: new THREE.Color(1, .74, .46).multiplyScalar(strength), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 }));
   m.position.copy(pos); m.rotation.set(rotX, rotY, 0, 'YXZ'); m.renderOrder = 4; parent.add(m); return m;
@@ -214,7 +214,7 @@ function pieceRapailler(G, TL) {
   panel.position.set(G.x1 - .016, y, z); panel.rotation.y = -Math.PI / 2; gallery.add(panel);
   const back = new THREE.Mesh(bb(G.x1 - .015, G.x1 - .002, y - Hh / 2, y + Hh / 2, z - W / 2, z + W / 2), GAL_LIVE.blackM); gallery.add(back);
   panel.userData.act = galAct(p); hot.push(panel);
-  pool(gallery, W * 1.45, Hh * 1.7, new V3(G.x1 - .006, y + .08, z), -Math.PI / 2, 0, .42);
+  pool(gallery, W * 1.45, Hh * 1.7, new V3(G.x1 - .009, y + .08, z), -Math.PI / 2, 0, .42);
   addLabel(p, new V3(G.x1 - .006, 1.35, z + W / 2 + .3), -Math.PI / 2);
   return [z, y];
 }
@@ -381,7 +381,7 @@ function pieceHands(G, TL) {
   glass.position.z = D - .005; box.add(glass);
   glass.userData.act = galAct(p); hot.push(glass);
   GAL_OBST.push([G.x0, G.x0 + D + .12, z - FW / 2 - .1, z + FW / 2 + .1]);
-  pool(gallery, FW * 1.5, FH * 1.9, new V3(G.x0 + .006, y + .05, z), Math.PI / 2, 0, .16);
+  pool(gallery, FW * 1.5, FH * 1.9, new V3(G.x0 + .009, y + .05, z), Math.PI / 2, 0, .16);
   addLabel(p, new V3(G.x0 + .006, 1.35, z - FW / 2 - .32), Math.PI / 2);
 }
 
@@ -394,7 +394,7 @@ function pieceMap(G, TL) {
   const cvs = new THREE.Mesh(new THREE.BoxGeometry(W, Hh, .045), [edge, edge, edge, edge, front, edge]);   // the +z face carries the picture...
   cvs.rotation.y = Math.PI; cvs.position.set(0, y, G.z1 - .03); gallery.add(cvs);                                     // ...and the half turn points it into the room
   cvs.userData.act = galAct(p); hot.push(cvs);
-  pool(gallery, W * 1.4, Hh * 1.45, new V3(0, y + .1, G.z1 - .006), Math.PI, 0, .3);
+  pool(gallery, W * 1.4, Hh * 1.45, new V3(0, y + .1, G.z1 - .009), Math.PI, 0, .3);
   addLabel(p, new V3(W / 2 + .32, 1.35, G.z1 - .006), Math.PI);
 }
 
@@ -486,8 +486,8 @@ function buildGallery() {
   // the lift wall: a plaster skin over the shaft's own slab, with the doorway, and solid wall beyond the shaft
   for (const g of holedWall('z', WALL_Z, WALL_Z + .02, G.x0, G.x1, 0, G.yb, [[-DOOR_W / 2, DOOR_W / 2, -1, DOOR_H]])) b.add(plaster, wuv(g, 2.5, 2.5));
   b.add(plaster, wuv(bb(G.x0 - .2, SHAFT.x0 - .2, 0, G.yb + G.rise + .1, 0, WALL_Z), 2.5, 2.5)); b.add(plaster, wuv(bb(1.85, G.x1 + .2, 0, G.yb + G.rise + .1, 0, WALL_Z), 2.5, 2.5));
-  b.add(M.cream, wuv(bb(-DOOR_W / 2 - .12, -DOOR_W / 2, 0, DOOR_H + .12, WALL_Z + .02, WALL_Z + .06), .5, DOOR_H + .12));
-  b.add(M.cream, wuv(bb(DOOR_W / 2, DOOR_W / 2 + .12, 0, DOOR_H + .12, WALL_Z + .02, WALL_Z + .06), .5, DOOR_H + .12));
+  b.add(M.cream, wuv(bb(-DOOR_W / 2 - .12, -DOOR_W / 2, 0, DOOR_H, WALL_Z + .02, WALL_Z + .06), .5, DOOR_H + .12));
+  b.add(M.cream, wuv(bb(DOOR_W / 2, DOOR_W / 2 + .12, 0, DOOR_H, WALL_Z + .02, WALL_Z + .06), .5, DOOR_H + .12));
   b.add(M.cream, wuv(bb(-DOOR_W / 2 - .12, DOOR_W / 2 + .12, DOOR_H, DOOR_H + .14, WALL_Z + .02, WALL_Z + .06), .5, .5, DOOR_H));
   b.add(M.brass, wuv(bb(-DOOR_W / 2, DOOR_W / 2, -.01, .008, 0, WALL_Z + .03), .3, .3));
   // vaults between the beams, lunettes where they meet the side walls
