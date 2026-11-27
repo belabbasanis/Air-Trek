@@ -189,18 +189,107 @@ function pool(parent, w, h, pos, rotY, rotX = 0, strength = .3, tint = [1, .74, 
 
 /* ---- museum labels ---- */
 function wrapText(x, text, maxW) { const out = []; let line = ''; for (const w of text.split(/\s+/)) { const t = line ? line + ' ' + w : w; if (x.measureText(t).width > maxW && line) { out.push(line); line = w; } else line = t; } if (line) out.push(line); return out; }
-function labelCard(p) {
-  const [c, x] = cv(640, 400);
-  x.fillStyle = '#f3f0e8'; x.fillRect(0, 0, 640, 400);
-  x.fillStyle = '#17150f'; x.font = `600 46px "Cormorant Garamond",Georgia,serif`; let y = 64;
-  for (const l of wrapText(x, p.title, 580).slice(0, 2)) { x.fillText(l, 30, y); y += 48; }
-  x.font = `500 21px "IBM Plex Mono",monospace`; x.fillStyle = '#3a362e';
-  if (p.author) { x.fillText(p.author, 30, y + 4); y += 32; }
-  if (p.medium) { x.fillStyle = '#6a655a'; for (const l of wrapText(x, p.medium, 580).slice(0, 2)) { x.fillText(l, 30, y + 4); y += 28; } }
-  if (p.blurb) { x.font = `italic 500 25px "Cormorant Garamond",Georgia,serif`; x.fillStyle = '#2a2720'; y += 10; for (const l of wrapText(x, p.blurb, 580).slice(0, 4)) { x.fillText(l, 30, y + 6); y += 29; } }
-  x.font = `500 19px "IBM Plex Mono",monospace`; x.fillStyle = p.url ? '#8a3a1c' : '#8d887c'; x.fillText(p.url ? '↗  click to open the project' : 'details to come', 30, 378);
-  return ctex(c);
+/* ---- the labels as business cards: a printed card, mono caps in its top corners, and a run of ink stamps along the
+   bottom, each a black pebble with a white glyph. Every project has its own glyphs and its own arrangement (seeded by its
+   id). The same drawing makes the label on the wall and the card that opens over the view (openCard, js3). ---- */
+const CARD_INK = '#191715', CARD_PAPER = '#f4f3ee', CARD_RATIO = 1.545, CARD_FONT = '"IBM Plex Mono",ui-monospace,monospace';
+const CARD_GLYPH_SETS = { rapailler: ['fleur', 'E', 'C', 'speech'], stm: ['train', 'wave', 'arrow'], hope: ['sun', 'book', 'sprout'], hands: ['hand', 'wave', 'birds'], sfmap: ['spiral', 'pin', 'smile'], zeronda: ['asterisk', 'mic', 'eye'] };
+const CARD_GLYPH_ALL = ['eye', 'blades', 'birds', 'goblet', 'sun', 'wave', 'hand', 'asterisk', 'spiral', 'train', 'pin', 'mic', 'book', 'sprout', 'fleur', 'smile', 'arrow', 'speech'];
+// one glyph, white, in a unit box about the origin (the caller has scaled to the stamp); k: pixels per unit, for text
+function cardGlyph(x, name, k) {
+  x.save(); x.strokeStyle = x.fillStyle = CARD_PAPER; x.lineWidth = .14; x.lineCap = x.lineJoin = 'round';
+  const L = (...pts) => { x.beginPath(); pts.forEach(([a, b], i) => i ? x.lineTo(a, b) : x.moveTo(a, b)); x.stroke(); };
+  const O = (a, b, rad, fill) => { x.beginPath(); x.arc(a, b, rad, 0, Math.PI * 2); fill ? x.fill() : x.stroke(); };
+  const RR = (a, b, w, h, rad) => { x.beginPath(); if (x.roundRect) x.roundRect(a, b, w, h, rad); else x.rect(a, b, w, h); x.stroke(); };
+  switch (name) {
+    case 'eye': x.beginPath(); x.moveTo(-.5, 0); x.quadraticCurveTo(0, -.44, .5, 0); x.quadraticCurveTo(0, .44, -.5, 0); x.stroke(); O(0, 0, .14, true); O(-.74, 0, .08); O(.74, 0, .08); break;
+    case 'blades': for (const s of [-1, 1]) { x.beginPath(); x.moveTo(-.56 * s, .56); x.quadraticCurveTo(.06 * s, .12, .52 * s, -.56); x.stroke(); L([-.5 * s, .26], [-.26 * s, .5]); O(-.64 * s, .64, .07, true); } break;
+    case 'birds': for (const s of [-1, 1]) { x.save(); x.translate(.3 * s, s > 0 ? -.08 : .1); x.scale(-s, 1); x.beginPath(); x.moveTo(-.34, .1); x.quadraticCurveTo(-.05, .3, .26, .12); x.quadraticCurveTo(.34, .04, .3, -.04); x.quadraticCurveTo(.12, .02, .02, -.02); x.lineTo(-.18, -.42); x.quadraticCurveTo(-.16, -.06, -.34, .1); x.closePath(); x.fill(); x.restore(); } break;
+    case 'goblet': x.beginPath(); x.moveTo(-.42, -.46); x.quadraticCurveTo(-.16, -.04, 0, 0); x.quadraticCurveTo(.16, -.04, .42, -.46); x.stroke(); L([0, 0], [0, .44]); L([-.26, .46], [.26, .46]); O(-.44, -.56, .06, true); O(.44, -.56, .06, true); break;
+    case 'sun': x.beginPath(); x.arc(0, .14, .36, Math.PI, 0); x.closePath(); x.fill(); L([-.6, .2], [.6, .2]); L([-.38, .44], [.38, .44]); break;
+    case 'wave': x.beginPath(); x.moveTo(-.6, .2); x.bezierCurveTo(-.42, -.1, -.24, -.08, -.1, .16); x.bezierCurveTo(.04, -.28, .36, -.5, .54, -.18); x.stroke(); x.beginPath(); x.arc(.33, -.13, .14, -2.6, 1.3); x.stroke(); x.beginPath(); x.moveTo(-.6, .5); x.bezierCurveTo(-.32, .3, -.1, .62, .18, .46); x.bezierCurveTo(.34, .38, .5, .44, .6, .5); x.stroke(); break;
+    case 'hand': L([-.3, .55], [-.32, .02], [-.34, -.44]); L([-.1, .02], [-.1, -.6]); L([.1, .04], [.12, -.55]); L([.3, .1], [.32, .55]); L([.3, .1], [.33, -.36]); L([-.31, .24], [-.56, -.02]); L([-.3, .55], [.32, .55]); break;
+    case 'asterisk': for (let i = 0; i < 3; i++) { const a = Math.PI / 2 + i * Math.PI / 3; L([Math.cos(a) * -.52, Math.sin(a) * -.52], [Math.cos(a) * .52, Math.sin(a) * .52]); } O(0, 0, .06, true); break;
+    case 'spiral': x.beginPath(); for (let t = 0; t <= Math.PI * 4.2; t += .12) { const rr = .03 + .044 * t; t ? x.lineTo(Math.cos(t) * rr, Math.sin(t) * rr) : x.moveTo(rr, 0); } x.stroke(); break;
+    case 'train': RR(-.44, -.46, .88, .78, .2); x.fillRect(-.3, -.32, .22, .18); x.fillRect(.08, -.32, .22, .18); O(-.24, .14, .06, true); O(.24, .14, .06, true); L([-.32, .44], [-.48, .6]); L([.32, .44], [.48, .6]); break;
+    case 'pin': x.beginPath(); x.moveTo(0, .6); x.bezierCurveTo(-.16, .32, -.42, .06, -.42, -.18); x.arc(0, -.18, .42, Math.PI, 0); x.bezierCurveTo(.42, .06, .16, .32, 0, .6); x.stroke(); O(0, -.18, .13, true); break;
+    case 'mic': RR(-.17, -.6, .34, .62, .17); x.beginPath(); x.arc(0, -.14, .33, 0, Math.PI); x.stroke(); L([0, .2], [0, .46]); L([-.22, .48], [.22, .48]); break;
+    case 'book': x.beginPath(); x.moveTo(0, -.3); x.quadraticCurveTo(-.3, -.46, -.6, -.32); x.lineTo(-.6, .38); x.quadraticCurveTo(-.3, .25, 0, .4); x.quadraticCurveTo(.3, .25, .6, .38); x.lineTo(.6, -.32); x.quadraticCurveTo(.3, -.46, 0, -.3); x.lineTo(0, .4); x.stroke(); break;
+    case 'sprout': x.beginPath(); x.moveTo(0, .52); x.quadraticCurveTo(.04, .2, 0, -.08); x.stroke(); x.beginPath(); x.moveTo(0, -.04); x.quadraticCurveTo(-.52, -.12, -.5, -.52); x.quadraticCurveTo(-.14, -.46, 0, -.04); x.fill(); x.beginPath(); x.moveTo(.02, .1); x.quadraticCurveTo(.44, .06, .44, -.26); x.quadraticCurveTo(.12, -.22, .02, .1); x.fill(); L([-.38, .54], [.38, .54]); break;
+    case 'fleur': x.beginPath(); x.moveTo(0, -.62); x.quadraticCurveTo(.24, -.26, 0, .14); x.quadraticCurveTo(-.24, -.26, 0, -.62); x.fill(); for (const s of [-1, 1]) { x.beginPath(); x.moveTo(.02 * s, .14); x.bezierCurveTo(.3 * s, .12, .62 * s, -.06, .48 * s, -.36); x.stroke(); O(.42 * s, -.38, .05, true); } L([-.32, .2], [.32, .2]); L([0, .22], [0, .5]); L([-.18, .5], [.18, .5]); break;
+    case 'smile': O(0, 0, .48); O(-.17, -.12, .07, true); O(.17, -.12, .07, true); x.beginPath(); x.arc(0, .02, .26, .2 * Math.PI, .8 * Math.PI); x.stroke(); break;
+    case 'arrow': L([-.52, .02], [.44, .02]); L([.14, -.3], [.48, .02], [.14, .34]); break;
+    case 'speech': RR(-.56, -.46, 1.12, .7, .22); L([-.26, .24], [-.36, .52], [.02, .24]); break;
+    default: { x.save(); x.scale(1 / k, 1 / k); x.font = `700 ${1.22 * k}px "Cormorant Garamond",Georgia,serif`; x.textAlign = 'center'; x.textBaseline = 'alphabetic'; x.fillText(name === 'E' ? 'É' : name === 'C' ? 'Ç' : name, 0, .44 * k); x.restore(); }
+  }
+  x.restore();
 }
+// a stamp's outline: a lopsided rounded block, like a cut rubber stamp
+function cardPebble(x, w, h, r) {
+  const n = 5 + Math.floor(r() * 2), pts = [];
+  for (let i = 0; i < n; i++) { const a = (i + .5 + (r() - .5) * .35) / n * Math.PI * 2 + Math.PI / 4, rr = .9 + r() * .16; pts.push([Math.cos(a) * rr * w / 2 * 1.1, Math.sin(a) * rr * h / 2 * 1.1]); }
+  const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], rad = Math.min(w, h) * (.2 + r() * .08), m0 = mid(pts[n - 1], pts[0]);
+  x.beginPath(); x.moveTo(m0[0], m0[1]); for (let i = 0; i < n; i++) { const c = pts[i], m = mid(c, pts[(i + 1) % n]); x.arcTo(c[0], c[1], m[0], m[1], rad); } x.closePath();
+}
+// the run of stamps, in the box (bx, by, bw, bh) of a card W wide; stacked like stones, two or three groups
+function cardStamps(x, p, bx, by, bw, bh, W) {
+  const r = rng(hashStr('stamps:' + p.id)), set = CARD_GLYPH_SETS[p.id] || [0, 1, 2].map(i => CARD_GLYPH_ALL[(hashStr(p.id || p.title || '') + i * 7) % CARD_GLYPH_ALL.length]);
+  const S = W * .13, base = [], stamps = []; let cx = bx + S * (.5 + r() * .25);
+  while (cx < bx + bw - S * .45) { const w = S * (.82 + r() * .36), h = w * (.78 + r() * .3); base.push({ x: cx, y: by + bh - h / 2 - r() * bh * .05, w, h }); cx += w * (.8 + r() * .1) + (r() < .16 ? S * (.5 + r() * .5) : 0); }
+  for (let i = 0; i < base.length - 1; i++) {
+    const a = base[i], b = base[i + 1]; if (b.x - a.x > S * 1.4 || r() < .4) continue;
+    const w = S * (.8 + r() * .3), h = w * (.78 + r() * .26); stamps.push({ x: (a.x + b.x) / 2 + (r() - .5) * S * .2, y: Math.min(a.y - a.h / 2, b.y - b.h / 2) - h * (.18 + r() * .12), w, h, top: true });
+  }
+  stamps.push(...base); const order = stamps.sort((a, b) => (a.top ? 0 : 1) - (b.top ? 0 : 1));
+  const glyphs = set.slice(); for (let i = glyphs.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [glyphs[i], glyphs[j]] = [glyphs[j], glyphs[i]]; }
+  order.forEach((s, i) => {
+    const rot = (r() - .5) * .5; x.save(); x.translate(s.x, s.y); x.rotate(rot);
+    cardPebble(x, s.w, s.h, r); x.lineWidth = W * .012; x.strokeStyle = CARD_PAPER; x.stroke(); x.fillStyle = CARD_INK; x.fill();
+    const k = Math.min(s.w, s.h) * .5; x.rotate(-rot * .6); x.scale(k, k); cardGlyph(x, glyphs[(i + Math.floor(r() * 2)) % glyphs.length], k); x.restore();
+  });
+  // print: specks of paper in the ink
+  x.save(); x.globalCompositeOperation = 'source-atop'; x.fillStyle = CARD_PAPER;
+  for (let i = 0; i < W * .6; i++) { x.globalAlpha = .25 + r() * .5; x.beginPath(); x.arc(bx + r() * bw, by + r() * bh, W * (.0008 + r() * r() * .002), 0, Math.PI * 2); x.fill(); }
+  x.restore();
+}
+// the card's words: title and what it is on the left, the makers and their links on the right
+function cardLines(p) {
+  const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return ''; } };
+  const left = [p.title || 'Untitled'], right = [];
+  if (p.medium) left.push('', ...String(p.medium).split(' · '));
+  if (p.author) right.push(...String(p.author).split(/\s+&\s+/).map((s_, i) => (i ? '& ' : '') + s_));
+  const links = []; if (p.url && host(p.url)) links.push({ text: host(p.url) + ' ↗', url: p.url });
+  for (const s_ of Array.isArray(p.socials) ? p.socials : []) if (s_ && host(s_.url)) links.push({ text: (s_.label || host(s_.url)) + ' ↗', url: s_.url });
+  return { left, right, links };
+}
+// the back of the card on a canvas W wide: the wall label (opaque, paper and all)
+function cardBack(p, W) {
+  const H = Math.round(W / CARD_RATIO), [c, x] = cv(W, H), r = rng(hashStr('paper:' + p.id)), L = cardLines(p), f = W * .027, lh = f * 1.34;
+  x.fillStyle = CARD_PAPER; x.fillRect(0, 0, W, H);
+  for (let i = 0; i < W * 2; i++) { x.fillStyle = `rgba(${r() < .5 ? '0,0,0' : '255,255,255'},${r() * .045})`; x.fillRect(r() * W, r() * H, 1 + r() * 2, 1 + r() * 2); }
+  x.fillStyle = CARD_INK; x.font = `500 ${f}px ${CARD_FONT}`; x.textBaseline = 'alphabetic';
+  if ('letterSpacing' in x) x.letterSpacing = (f * .02) + 'px';
+  let y = H * .13; x.textAlign = 'left'; for (const ln of L.left) { for (const w of ln ? wrapText(x, ln.toUpperCase(), W * .46) : ['']) { x.fillText(w, W * .07, y); y += lh; } }
+  y = H * .13; x.textAlign = 'right'; for (const ln of [...L.right, ...(L.links.length ? [''] : []), ...L.links.map(l => l.text)]) { x.fillText(ln.toUpperCase(), W * .93, y); y += lh; }
+  cardStamps(x, p, W * .04, H * .47, W * .92, H * .48, W);
+  return c;
+}
+// the front: the title drawn by hand, letter by letter, in a rough outlined brush (on a transparent canvas)
+function cardWordmark(x, p, W, H) {
+  const r = rng(hashStr('mark:' + p.id)), txt = String(p.title || '').toLowerCase(), font = (s_) => `400 ${s_}px "Sedgwick Ave Display","Permanent Marker",cursive`;
+  let fs = H * .62; x.font = font(fs); const tw = x.measureText(txt).width; if (tw > W * .9) fs *= W * .9 / tw; x.font = font(fs);
+  const widths = [...txt].map(ch => x.measureText(ch).width), total = widths.reduce((a, b) => a + b, 0), lw = fs * .1;
+  let cx = (W - total) / 2; const by = H * .5 + fs * .3, letters = [];
+  [...txt].forEach((ch, i) => { letters.push({ ch, x: cx + widths[i] / 2, y: by + (r() - .5) * fs * .12, rot: (r() - .5) * .3, s: .9 + r() * .25 }); cx += widths[i]; });
+  const each = (fn) => letters.forEach(l => { x.save(); x.translate(l.x, l.y); x.rotate(l.rot); x.scale(l.s, l.s); fn(l); x.restore(); });
+  x.textAlign = 'center'; x.textBaseline = 'alphabetic'; x.lineJoin = 'round'; x.lineCap = 'round';
+  for (let pass = 0; pass < 3; pass++) each((l) => { x.lineWidth = lw * (1.6 + r() * .6); x.strokeStyle = CARD_INK; x.strokeText(l.ch, (r() - .5) * lw * .5, (r() - .5) * lw * .5); });
+  each((l) => { x.fillStyle = CARD_PAPER; x.fillText(l.ch, 0, 0); });
+  x.save(); x.globalCompositeOperation = 'destination-out';
+  for (let i = 0; i < W * .5; i++) { x.globalAlpha = .3 + r() * .6; x.beginPath(); x.arc(r() * W, r() * H, W * (.0008 + r() * r() * .0025), 0, Math.PI * 2); x.fill(); }
+  x.restore();
+}
+function labelCard(p) { return ctex(cardBack(p, 1024)); }
 // the rule for cards: always to the right of the piece as you face it, .3 m past its edge, at the same height.
 // at: the piece's centre on its wall; half: its half width along the wall; facing: the way it faces, into the room
 function labelRight(p, at, half, facing) {
@@ -208,9 +297,9 @@ function labelRight(p, at, half, facing) {
   return addLabel(p, pos, Math.atan2(facing.x, facing.z));
 }
 function addLabel(p, pos, rotY) {
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(.24, .15), new THREE.MeshStandardMaterial({ map: labelCard(p), roughness: .7, emissive: 0xffffff, emissiveIntensity: .12, polygonOffset: true, polygonOffsetFactor: -2 }));
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(.24, .24 / CARD_RATIO), new THREE.MeshStandardMaterial({ map: labelCard(p), roughness: .7, emissive: 0xffffff, emissiveIntensity: .12, polygonOffset: true, polygonOffsetFactor: -2 }));
   m.material.emissiveMap = m.material.map; m.position.copy(pos); m.rotation.y = rotY; gallery.add(m);
-  m.userData.act = galAct(p); hot.push(m); return m;
+  m.userData.act = { type: 'card', piece: p }; hot.push(m); return m;   // clicked, the card opens over the view (openCard, js3)
 }
 
 /* ---- 1 · Rapailler la langue (Pascal Huynh): the deck's title slide as a printed panel ---- */

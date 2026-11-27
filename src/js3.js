@@ -313,7 +313,7 @@ function onDoorsOpen() {
   const p = BY_FLOOR.get(lift.floor);
   if (p && p.room) { caption(`<b>${esc(p.name)}</b> · ${esc(p.author)}`, 4.5); hint('Walk out into the grass · a sailboat waits at the edge', 6); }
   else if (p && !p.gallery) { caption(`<b>${esc(p.name)}</b>${p.author ? ' · by ' + esc(p.author) : ''}`, 4.5); showVisit(p); hint(isTouch ? 'Walk out, or tap the painted wall, to visit' : 'Walk out, click the painted wall, or press <kbd>Enter</kbd> to visit', 6); }
-  else if (lift.floor === GALLERY_FLOOR) { caption('<b>As Is</b> · 11.25.2026', 4); hint(isTouch ? 'Tap a piece to open its project' : 'Walk up to a piece and click it to open its project', 6); }
+  else if (lift.floor === GALLERY_FLOOR) { caption('<b>As Is</b> · 11.25.2026', 4); hint(isTouch ? 'Tap a piece to open its project, its white card to read it' : 'Click a piece to open its project, its white card to read it', 6); }
   else if (lift.floor === 0) caption('Lobby', 2.4);
   else if (lift.floor === ROOF) { caption('<b>Roof garden</b>', 3.5); hint('Walk around the roof · take the lift back down when you are done', 6); }
 }
@@ -347,6 +347,33 @@ function openSocial(a) {
 const menu = $('menu');
 function openMenu() { menu.hidden = false; if (document.pointerLockElement) document.exitPointerLock(); keys.clear(); setTimeout(() => menu.querySelector('a')?.focus(), 30); }
 function closeMenu() { menu.hidden = true; canvas.focus({ preventScroll: true }); }
+// a wall label, opened: the white card at a size you can read, with the project's link and its makers' profiles (GALLERY in head.html)
+const cardBox = $('cardBox');
+const uiFree = () => menu.hidden && cardBox.hidden;                // nothing open over the view
+const safeUrl = (u) => { try { const x = new URL(String(u), location.href); return /^https?:$/.test(x.protocol) ? x.href : ''; } catch (e) { return ''; } };
+function openCard(p) {
+  if (!p || D.state !== 'play') return;
+  const L = cardLines(p), line = (t) => { const e = document.createElement(t ? 'p' : 'div'); if (t) e.textContent = t; else e.className = 'sp'; return e; };
+  $('cardTitle').textContent = L.left[0];
+  $('cardLeft').replaceChildren(...L.left.slice(1).map(line));
+  $('cardRight').replaceChildren(...L.right.map(line), ...(L.links.length ? [line('')] : []));
+  $('cardLinks').replaceChildren(...L.links.filter(l => safeUrl(l.url)).map(l => { const a = document.createElement('a'); a.href = safeUrl(l.url); a.target = '_blank'; a.rel = 'noopener'; a.textContent = l.text; a.addEventListener('click', () => { sfxClick(); caption(`Opening <b>${esc(l.text.replace(' ↗', ''))}</b>`, 3); }); return a; }));
+  $('cardBlurb').textContent = p.blurb || ''; $('cardBlurb').hidden = !p.blurb;
+  cardBox.hidden = false; if (document.pointerLockElement) document.exitPointerLock(); keys.clear(); dropTouches(); hover = null; sfxClick();
+  // the drawn parts, at the size the cards came out on this screen
+  const dpr = Math.min(2, devicePixelRatio || 1), paint = (cvs, draw) => { const b = cvs.getBoundingClientRect(), w = Math.max(1, Math.round(b.width * dpr)), h = Math.max(1, Math.round(b.height * dpr)); cvs.width = w; cvs.height = h; const x = cvs.getContext('2d'); x.clearRect(0, 0, w, h); draw(x, w, h); };
+  paint($('cardMark'), (x, w, h) => cardWordmark(x, p, w, h));
+  paint($('cardGlyphs'), (x, w, h) => { const W = w / .92; cardStamps(x, p, 0, 0, w, h, W); });
+  setTimeout(() => cardBox.querySelector('.cards').focus({ preventScroll: true }), 30);   // into the dialog, nothing picked yet
+}
+function closeCard() { cardBox.hidden = true; canvas.focus({ preventScroll: true }); }
+$('cardClose').addEventListener('click', closeCard);
+cardBox.addEventListener('click', (e) => { if (e.target === cardBox) closeCard(); });
+cardBox.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { e.stopPropagation(); closeCard(); return; }
+  if (e.key === 'Tab') { const f = [...cardBox.querySelectorAll('a,button')].filter(el => !el.hidden && !el.closest('[hidden]')), i = f.indexOf(document.activeElement); if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); } else if (!e.shiftKey && i === f.length - 1) { e.preventDefault(); f[0].focus(); } }
+});
+
 $('closeMenu').addEventListener('click', closeMenu);
 menu.addEventListener('click', (e) => { if (e.target === menu) closeMenu(); });
 menu.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); closeMenu(); } if (e.key === 'Tab') { const f = [...menu.querySelectorAll('a,button')]; const i = f.indexOf(document.activeElement); if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); } else if (!e.shiftKey && i === f.length - 1) { e.preventDefault(); f[0].focus(); } } });
@@ -363,7 +390,7 @@ const P = { pos: new V3(0, 0, 2.1), yaw: 0, pitch: 0, bob: 0, stepD: 0, inCab: f
 const keys = new Set();
 let locked = false, lockFailed = false, mouse = { x: -1, y: -1, in: false }, typed = '', typedT = 0;
 // reach: the lift's buttons answer within arm's length; a project (a piece, a painted wall, a link) from across the room
-const REACH = 2.5, REACH_FAR = 6.5, FAR_ACTS = new Set(['link', 'note', 'visit', 'social', 'directory', 'ride']);
+const REACH = 2.5, REACH_FAR = 6.5, FAR_ACTS = new Set(['link', 'note', 'visit', 'social', 'directory', 'ride', 'card']);
 const ray = new THREE.Raycaster(); ray.far = REACH_FAR; const _v2 = new THREE.Vector2();
 let hover = null;
 function groundY() { if (P.pos.z < CAB.z1 + .02) return lift.y; return lift.floor === 0 && lift.phase !== 'riding' ? 0 : lift.floor * H; }
@@ -391,7 +418,7 @@ function moveTo(nx, nz) {
   if (ok(P.pos.x, nz)) { P.pos.z = nz; return; }
 }
 function updateHover() {
-  if (D.state !== 'play' || !menu.hidden) { hover = null; return; }
+  if (D.state !== 'play' || !uiFree()) { hover = null; return; }
   if (locked || isTouch || !mouse.in) _v2.set(0, 0); else _v2.set(mouse.x / innerWidth * 2 - 1, -(mouse.y / innerHeight) * 2 + 1);
   if (isTouch && !P.touchAim) { hover = null; return; }
   if (isTouch && P.touchAim) _v2.set(P.touchAim.x / innerWidth * 2 - 1, -(P.touchAim.y / innerHeight) * 2 + 1);
@@ -420,6 +447,7 @@ function actOn(a) {
     case 'visit': triggerVisit('click'); break;
     case 'social': openSocial(a); break;
     case 'link': openLink(a); break;
+    case 'card': openCard(a.piece); break;
     case 'ride': startRide(); break;
     case 'note': sfxClick(); caption(a.text, 3); break;
   }
@@ -427,9 +455,9 @@ function actOn(a) {
 // clickable things: the mouse cursor turns to a hand, and the centre dot (pointer lock) grows into a ring
 function showHot() {
   const ret = $('ret');
-  ret.classList.toggle('on', D.state === 'play' && (locked || (lockFailed && !isTouch)) && menu.hidden);
+  ret.classList.toggle('on', D.state === 'play' && (locked || (lockFailed && !isTouch)) && uiFree());
   ret.classList.toggle('hot', !!hover);
-  const cur = hover && !locked && D.state === 'play' && menu.hidden ? 'pointer' : '';
+  const cur = hover && !locked && D.state === 'play' && uiFree() ? 'pointer' : '';
   if (canvas.style.cursor !== cur) canvas.style.cursor = cur;
 }
 // pointer lock (desktop), drag-look fallback, touch joystick + look
@@ -440,7 +468,7 @@ document.addEventListener('pointerlockerror', () => { lockFailed = true; locked 
 let drag = null;
 canvas.addEventListener('pointerdown', (e) => {
   if (RIDE.on) return;                                               // out on the sailboat (ride.js)
-  if (D.state !== 'play' || !menu.hidden) return;
+  if (D.state !== 'play' || !uiFree()) return;
   if (e.pointerType === 'touch') return onTouchDown(e);
   if (e.button !== 0) return;
   if (locked) { updateHover(); if (hover) actOn(hover.object.userData.act); return; }
@@ -486,6 +514,7 @@ function onTouchUp(e) {
   P.touchAim = { x: e.clientX, y: e.clientY }; updateHover(); const a = hover ? hover.object.userData.act : null; P.touchAim = null; hover = null; if (a) actOn(a);
 }
 window.addEventListener('keydown', (e) => {
+  if (!cardBox.hidden) { if (e.key === 'Escape') closeCard(); return; }   // a card is open: Esc closes it, nothing else moves
   if (!menu.hidden || RIDE.on) return;
   if (D.state === 'gate' || D.state === 'intro') { if (D.key(e)) e.preventDefault(); return; }
   if (D.state !== 'play') return;
@@ -515,7 +544,7 @@ function playerTick(dt, time) {
   if (D.state !== 'play') return;
   if (typedT > 0) { typedT -= dt; if (typedT <= 0 && typed) commitTyped(); }
   let f = 0, s = 0;
-  if (menu.hidden) {
+  if (uiFree()) {
     if (keys.has('KeyW') || keys.has('ArrowUp')) f += 1; if (keys.has('KeyS') || keys.has('ArrowDown')) f -= 1;
     if (keys.has('KeyD')) s += 1; if (keys.has('KeyA')) s -= 1;
     if (keys.has('ArrowLeft')) P.yaw += 1.8 * dt; if (keys.has('ArrowRight')) P.yaw -= 1.8 * dt;
@@ -856,7 +885,7 @@ function loop(now) {
   camera.position.copy(CAM.s0.p); camera.lookAt(CAM.s0.l); camera.fov = fovFor(CAM.s0.fov); camera.updateProjectionMatrix();
   setLook(heldPeriod() || periodAt(new Date()), true); lookTick(0);
   D.state = 'gate'; D.fade = 0;
-  if (window.__test) window.__dbg = { D, lift, P, camera, landing, dressLanding, setLook, setLamp, gradeMat, A, selectFloor, ROOF, H, surfaceUnder, hot, HID, startHidden, gallery, GAL_LIVE, GALLERY_FLOOR, GAL_OBST, moveTo, renderer, scene, M, cab, world, actOn, scRoom, SC_LIVE, SC, SC_FLOOR, ensureSeaCliffs, seaCliffsHere, CAT, GAL, catTick, WALL_Z, sfxButton, sfxThunder, ROOF_STONES, sfxStep, initAudio, RIDE, startRide, endRide, SC_BOAT };
+  if (window.__test) window.__dbg = { D, lift, P, camera, landing, dressLanding, setLook, setLamp, gradeMat, A, selectFloor, ROOF, H, surfaceUnder, hot, HID, startHidden, gallery, GAL_LIVE, GALLERY_FLOOR, GAL_OBST, moveTo, renderer, scene, M, cab, world, actOn, scRoom, SC_LIVE, SC, SC_FLOOR, ensureSeaCliffs, seaCliffsHere, CAT, GAL, catTick, WALL_Z, sfxButton, sfxThunder, ROOF_STONES, sfxStep, initAudio, RIDE, startRide, endRide, SC_BOAT, openCard, GAL_PIECES };
   requestAnimationFrame(loop);
   // warm up a few frames (shader compile), then fade in from black
   await nextFrame(); await nextFrame(); await nextFrame();
