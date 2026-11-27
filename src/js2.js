@@ -4,6 +4,16 @@
    ====================================================================== */
 function cv(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d')]; }
 function ctex(c, srgb = true) { const t = new THREE.CanvasTexture(c); if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = Math.min(8, MAX_ANISO); return t; }
+// models from models/: the .glb, or its .json twin for hosts that will not serve .glb (the claude.ai preview). The loader is
+// fetched the first time a model is wanted; Draco-compressed meshes (the sailboat) fetch three's decoder when first met.
+let _gltf = null;
+function loadGLB(name) {
+  if (!_gltf) _gltf = Promise.all([import('three/addons/loaders/GLTFLoader.js'), import('three/addons/loaders/DRACOLoader.js')]).then(([{ GLTFLoader }, { DRACOLoader }]) => {
+    const d = new DRACOLoader(); d.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/libs/draco/gltf/');
+    const L = new GLTFLoader(); L.setDRACOLoader(d); return L;
+  });
+  return _gltf.then((L) => L.loadAsync(`models/${name}.glb`).catch(() => L.loadAsync(`models/${name}.json`)));
+}
 function normalFromHeight(src, strength) {
   const w = src.width, h = src.height, d = src.getContext('2d').getImageData(0, 0, w, h).data;
   const [c, x] = cv(w, h); const out = x.createImageData(w, h), o = out.data;

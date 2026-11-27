@@ -108,6 +108,11 @@ body.letterbox #lb i{height:calc((100vh - 100vw/2.39)/2)}
 #start .press.wait{animation:none;opacity:.4}
 #start .note{position:absolute;bottom:8vh;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,248,236,.4);text-shadow:0 1px 8px rgba(0,0,0,.6);text-align:center;padding:0 16px}
 @keyframes breathe{50%{opacity:.35}}
+/* the ride out to Updraft's sea cliffs (ride.js): the game's frame, and the black cut over it */
+#ride{position:fixed;inset:0;width:100%;height:100%;border:0;z-index:50;background:#000}
+#rideVeil{position:fixed;inset:0;z-index:60;background:#000;opacity:0;pointer-events:none;transition:opacity .7s ease;display:flex;align-items:center;justify-content:center}
+#rideVeil.on{opacity:1;pointer-events:auto}
+#rideVeil span{font-family:var(--f-serif);font-size:13px;letter-spacing:.5em;text-transform:uppercase;color:rgba(246,239,227,.5);margin-right:-.5em;animation:breathe 2.6s ease-in-out infinite}
 #fade{position:fixed;inset:0;background:#000;z-index:9;pointer-events:none;opacity:1;transition:opacity 2.6s ease}
 #fade.out{opacity:0}
 

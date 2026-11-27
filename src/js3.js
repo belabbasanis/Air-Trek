@@ -311,7 +311,7 @@ function liftTick(dt) {
 function onDoorsOpen() {
   if (D.state !== 'play' || HID.active) return;
   const p = BY_FLOOR.get(lift.floor);
-  if (p && p.room) { caption(`<b>${esc(p.name)}</b> · ${esc(p.author)}`, 4.5); hint('Walk out into the grass · the far wall has come down', 6); }
+  if (p && p.room) { caption(`<b>${esc(p.name)}</b> · ${esc(p.author)}`, 4.5); hint('Walk out into the grass · a sailboat waits at the edge', 6); }
   else if (p && !p.gallery) { caption(`<b>${esc(p.name)}</b>${p.author ? ' · by ' + esc(p.author) : ''}`, 4.5); showVisit(p); hint(isTouch ? 'Walk out, or tap the painted wall, to visit' : 'Walk out, click the painted wall, or press <kbd>Enter</kbd> to visit', 6); }
   else if (lift.floor === GALLERY_FLOOR) { caption('<b>As Is</b> · 11.25.2026', 4); hint(isTouch ? 'Tap a piece to open its project' : 'Walk up to a piece and click it to open its project', 6); }
   else if (lift.floor === 0) caption('Lobby', 2.4);
@@ -363,7 +363,7 @@ const P = { pos: new V3(0, 0, 2.1), yaw: 0, pitch: 0, bob: 0, stepD: 0, inCab: f
 const keys = new Set();
 let locked = false, lockFailed = false, mouse = { x: -1, y: -1, in: false }, typed = '', typedT = 0;
 // reach: the lift's buttons answer within arm's length; a project (a piece, a painted wall, a link) from across the room
-const REACH = 2.5, REACH_FAR = 6.5, FAR_ACTS = new Set(['link', 'note', 'visit', 'social', 'directory']);
+const REACH = 2.5, REACH_FAR = 6.5, FAR_ACTS = new Set(['link', 'note', 'visit', 'social', 'directory', 'ride']);
 const ray = new THREE.Raycaster(); ray.far = REACH_FAR; const _v2 = new THREE.Vector2();
 let hover = null;
 function groundY() { if (P.pos.z < CAB.z1 + .02) return lift.y; return lift.floor === 0 && lift.phase !== 'riding' ? 0 : lift.floor * H; }
@@ -420,6 +420,7 @@ function actOn(a) {
     case 'visit': triggerVisit('click'); break;
     case 'social': openSocial(a); break;
     case 'link': openLink(a); break;
+    case 'ride': startRide(); break;
     case 'note': sfxClick(); caption(a.text, 3); break;
   }
 }
@@ -438,6 +439,7 @@ document.addEventListener('pointerlockchange', () => { locked = document.pointer
 document.addEventListener('pointerlockerror', () => { lockFailed = true; locked = false; });
 let drag = null;
 canvas.addEventListener('pointerdown', (e) => {
+  if (RIDE.on) return;                                               // out on the sailboat (ride.js)
   if (D.state !== 'play' || !menu.hidden) return;
   if (e.pointerType === 'touch') return onTouchDown(e);
   if (e.button !== 0) return;
@@ -484,7 +486,7 @@ function onTouchUp(e) {
   P.touchAim = { x: e.clientX, y: e.clientY }; updateHover(); const a = hover ? hover.object.userData.act : null; P.touchAim = null; hover = null; if (a) actOn(a);
 }
 window.addEventListener('keydown', (e) => {
-  if (!menu.hidden) return;
+  if (!menu.hidden || RIDE.on) return;
   if (D.state === 'gate' || D.state === 'intro') { if (D.key(e)) e.preventDefault(); return; }
   if (D.state !== 'play') return;
   if (e.target && (e.target.tagName === 'A' || e.target.tagName === 'BUTTON') && (e.key === 'Enter' || e.key === ' ')) return;
@@ -827,6 +829,7 @@ function adapt(dtMs) {
 }
 function loop(now) {
   requestAnimationFrame(loop);
+  if (RIDE.hold) { lastT = now; return; }                           // riding Updraft: the building neither moves nor draws
   const dtMs = Math.min(100, now - lastT); lastT = now; const dt = Math.min(.05, dtMs / 1000) * (window.__test && window.__ts || 1);
   if (document.hidden) return;
   tick(dt, now / 1000); render(now / 1000);
@@ -853,7 +856,7 @@ function loop(now) {
   camera.position.copy(CAM.s0.p); camera.lookAt(CAM.s0.l); camera.fov = fovFor(CAM.s0.fov); camera.updateProjectionMatrix();
   setLook(heldPeriod() || periodAt(new Date()), true); lookTick(0);
   D.state = 'gate'; D.fade = 0;
-  if (window.__test) window.__dbg = { D, lift, P, camera, landing, dressLanding, setLook, setLamp, gradeMat, A, selectFloor, ROOF, H, surfaceUnder, hot, HID, startHidden, gallery, GAL_LIVE, GALLERY_FLOOR, GAL_OBST, moveTo, renderer, scene, M, cab, world, actOn, scRoom, SC_LIVE, SC, SC_FLOOR, ensureSeaCliffs, seaCliffsHere, CAT, GAL, catTick, WALL_Z, sfxButton, sfxThunder, ROOF_STONES, sfxStep, initAudio };
+  if (window.__test) window.__dbg = { D, lift, P, camera, landing, dressLanding, setLook, setLamp, gradeMat, A, selectFloor, ROOF, H, surfaceUnder, hot, HID, startHidden, gallery, GAL_LIVE, GALLERY_FLOOR, GAL_OBST, moveTo, renderer, scene, M, cab, world, actOn, scRoom, SC_LIVE, SC, SC_FLOOR, ensureSeaCliffs, seaCliffsHere, CAT, GAL, catTick, WALL_Z, sfxButton, sfxThunder, ROOF_STONES, sfxStep, initAudio, RIDE, startRide, endRide, SC_BOAT };
   requestAnimationFrame(loop);
   // warm up a few frames (shader compile), then fade in from black
   await nextFrame(); await nextFrame(); await nextFrame();

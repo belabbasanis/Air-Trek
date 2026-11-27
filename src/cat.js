@@ -17,8 +17,7 @@ function buildCat() {
   const blob = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), scBlend(new THREE.MeshBasicMaterial({ map: ctex(bc), color: 0xffffff })));
   blob.position.y = .004; blob.renderOrder = 3; gallery.add(blob); CAT.blob = blob;
   CAT.goal = null; CAT.st = 'stop'; CAT.t = 0;
-  // models/cat.json is the same model as one JSON file, for hosts that will not serve .glb (the claude.ai preview)
-  import('three/addons/loaders/GLTFLoader.js').then(({ GLTFLoader }) => { const L = new GLTFLoader(); return L.loadAsync('models/cat.glb').catch(() => L.loadAsync('models/cat.json')); }).then((gl) => {
+  loadGLB('cat').then((gl) => {
     const model = gl.scene; model.scale.setScalar(CAT_SCALE); model.position.x = .105 * CAT_SCALE;   // the rig stands a little off its own centre line
     model.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; o.frustumCulled = false; catMaterial(o.material); } });
     root.add(model); CAT.model = model;

@@ -318,7 +318,10 @@ function scGrass(mat, depth, segs, pts) {
 }
 function scPlantGrass() {
   const r = rng(303), room = [], out = [], dense = isTouch ? .55 : 1;
+  // round the sailboat the grass is trodden down: none right by it, short a little further off, full height 2 m out
+  const boatK = (x, z) => { const dx = Math.max(0, Math.abs(x - SC_BOAT.x) - 1.1), dz = Math.max(0, Math.abs(z - SC_BOAT.z) - 2.2), d = Math.hypot(dx, dz); return d === 0 ? 0 : lerp(.3, 1, sstep(0, 2.2, d)); };
   const blocked = (x, z) => {
+    if (boatK(x, z) === 0) return true;
     if ((Math.abs(x - SC.x0 - .1) < .14 || Math.abs(x - SC.x1 + .1) < .14) && z < SC.z1 + .3) return true;
     if (z > SC.z1 - .05 && z < SC.z1 + .3 && (x < SC.op0 + .05 || x > SC.op1 - .05)) return true;
     if (Math.hypot(x, z - WALL_Z) < .95 || z < WALL_Z + .15) return true;
@@ -337,7 +340,7 @@ function scPlantGrass() {
     const nearIn = r() < .6, x = nearIn ? lerp(-8.5, 8.5, r()) : lerp(-13, 13, r()), z = nearIn ? lerp(SC.z1 + .2, scEdge(x), r()) : lerp(WALL_Z + .2, scEdge(x), r());
     if (x > SC.x0 - .25 && x < SC.x1 + .25 && z < SC.z1 + .3) continue;
     const far = sstep(8.5, 13, Math.abs(x)) * .45; if (r() < far) continue;
-    if (!blocked(x, z)) add(out, x, z, .75, 1.6, .055);
+    if (!blocked(x, z)) { const k = boatK(x, z); add(out, x, z, .75 * k, 1.6 * k, .055); }
   }
   return [room, out];
 }
@@ -573,6 +576,20 @@ function scRubble(b) {
 }
 
 /* ---- build ---- */
+/* ---- the sailboat waiting outside the breach, bow to the sea, clear of the river: board it to ride Updraft's sea cliffs
+   (ride.js). The boat is fine-grained (139k triangles), so one invisible box answers the pointer instead of the boat itself. ---- */
+const SC_BOAT = { x: 1.5, z: 12.0, s: 3.6 };
+function scBoat() {
+  const B = SC_BOAT, y = scGroundH(B.x, B.z) - .02;
+  SC_OBST.push([B.x - .5, B.x + .5, B.z - 1.75, B.z + 1.75]);
+  const hit = new THREE.Mesh(new THREE.BoxGeometry(1.0, 2.6, 3.5), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false }));
+  hit.position.set(B.x, y + 1.3, B.z); hit.userData.act = { type: 'ride' }; scRoom.add(hit); hot.push(hit);
+  loadGLB('sailboat').then((g) => {
+    const m = g.scene; m.scale.setScalar(B.s); m.position.set(B.x, y, B.z);
+    m.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; const mt = o.material; mt.side = THREE.DoubleSide; mt.envMapIntensity = .9; if (mt.transmission) mt.transmission = 0; if (mt.thickness) mt.thickness = 0; } });
+    scRoom.add(m); SC_LIVE.boat = m;
+  }).catch(e => console.warn('sailboat:', e));
+}
 function buildSeaCliffs() {
   const TL = new THREE.TextureLoader(), G = SC;
   scRoom.position.y = SC_FLOOR * H;
@@ -589,6 +606,7 @@ function buildSeaCliffs() {
   scBuildRoom(b, plaster, wallM); scRubble(b);
   b.build(scRoom);
   SC_OBST.push([G.x0 - .3, G.x0 + .05, 0, G.z1 + .3], [G.x1 - .05, G.x1 + .3, 0, 5.7], [G.x1 - .05, G.x1 + .3, 7.2, G.z1 + .3]);
+  scBoat();
   // ground: the room and the meadow in front, beside the room, and out either side to x = 150 (all following the cliff edge)
   const gm = scGroundMat(), cols = (a, b, n, k = 1) => Array.from({ length: n + 1 }, (_, i) => a + (b - a) * Math.pow(i / n, k));
   for (const [xs, front, back] of [[cols(-4.4, 4.4, 44), 86, false], [cols(-4.4, -13, 36), 70, true], [cols(4.4, 13, 36), 70, true], [cols(-13, -150, 40, 1.6), 36, true], [cols(13, 150, 52, 1.5), 36, true]]) {
