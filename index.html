@@ -8,7 +8,10 @@
 <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js">
 <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/utils/BufferGeometryUtils.js">
 <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/geometries/RoundedBoxGeometry.js">
-<title>Air Trek</title>
+<title>As Is</title>
+<link rel="icon" type="image/png" sizes="32x32" href="images/favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="images/favicon-192.png">
+<link rel="apple-touch-icon" href="images/apple-touch-icon.png">
 <script>
 /* =====================================================================
    PROJECTS: one entry per floor. Add people here and nothing else needs to change.
@@ -55,7 +58,7 @@ const GALLERY = [
   { id: 'sfmap',     title: 'Perpetual Unfinished Projects', author: 'Mia Zhou', medium: 'a collection, always in progress', blurb: 'Always strive for progress, not perfection. And most importantly, enjoy the journey :)', url: 'https://docs.google.com/presentation/d/1JZrqaUQtrtUkZD3PY6A86fzlDd0nsRwXtcSKTX6q_8s/edit?usp=sharing' },
   { id: 'zeronda',   title: 'ZERO*NDA', author: 'George Simeo', medium: 'The Building in Public Show · a cultural media outlet for works-in-progress', blurb: 'Too many great ideas die before anyone ever hears about them. Let\'s change that.', url: 'https://docs.google.com/presentation/d/1pZuNXlk-2w5821nLGhDz5FyvR3WzCY-up1cbDvmNa9M/edit?usp=drivesdk' },
 ];
-const TITLE  = 'Air Trek';      // title card and start screen
+const TITLE  = 'As Is';         // the site's name: the browser tab, the title card and start screen
 const STUDIO = 'Bermuda DPT';   // credit line: "<STUDIO> presents"
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -206,7 +209,7 @@ body.rm .cine,body.rm #lb i{transition-duration:.01s}
 </style>
 
 <canvas id="c" aria-hidden="true" tabindex="-1"></canvas>
-<h1 class="sr" id="srTitle">Air Trek: a lift to the projects on each floor</h1>
+<h1 class="sr" id="srTitle">As Is: a lift to the projects on each floor</h1>
 <div id="lb" aria-hidden="true"><i id="lbT"></i><i id="lbB"></i></div>
 <div id="credit" class="cine" aria-hidden="true"><span id="creditName"></span><br><span>presents</span></div>
 <div id="logo" class="cine" role="img" aria-label="">
@@ -302,7 +305,7 @@ const BY_FLOOR = new Map(FLOORS.map(p => [p.floor, p]));
 const TOP = Math.max(3, ...FLOORS.map(p => p.floor));
 const ROOF = TOP + 1;            // the roof garden: a stop of its own above the top floor, not a project
 const floorTag = (f) => f === 0 ? 'L' : f === ROOF ? 'R' : String(f);
-const T_TITLE = (typeof TITLE !== 'undefined' && TITLE) ? String(TITLE) : 'Air Trek';
+const T_TITLE = (typeof TITLE !== 'undefined' && TITLE) ? String(TITLE) : 'As Is';
 const T_STUDIO = (typeof STUDIO !== 'undefined' && STUDIO) ? String(STUDIO) : '';
 const floorLabel = (f) => f === 0 ? 'Lobby' : f === ROOF ? 'Roof' : 'Floor ' + f;
 
