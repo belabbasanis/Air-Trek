@@ -319,7 +319,7 @@ function scGrass(mat, depth, segs, pts) {
 function scPlantGrass() {
   const r = rng(303), room = [], out = [], dense = isTouch ? .55 : 1;
   // round the sailboat the grass is trodden down: none right by it, short a little further off, full height 2 m out
-  const boatK = (x, z) => { const dx = Math.max(0, Math.abs(x - SC_BOAT.x) - 1.1), dz = Math.max(0, Math.abs(z - SC_BOAT.z) - 2.2), d = Math.hypot(dx, dz); return d === 0 ? 0 : lerp(.3, 1, sstep(0, 2.2, d)); };
+  const boatK = (x, z) => { const [u, v] = scBoatLocal(x, z), d = Math.hypot(Math.max(0, Math.abs(u) - 2.0), Math.max(0, Math.abs(v) - .9)); return d === 0 ? 0 : lerp(.3, 1, sstep(0, 2.2, d)); };
   const blocked = (x, z) => {
     if (boatK(x, z) === 0) return true;
     if ((Math.abs(x - SC.x0 - .1) < .14 || Math.abs(x - SC.x1 + .1) < .14) && z < SC.z1 + .3) return true;
@@ -576,16 +576,23 @@ function scRubble(b) {
 }
 
 /* ---- build ---- */
-/* ---- the sailboat waiting outside the breach, bow to the sea, clear of the river: board it to ride Updraft's sea cliffs
-   (ride.js). The boat is fine-grained (139k triangles), so one invisible box answers the pointer instead of the boat itself. ---- */
-const SC_BOAT = { x: 1.5, z: 12.0, s: 3.6 };
+/* ---- the sailboat waiting just outside the breach, clear of the river: board it to ride Updraft's sea cliffs (ride.js).
+   It lies broadside to the room, bow out to sea (on your left as you look out), so its red sail shows over the grass from
+   the lift doors on (end on, it was a thin red line). The boat is fine-grained (139k triangles), so one invisible box
+   answers the pointer. ---- */
+const SC_BOAT = { x: 1.3, z: 10.7, s: 3.6, ry: -1.92, len: 1.7, wid: .45 };   // ry turns the bow (the model's -z) to +x, a little out to sea; len, wid: half footprint
+function scBoatLocal(x, z) {                          // (along the boat, bow positive; across it)
+  const B = SC_BOAT, nx = -Math.sin(B.ry), nz = -Math.cos(B.ry), dx = x - B.x, dz = z - B.z;
+  return [dx * nx + dz * nz, dz * nx - dx * nz];
+}
 function scBoat() {
-  const B = SC_BOAT, y = scGroundH(B.x, B.z) - .02;
-  SC_OBST.push([B.x - .5, B.x + .5, B.z - 1.75, B.z + 1.75]);
-  const hit = new THREE.Mesh(new THREE.BoxGeometry(1.0, 2.6, 3.5), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false }));
-  hit.position.set(B.x, y + 1.3, B.z); hit.userData.act = { type: 'ride' }; scRoom.add(hit); hot.push(hit);
+  const B = SC_BOAT, y = scGroundH(B.x, B.z) - .02, c = Math.abs(Math.sin(B.ry)), s_ = Math.abs(Math.cos(B.ry));
+  const hx = c * B.len + s_ * B.wid, hz = s_ * B.len + c * B.wid;                    // the turned footprint, boxed for walking round
+  SC_OBST.push([B.x - hx, B.x + hx, B.z - hz, B.z + hz]);
+  const hit = new THREE.Mesh(new THREE.BoxGeometry(1.0, 3.4, 3.5), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false }));
+  hit.position.set(B.x, y + 1.7, B.z); hit.rotation.y = B.ry; hit.userData.act = { type: 'ride' }; scRoom.add(hit); hot.push(hit);
   loadGLB('sailboat').then((g) => {
-    const m = g.scene; m.scale.setScalar(B.s); m.position.set(B.x, y, B.z);
+    const m = g.scene; m.scale.setScalar(B.s); m.position.set(B.x, y, B.z); m.rotation.y = B.ry;
     m.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; const mt = o.material; mt.side = THREE.DoubleSide; mt.envMapIntensity = .9; if (mt.transmission) mt.transmission = 0; if (mt.thickness) mt.thickness = 0; } });
     scRoom.add(m); SC_LIVE.boat = m;
   }).catch(e => console.warn('sailboat:', e));

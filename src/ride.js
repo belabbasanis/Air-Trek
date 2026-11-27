@@ -35,8 +35,8 @@ function endRide() {
   setTimeout(() => {
     if (RIDE.frame) { RIDE.frame.remove(); RIDE.frame = null; }
     RIDE.ready = false; RIDE.hold = false; lastT = performance.now();
-    // back on the grass beside the boat, looking past it to the sea
-    const B = SC_BOAT; P.pos.set(B.x - 1.2, 0, B.z - 1.4); P.yaw = Math.atan2(-(B.x - P.pos.x), -(B.z + .8 - P.pos.z)); P.pitch = -.06;
+    // back at the breach, the boat broadside in front of you and the sea beyond it
+    const B = SC_BOAT; P.pos.set(B.x - .8, 0, B.z - 3.3); P.yaw = Math.atan2(-(B.x - P.pos.x), -(B.z - P.pos.z)); P.pitch = .02;
     if (A.ctx && A.ctx.state === 'suspended' && SET.sound) A.ctx.resume();
     try { window.focus(); canvas.focus({ preventScroll: true }); } catch (e) { }
     setTimeout(() => { v.classList.remove('on'); RIDE.on = false; RIDE.leaving = false; }, 350);   // a beat of black, then the room
