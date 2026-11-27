@@ -32,7 +32,7 @@ const FLOORS = (() => {
     seen.add(floor);
     const room = p.room ? String(p.room) : '';   // a floor with a room of its own and no link (floor 3: the Updraft sea cliffs)
     const url = String(p.url || '#'), live = !!p.gallery || !!room || (/^https?:\/\//.test(url) && !/^https?:\/\/(www\.)?example\.com\b/.test(url));   // placeholders stay dark
-    out.push({ floor, name: String(p.name || 'Untitled'), author: String(p.author || ''), url, sticker: String(p.sticker || '★'), stickerBg: p.stickerBg ? String(p.stickerBg) : '', gallery: !!p.gallery, room, live });
+    out.push({ floor, name: String(p.name || 'Untitled'), author: String(p.author || ''), url, sticker: String(p.sticker || '★'), stickerBg: p.stickerBg ? String(p.stickerBg) : '', stickerCut: !!p.stickerCut, stickerSize: clamp(+p.stickerSize || 1, .5, 2), gallery: !!p.gallery, room, live });
   }
   return out.sort((a, b) => a.floor - b.floor);
 })();

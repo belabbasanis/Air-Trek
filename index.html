@@ -17,7 +17,9 @@
    author  shown under the name.
    url     opens in a new tab when a visitor steps out onto the landing.
    sticker an emoji or up to 3 characters, a data:image/... URI, or an image path in this site (images/...).
-   stickerBg  optional sticker background colour; gallery: true makes the floor the As Is gallery;
+   stickerBg  optional sticker background colour; stickerCut: true cuts the image itself out as the sticker, with a white
+           vinyl border (for a wide logo); stickerSize scales the sticker (1 is the usual size);
+           gallery: true makes the floor the As Is gallery;
            room: 'cliffs' makes it the Updraft sea cliffs (a room to walk in, no link).
    A floor whose url is empty or still on example.com is a placeholder: its lift button is dark, has no sticker
    and can't be chosen. Give it a real url and it lights up.
@@ -26,8 +28,8 @@
    ===================================================================== */
 const PROJECTS = [
   { floor: 1,  name: 'Paper Boats',      author: 'Your Name', url: 'https://example.com/paper-boats',    sticker: '⛵' },
-  { floor: 2,  name: 'As Is',            author: 'Gallery · 11.25.2026', url: '', sticker: 'images/as-is-logo.png', stickerBg: '#141414', gallery: true },
-  { floor: 3,  name: 'Updraft',          author: 'The sea cliffs', url: '', sticker: 'images/cliffs/sticker.webp', stickerBg: '#4a7fb8', room: 'cliffs' },
+  { floor: 2,  name: 'As Is',            author: 'Gallery · 11.25.2026', url: '', sticker: 'images/as-is-logo.png', stickerBg: '#141414', stickerSize: 1.25, gallery: true },
+  { floor: 3,  name: 'Updraft',          author: 'The sea cliffs', url: '', sticker: 'images/air-trek-logo.png', stickerCut: true, room: 'cliffs' },
   { floor: 4,  name: 'Static Choir',     author: 'Your Name', url: 'https://example.com/static-choir',   sticker: '📻' },
   { floor: 5,  name: 'Slow Clock',       author: 'Your Name', url: 'https://example.com/slow-clock',     sticker: '⏳' },
   { floor: 6,  name: 'Moth Lamp',        author: 'Your Name', url: 'https://example.com/moth-lamp',      sticker: '🦋' },
@@ -255,7 +257,7 @@ const FLOORS = (() => {
     seen.add(floor);
     const room = p.room ? String(p.room) : '';   // a floor with a room of its own and no link (floor 3: the Updraft sea cliffs)
     const url = String(p.url || '#'), live = !!p.gallery || !!room || (/^https?:\/\//.test(url) && !/^https?:\/\/(www\.)?example\.com\b/.test(url));   // placeholders stay dark
-    out.push({ floor, name: String(p.name || 'Untitled'), author: String(p.author || ''), url, sticker: String(p.sticker || '★'), stickerBg: p.stickerBg ? String(p.stickerBg) : '', gallery: !!p.gallery, room, live });
+    out.push({ floor, name: String(p.name || 'Untitled'), author: String(p.author || ''), url, sticker: String(p.sticker || '★'), stickerBg: p.stickerBg ? String(p.stickerBg) : '', stickerCut: !!p.stickerCut, stickerSize: clamp(+p.stickerSize || 1, .5, 2), gallery: !!p.gallery, room, live });
   }
   return out.sort((a, b) => a.floor - b.floor);
 })();
@@ -1221,6 +1223,21 @@ function drawSticker(c, cx, cy, size, p) {
     c.fillStyle = '#e9e2d0'; c.fill(); c.strokeStyle = 'rgba(0,0,0,.2)'; c.lineWidth = 1; c.stroke(); }
   c.restore();
 }
+// a die-cut sticker: the artwork itself cut out, with a white vinyl border and a soft shadow (for a logo too wide for the round ones)
+function cutSticker(im, W, seed) {
+  const r = rng(seed), b = Math.round(W * .02), m = b + Math.round(W * .022), iw = W - 2 * m, ih = Math.round(iw * im.height / im.width), H = ih + 2 * m;
+  const [c, x] = cv(W, H), [sc, sx] = cv(W, H), [bc, bx] = cv(W, H);
+  sx.drawImage(im, m, m, iw, ih); sx.globalCompositeOperation = 'source-in'; sx.fillStyle = '#f4f0e6'; sx.fillRect(0, 0, W, H);   // the artwork's silhouette in vinyl white
+  for (let i = 0; i < 28; i++) { const a = i / 28 * Math.PI * 2; bx.drawImage(sc, Math.cos(a) * b, Math.sin(a) * b); } bx.drawImage(sc, 0, 0);   // grown by the border's width
+  x.save(); x.shadowColor = 'rgba(0,0,0,.26)'; x.shadowBlur = W * .01; x.shadowOffsetY = W * .004; x.drawImage(bc, 0, 0); x.restore();
+  x.drawImage(im, m, m, iw, ih);
+  x.globalCompositeOperation = 'source-atop';                                         // gloss, scuffs and grime only on the vinyl
+  const gl = x.createLinearGradient(0, 0, W, H); gl.addColorStop(.3, 'rgba(255,255,255,0)'); gl.addColorStop(.46, 'rgba(255,255,255,.2)'); gl.addColorStop(.62, 'rgba(255,255,255,0)'); x.fillStyle = gl; x.fillRect(0, 0, W, H);
+  for (let i = 0; i < 18; i++) { x.strokeStyle = `rgba(255,255,255,${.1 + r() * .25})`; x.lineWidth = .5 + r(); x.beginPath(); const px = r() * W, py = r() * H, a = r() * 6.28, l = W * (.02 + r() * .07); x.moveTo(px, py); x.lineTo(px + Math.cos(a) * l, py + Math.sin(a) * l); x.stroke(); }
+  for (let i = 0; i < 24; i++) { x.fillStyle = `rgba(70,50,25,${r() * .12})`; x.beginPath(); x.arc(r() * W, r() * H, 1 + r() * W * .018, 0, 6.283); x.fill(); }
+  x.globalCompositeOperation = 'source-over';
+  return c;
+}
 function shade(hex, k) { const n = parseInt(hex.slice(1), 16); let r = n >> 16, g = n >> 8 & 255, b = n & 255; const f = (x) => clamp(Math.round(x * (1 + k)), 0, 255); return `rgb(${f(r)},${f(g)},${f(b)})`; }
 function lum(hex) { const n = parseInt(hex.slice(1), 16); return ((n >> 16) * .299 + (n >> 8 & 255) * .587 + (n & 255) * .114) / 255; }
 function stickerAtlas() {
@@ -2048,10 +2065,13 @@ function buildCab() {
     const live = f === 0 || f === ROOF || !!BY_FLOOR.get(f)?.live;
     makeButton(cab, lab, new V3(x, y, PZ + .02), rot, { type: 'floor', floor: f }, !live);
     if (f > 0 && f !== ROOF && live) {
-      const k = FLOORS.findIndex(p => p.floor === f), cell = TEX.stk.cell(k), t = TEX.stk.tex.clone(); t.repeat.set(cell.s, cell.s); t.offset.set(cell.x, cell.y); t.needsUpdate = true;
-      const s = new THREE.Mesh(new THREE.PlaneGeometry(.05, .05), new THREE.MeshStandardMaterial({ map: t, transparent: true, roughness: .42, metalness: 0, envMapIntensity: .8, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
-      const sxo = c % 2 ? .05 : -.05;
-      s.position.set(x + sxo, y + (rng(f)() - .5) * .01, PZ + .0218); s.rotation.z = (rng(f * 7)() - .5) * .3; s.receiveShadow = true; cab.add(s);
+      const p = BY_FLOOR.get(f), im = stickerImgs.get(f), cut = p.stickerCut && im ? cutSticker(im, 512, hashStr(p.name)) : null;
+      let t, w, h;
+      if (cut) { t = ctex(cut); w = .08 * p.stickerSize; h = w * cut.height / cut.width; }               // a die-cut logo, as wide as the gap beside the button allows
+      else { const k = FLOORS.findIndex(q => q.floor === f), cell = TEX.stk.cell(k); t = TEX.stk.tex.clone(); t.repeat.set(cell.s, cell.s); t.offset.set(cell.x, cell.y); t.needsUpdate = true; w = h = .05 * p.stickerSize; }
+      const s = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: t, transparent: true, roughness: .42, metalness: 0, envMapIntensity: .8, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+      const sxo = (c % 2 ? 1 : -1) * (w > .0625 ? .03 + w / 2 : .025 + w / 2);          // beside the button, clear of its bezel
+      s.position.set(x + sxo, y + (rng(f)() - .5) * .01, PZ + .0218); s.rotation.z = (rng(f * 7)() - .5) * (cut ? .12 : .3); s.receiveShadow = true; cab.add(s);
       s.userData.act = { type: 'floor', floor: f }; hot.push(s);
     } else if (f === ROOF) {
       // the Sleeping Forest sticker, stuck beside the R button (images/sleeping-forest.png, white background cut away); it presses R too
