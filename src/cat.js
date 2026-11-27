@@ -1,87 +1,52 @@
 /* ======================================================================
-   THE GALLERY CAT: a black cat with the big orange eyes of the drawing (images supplied with the request),
-   roaming the As Is gallery. It walks from spot to spot round the pieces, stops to look about, now and then
-   sits down and licks a paw. When you come close it stops and stares; too close and it wanders off.
-   Built from simple shapes, matte black with a faint warm rim; the face is a painted patch on the head that
-   changes with what the cat is doing (ring eyes, wide eyes, side glances, a blep, eyes shut while licking).
-   Cat space: +z is where it faces, y = 0 the floor.
+   THE GALLERY CAT: a black cat with big yellow eyes, roaming the As Is gallery. The model is models/cat.glb, made from the
+   reference views supplied with the request: rigged, with Idle, Walk, Run, Sit, Paw_Lick and Tail_Wag clips (its bone
+   rotations were exported as int16 data labelled float; the file in the repo is the repaired, slimmed copy).
+   It walks from spot to spot round the pieces, stops to look about, now and then sits down and licks a paw. When you
+   come close it stops and stares, tail swishing; too close and it trots off.
+   Cat space: +z is where it faces, y = 0 the floor. The model already faces +z; it is scaled to a real cat's size.
    ====================================================================== */
-const CAT = { g: null, st: 'stop', t: 0, dur: 1.5, x: 1.3, z: 2.9, yaw: 2.4, goal: null, flee: false, v: 0, ph: 0, sit: 0, groom: 0, face: 0, faceHold: 0, blinkT: 2.5, headYaw: 0, headPitch: 0, lick: 0, wipe: 0, parts: null };
-const CAT_FACES = { ring: 0, wide: 1, disc: 2, side: 3, blep: 4, lick: 5, blink: 6, small: 7 };
+const CAT = { g: null, model: null, mixer: null, act: null, w: null, bones: null, st: 'stop', prevSt: '', t: 0, dur: 1.5, x: 1.3, z: 2.9, yaw: 2.4, goal: null, flee: false, v: 0, sitK: 0, headYaw: 0, headPitch: 0 };
+const CAT_SCALE = .44, CAT_WALK = .16, CAT_RUN = .42;   // ears about 42 cm up; the walk clip's stride suits a saunter, the run a trot
 
-/* ---- the faces, drawn after the drawing: orange (#f29c1b), black pupils, a red tongue ---- */
-function catFaceAtlas() {
-  const [c, x] = cv(1024, 512), O = '#f4a020', Od = '#d9781a', R = '#c9262c';
-  x.fillStyle = '#060606'; x.fillRect(0, 0, 1024, 512);
-  const cell = (k, draw) => { x.save(); x.translate((k % 4) * 256, Math.floor(k / 4) * 256); draw(); x.restore(); };
-  const ring = (cx, cy, r, w) => { x.strokeStyle = O; x.lineWidth = w; x.beginPath(); x.arc(cx, cy, r, 0, 6.283); x.stroke(); };
-  const disc = (cx, cy, rx, ry, col = O) => { x.fillStyle = col; x.beginPath(); x.ellipse(cx, cy, rx, ry, 0, 0, 6.283); x.fill(); };
-  const E = 64, Y = 112;                                                    // eye spacing either side of the middle, eye height
-  cell(0, () => { for (const s of [-1, 1]) ring(128 + s * E, Y, 34, 10); });                                       // ring eyes, wide open
-  cell(1, () => { for (const s of [-1, 1]) { disc(128 + s * E, Y, 38, 48); disc(128 + s * E - s * 6, Y + 6, 10, 12, '#060606'); } disc(128, 196, 9, 6, R); });   // big ovals, small pupils, a little mouth
-  cell(2, () => { for (const s of [-1, 1]) { disc(128 + s * E, Y, 32, 32); disc(128 + s * E, Y + 2, 13, 15, '#060606'); } });   // solid orange, round pupils
-  cell(3, () => { for (const s of [-1, 1]) { ring(128 + s * E, Y, 30, 8); disc(128 + s * E + 15, Y + 4, 11, 13, O); } });       // a side glance: the pupils slid over
-  cell(4, () => { for (const s of [-1, 1]) ring(128 + s * E, Y, 34, 10); x.fillStyle = R; x.beginPath(); x.ellipse(132, 192, 15, 20, .2, 0, 3.4); x.fill(); });   // the blep
-  cell(5, () => { x.strokeStyle = O; x.lineWidth = 9; x.lineCap = 'round'; for (const s of [-1, 1]) { x.beginPath(); x.arc(128 + s * E, Y + 18, 26, 3.6, 5.8); x.stroke(); }   // eyes shut (happy arcs), tongue out
-    x.fillStyle = R; x.beginPath(); x.ellipse(128, 194, 17, 26, 0, 0, 3.15); x.fill(); x.fillStyle = Od; x.fillRect(126, 186, 4, 18); });
-  cell(6, () => { x.strokeStyle = O; x.lineWidth = 8; x.lineCap = 'round'; for (const s of [-1, 1]) { x.beginPath(); x.moveTo(128 + s * E - 30, Y + 4); x.lineTo(128 + s * E + 30, Y + 4); x.stroke(); } });   // a blink
-  cell(7, () => { for (const s of [-1, 1]) ring(128 + s * 54, Y, 22, 7); });                                       // small owl rings
-  const t = ctex(c); t.repeat.set(.25, .5); t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; return t;
-}
-
-/* ---- the body: a hip pivot carries the torso, the front legs, the neck and head and the tail; the hind legs hinge at the hip.
-   Proportions after a real cat: the front legs are long but their upper half sits inside the chest, the neck is short. ---- */
-const CAT_DIM = { hipY: .2, sitHipY: .062, sitPitch: .95, foreUp: .1, foreLow: .125, hindUp: .1, hindLow: .1 };
+/* ---- the model: loaded when the gallery is built; the clips are mixed by what the cat is doing ---- */
 function buildCat() {
-  const root = new THREE.Group(), mat = new THREE.MeshStandardMaterial({ color: 0x060606, roughness: .6, metalness: 0, envMapIntensity: .25 });
-  mat.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <opaque_fragment>', 'float rimF = pow(1. - abs(dot(normalize(normal), normalize(vViewPosition))), 3.);\noutgoingLight += vec3(.07, .055, .04)*rimF;\n#include <opaque_fragment>'); };
-  mat.customProgramCacheKey = () => 'catBody';
-  const ball = (r, sx, sy, sz, x, y, z, parent) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 22, 16), mat); m.scale.set(sx, sy, sz); m.position.set(x, y, z); m.castShadow = true; parent.add(m); return m; };
-  const capsule = (r, len, parent) => { const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 4, 12).translate(0, -len / 2, 0), mat); m.castShadow = true; parent.add(m); return m; };
-  const D_ = CAT_DIM, hip = new THREE.Group(); hip.position.set(0, D_.hipY, -.12); root.add(hip);
-  const torso = new THREE.Group(); hip.add(torso);
-  ball(1, .1, .112, .185, 0, .01, .13, torso);                      // torso
-  ball(.092, 1, .98, 1.1, 0, -.004, .03, torso);                    // haunches, inside the torso's curve
-  ball(.088, 1, 1.05, 1, 0, .004, .24, torso);                      // chest
-  // a leg: upper and lower segments, a soft paw; the hind legs get a thigh
-  const leg = (parent, x, y, z, up, low, r, thigh) => { const s = new THREE.Group(); s.position.set(x, y, z); parent.add(s); capsule(r, up, s); if (thigh) ball(thigh, .72, 1.3, 1.05, 0, -up * .4, .006, s);
-    const k = new THREE.Group(); k.position.y = -up; s.add(k); capsule(r * .9, low, k); ball(r * 1.12, 1, .68, 1.3, 0, -low - .006, .008, k); return { s, k, up, low }; };
-  const LF = leg(hip, .046, .03, .255, D_.foreUp, D_.foreLow, .026), RF = leg(hip, -.046, .03, .255, D_.foreUp, D_.foreLow, .026);
-  const LH = leg(root, .058, D_.hipY, -.115, D_.hindUp, D_.hindLow, .027, .056), RH = leg(root, -.058, D_.hipY, -.115, D_.hindUp, D_.hindLow, .027, .056);
-  // neck and head, close to the body
-  const neck = new THREE.Group(); neck.position.set(0, .055, .285); hip.add(neck);
-  ball(.062, 1, 1.2, 1.05, 0, .03, .03, neck);
-  const head = new THREE.Group(); head.position.set(0, .066, .06); neck.add(head);
-  const skull = ball(.08, 1, .9, .92, 0, 0, 0, head);
-  for (const s of [-1, 1]) { const ear = new THREE.Mesh(new THREE.ConeGeometry(.036, .078, 4), mat); ear.position.set(s * .048, .064, -.008); ear.rotation.set(-.14, s * .78, s * -.4); ear.castShadow = true; head.add(ear); }
-  // the face: a patch of sphere just proud of the skull, carrying the painted eyes
-  const faceTex = catFaceAtlas(), faceM = new THREE.MeshStandardMaterial({ map: faceTex, emissiveMap: faceTex, emissive: 0xffffff, emissiveIntensity: .85, roughness: .5, metalness: 0 });
-  const face = new THREE.Mesh(new THREE.SphereGeometry(.0814, 24, 12, Math.PI / 2 - .95, 1.9, .82, 1.15), faceM); face.scale.set(1, .9, .92); head.add(face);
-  const mouth = new THREE.Object3D(); mouth.position.set(0, -.03, .075); head.add(mouth);           // where the paw goes to be licked
-  const cheek = new THREE.Object3D(); cheek.position.set(-.045, .025, .05); head.add(cheek);         // ...and where it wipes
-  // the tail: a chain of short links from the top of the haunches
-  const tail = []; let prev = new THREE.Group(); prev.position.set(0, .05, -.065); hip.add(prev);
-  for (let i = 0; i < 11; i++) { const j = new THREE.Group(); if (i) j.position.z = -.03; prev.add(j); const m = new THREE.Mesh(new THREE.CapsuleGeometry(.017 - i * .0008, .022, 3, 8).rotateX(Math.PI / 2).translate(0, 0, -.015), mat); m.castShadow = true; j.add(m); tail.push(j); prev = j; }
-  root.traverse(o => { if (o.isMesh) o.receiveShadow = true; });
+  const root = new THREE.Group(); gallery.add(root); CAT.g = root;
   // a soft contact shadow (the gallery has no sun to cast one)
   const [bc, bx] = cv(128, 128), gr = bx.createRadialGradient(64, 64, 4, 64, 64, 62); gr.addColorStop(0, 'rgba(0,0,0,.62)'); gr.addColorStop(.55, 'rgba(0,0,0,.3)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); bx.fillStyle = gr; bx.fillRect(0, 0, 128, 128);
   const blob = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), scBlend(new THREE.MeshBasicMaterial({ map: ctex(bc), color: 0xffffff })));
   blob.position.y = .004; blob.renderOrder = 3; gallery.add(blob); CAT.blob = blob;
-  root.scale.setScalar(1.05);
-  CAT.g = root; CAT.parts = { hip, torso, neck, head, LF, RF, LH, RH, tail, faceTex, skull, mouth, cheek };
   CAT.goal = null; CAT.st = 'stop'; CAT.t = 0;
-  gallery.add(root);
+  // models/cat.json is the same model as one JSON file, for hosts that will not serve .glb (the claude.ai preview)
+  import('three/addons/loaders/GLTFLoader.js').then(({ GLTFLoader }) => { const L = new GLTFLoader(); return L.loadAsync('models/cat.glb').catch(() => L.loadAsync('models/cat.json')); }).then((gl) => {
+    const model = gl.scene; model.scale.setScalar(CAT_SCALE); model.position.x = .105 * CAT_SCALE;   // the rig stands a little off its own centre line
+    model.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; o.frustumCulled = false; catMaterial(o.material); } });
+    root.add(model); CAT.model = model;
+    const mixer = new THREE.AnimationMixer(model), clip = (n) => gl.animations.find(c => c.name === n);
+    const act = { idle: 'Idle', walk: 'Walk', run: 'Run', wag: 'Tail_Wag', sit: 'Sit', lick: 'Paw_Lick' };
+    for (const k in act) act[k] = mixer.clipAction(clip(act[k]));
+    for (const k of ['sit', 'lick']) { act[k].setLoop(THREE.LoopOnce, 1); act[k].clampWhenFinished = true; }   // both sit down, then hold (the lick holds the paw up)
+    for (const k in act) { act[k].play(); act[k].setEffectiveWeight(k === 'idle' ? 1 : 0); }
+    CAT.mixer = mixer; CAT.act = act; CAT.w = { idle: 1, walk: 0, run: 0, wag: 0, sit: 0, lick: 0 };
+    CAT.bones = { neck: model.getObjectByName('Neck'), head: model.getObjectByName('Head'), paw: model.getObjectByName('FrontR_Lower') };
+  }).catch(e => console.warn('cat model:', e));
 }
-// two-bone reach in a leg's plane (its parent's y-z), for the paw going to the mouth: sets the shoulder and elbow angles
-const _cT = new V3(), _cS = new V3();
-function catReach(L, target, gain) {
-  L.s.parent.updateMatrixWorld(); _cT.copy(target); L.s.parent.worldToLocal(_cT); _cS.copy(L.s.position);
-  const sc = L.s.scale.y, a = L.up * sc, b = (L.low + .012) * sc;
-  let dy = _cT.y - _cS.y, dz = _cT.z - _cS.z, d = Math.hypot(dy, dz); const m = Math.min(d, a + b - .002); dy *= m / d; dz *= m / d; d = m;
-  const th = Math.atan2(-dz, -dy), al = Math.acos(clamp((a * a + d * d - b * b) / (2 * a * d), -1, 1));
-  const up = th - al, ey = -Math.cos(up) * a, ez = -Math.sin(up) * a, low = Math.atan2(-(dz - ez), -(dy - ey)) - up;   // elbow down and forward of the line
-  L.s.rotation.x = lerp(L.s.rotation.x, up, gain); L.k.rotation.x = lerp(L.k.rotation.x, low, gain);
+// the yellow of the eyes catches the light (an emissive mask cut from the colour map), and a faint warm rim keeps the black
+// shape readable in the dim room
+function catMaterial(m) {
+  if (m.map && m.map.image) {
+    const N = 512, [c, x] = cv(N, N); x.drawImage(m.map.image, 0, 0, N, N); const d = x.getImageData(0, 0, N, N), q = d.data;
+    for (let i = 0; i < q.length; i += 4) { const r = q[i], g = q[i + 1], b = q[i + 2]; if (!(r > 140 && g > 90 && b < 100 && r - b > 90)) q[i] = q[i + 1] = q[i + 2] = 0; }
+    x.putImageData(d, 0, 0); const t = new THREE.CanvasTexture(c); t.flipY = false; t.colorSpace = THREE.SRGBColorSpace;
+    m.emissive = new THREE.Color(1, 1, 1); m.emissiveMap = t; m.emissiveIntensity = .55;
+  }
+  m.envMapIntensity = .35;
+  m.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <opaque_fragment>', 'float rimF = pow(1. - abs(dot(normalize(normal), normalize(vViewPosition))), 3.);\noutgoingLight += vec3(.07, .055, .04)*rimF;\n#include <opaque_fragment>'); };
+  m.customProgramCacheKey = () => 'catGlb'; m.needsUpdate = true;
 }
+// turn a bone about a world axis, on top of what the clip set this frame: L' = P^-1 R P L
+const _cq = new THREE.Quaternion(), _cp = new THREE.Quaternion(), _cUp = new V3(0, 1, 0), _cSide = new V3();
+function catTurn(b, axis, ang) { if (!b || Math.abs(ang) < 1e-4) return; b.parent.getWorldQuaternion(_cp); _cq.setFromAxisAngle(axis, ang); b.quaternion.premultiply(_cp.clone().invert().multiply(_cq).multiply(_cp)); }
 
 /* ---- where it can go: the gallery floor, clear of the pieces (and not in the lift doorway) ---- */
 function catBlocked(x, z, m) {
@@ -98,12 +63,10 @@ function catPickGoal(awayX, awayZ) {
   }
   return null;
 }
-function catSetFace(k, hold = 0) { CAT.face = k; CAT.faceHold = hold; const t = CAT.parts.faceTex; t.offset.set((k % 4) * .25, k < 4 ? .5 : 0); }
-
-/* ---- the frame: behaviour, then the pose ---- */
+/* ---- the frame: behaviour, then the clips ---- */
 function catTick(dt, time) {
   if (!CAT.g) return;
-  const P_ = CAT.parts, playerHere = galleryHere() && !P.inCab, pd = playerHere ? Math.hypot(P.pos.x - CAT.x, P.pos.z - CAT.z) : 99;
+  const playerHere = galleryHere() && !P.inCab, pd = playerHere ? Math.hypot(P.pos.x - CAT.x, P.pos.z - CAT.z) : 99;
   CAT.t += dt;
   // behaviour
   const toward = (gx, gz) => Math.atan2(gx - CAT.x, gz - CAT.z);
@@ -113,8 +76,8 @@ function catTick(dt, time) {
     if (!CAT.goal) { CAT.goal = catPickGoal(); CAT.flee = false; }
     if (!CAT.goal) { CAT.st = 'stop'; CAT.t = 0; CAT.dur = 1.5; }
     else {
-      const dx = CAT.goal.x - CAT.x, dz = CAT.goal.z - CAT.z, d = Math.hypot(dx, dz), off = turn(toward(CAT.goal.x, CAT.goal.z), 2.6);
-      speed = .26 * clamp(1.4 - off, .15, 1) * clamp(d / .3, .35, 1);
+      const dx = CAT.goal.x - CAT.x, dz = CAT.goal.z - CAT.z, d = Math.hypot(dx, dz), off = turn(toward(CAT.goal.x, CAT.goal.z), CAT.flee ? 3.4 : 2.6);
+      speed = (CAT.flee ? CAT_RUN : CAT_WALK) * clamp(1.4 - off, .15, 1) * clamp(d / .3, .35, 1);
       if (d < .12) { CAT.goal = null; CAT.flee = false; CAT.t = 0; const r = Math.random(); if (r < .5) { CAT.st = 'sit'; } else { CAT.st = 'stop'; CAT.dur = 1.5 + Math.random() * 3.5; } }
       if (pd < 1.0 && CAT.st === 'walk' && !CAT.flee) { CAT.st = 'stare'; CAT.t = 0; CAT.dur = 1.5 + Math.random() * 2; }   // walking off from you, it does not stop to stare again
     }
@@ -126,58 +89,40 @@ function catTick(dt, time) {
     if (pd < .55 || (CAT.t > CAT.dur && pd < 1.4)) { CAT.goal = catPickGoal(P.pos.x, P.pos.z); CAT.flee = !!CAT.goal; CAT.st = CAT.goal ? 'walk' : 'stop'; CAT.t = 0; CAT.dur = 1; }
     else if (CAT.t > CAT.dur) { CAT.st = 'stop'; CAT.t = 0; CAT.dur = .8; }
   } else if (CAT.st === 'sit') {
-    if (CAT.sit > .98) { CAT.st = 'groom'; CAT.t = 0; CAT.dur = 6 + Math.random() * 8; }
+    if (CAT.t > .9) { CAT.st = 'groom'; CAT.t = 0; CAT.dur = 6 + Math.random() * 8; }   // the sit clip is down by .75 s
   } else if (CAT.st === 'groom') {
     if (CAT.t > CAT.dur || pd < .6) { CAT.st = 'rise'; CAT.t = 0; }
   } else if (CAT.st === 'rise') {
-    if (CAT.sit < .02) { CAT.st = pd < 1.0 ? 'stare' : 'stop'; CAT.t = 0; CAT.dur = .8 + Math.random() * 1.2; }
+    if (CAT.t > .7) { CAT.st = pd < 1.0 ? 'stare' : 'stop'; CAT.t = 0; CAT.dur = .8 + Math.random() * 1.2; }
   }
   CAT.v = damp(CAT.v, speed, 6, dt);
   CAT.x += Math.sin(CAT.yaw) * CAT.v * dt; CAT.z += Math.cos(CAT.yaw) * CAT.v * dt;
-  CAT.ph = (CAT.ph + CAT.v * dt / .26) % 1;                          // one full gait cycle every 26 cm
-  const sitting = CAT.st === 'sit' || CAT.st === 'groom';
-  CAT.sit = clamp(CAT.sit + (sitting ? dt / .7 : -dt / .55), 0, 1);
-  CAT.groom = damp(CAT.groom, CAT.st === 'groom' ? 1 : 0, 5, dt);
-  // the face
-  CAT.blinkT -= dt; if (CAT.faceHold > 0) CAT.faceHold -= dt;
-  const lickOn = CAT.st === 'groom' && (CAT.t % 2.4) < 1.6;
-  if (CAT.st === 'groom') catSetFace(lickOn ? CAT_FACES.lick : (CAT.t % 2.4) < 2.0 ? CAT_FACES.blep : CAT_FACES.small);
-  else if (CAT.faceHold <= 0) {
-    if (CAT.blinkT <= 0) { CAT.blinkT = 2.5 + Math.random() * 4; catSetFace(CAT_FACES.blink, .13); }
-    else catSetFace(CAT.st === 'stare' ? CAT_FACES.wide : CAT.st === 'stop' ? ((CAT.t % 5) < 2.5 ? CAT_FACES.side : CAT_FACES.disc) : CAT_FACES.ring);
-  }
-  // the pose
-  const g = CAT.g, s = sstep(0, 1, CAT.sit), w = clamp(CAT.v / .3, 0, 1), ph = CAT.ph * 6.283;
+  const g = CAT.g, seated = CAT.st === 'sit' || CAT.st === 'groom';
+  CAT.sitK = damp(CAT.sitK, seated ? 1 : 0, 4, dt);
   g.position.set(CAT.x, 0, CAT.z); g.rotation.y = CAT.yaw;
-  if (CAT.blob) { CAT.blob.position.x = CAT.x - Math.sin(CAT.yaw) * .04 * s; CAT.blob.position.z = CAT.z - Math.cos(CAT.yaw) * .04 * s; CAT.blob.rotation.y = CAT.yaw; CAT.blob.scale.set(lerp(.3, .34, s), 1, lerp(.62, .42, s)); }
-  const D_ = CAT_DIM, pitch = D_.sitPitch * s;
-  P_.hip.position.y = lerp(D_.hipY + .006 * Math.sin(ph * 2) * w, D_.sitHipY, s); P_.hip.rotation.x = -pitch;
-  P_.torso.scale.z = 1 - .12 * s;                                      // a sitting cat is a compact shape
-  P_.LH.s.position.y = P_.RH.s.position.y = P_.hip.position.y;
-  // legs: a lateral-sequence walk (left hind, left fore, right hind, right fore); sitting, the haunches fold and the forelegs stand straight
-  const step = (L, off, fore) => { const p = ph + off * 6.283, sw = Math.sin(p), lift = Math.max(0, Math.sin(p + .9));
-    const up = sw * .4 * w, low = (fore ? .6 : -.75) * lift * w;
-    if (fore) { L.s.rotation.set(up * (1 - s) + pitch, 0, 0); L.k.rotation.x = low * (1 - s); L.s.scale.y = 1 + .24 * s; }
-    else { L.s.rotation.x = lerp(up, -1.3, s); L.k.rotation.x = lerp(low, 2.45, s); } };
-  step(P_.LH, 0, false); step(P_.LF, .25, true); step(P_.RH, .5, false); step(P_.RF, .75, true);
-  // grooming: the right fore paw comes up to the mouth and the head bows to it to lick; now and then it wipes over the face
-  CAT.wipe = CAT.st === 'groom' && (CAT.t % 7.2) > 5.6 ? damp(CAT.wipe, 1, 5, dt) : damp(CAT.wipe, 0, 5, dt);
-  const gr = CAT.groom, lk = lickOn ? Math.sin(CAT.t * 15) : 0;
-  // the head: level while the body pitches, looks about, at you when you are close, down to the paw when grooming
+  if (CAT.blob) { const s = CAT.sitK; CAT.blob.position.x = CAT.x - Math.sin(CAT.yaw) * .04 * s; CAT.blob.position.z = CAT.z - Math.cos(CAT.yaw) * .04 * s; CAT.blob.rotation.y = CAT.yaw; CAT.blob.scale.set(lerp(.26, .3, s), 1, lerp(.5, .36, s)); }
+  if (!CAT.mixer) return;                                            // the model is still on its way
+  // the clips: each state has one, crossfaded; sitting and the lick start from the top when the state begins
+  const A_ = CAT.act;
+  if (CAT.st !== CAT.prevSt) { if (CAT.st === 'sit') A_.sit.reset().play(); if (CAT.st === 'groom') { A_.lick.reset().play(); A_.lick.time = 1.0; } CAT.prevSt = CAT.st; }
+  const W = { idle: 0, walk: 0, run: 0, wag: 0, sit: 0, lick: 0 }, moving = clamp(CAT.v / .05, 0, 1);
+  if (CAT.st === 'walk') { W[CAT.flee ? 'run' : 'walk'] = moving; W.idle = 1 - moving; }
+  else if (CAT.st === 'stare') W.wag = 1;
+  else if (CAT.st === 'sit') W.sit = 1;
+  else if (CAT.st === 'groom') W.lick = 1;
+  else W.idle = 1;                                                   // stopped, or getting up
+  for (const k in W) { CAT.w[k] = damp(CAT.w[k], W[k], 5, dt); A_[k].setEffectiveWeight(CAT.w[k]); }
+  A_.walk.timeScale = clamp(CAT.v / .12, .35, 1.6); A_.run.timeScale = clamp(CAT.v / .26, .5, 1.8);
+  CAT.mixer.update(dt);
+  // on top of the clips: the head looks about, and at you when you are close; grooming, it nods to the paw in little licks
+  // (the clip only raises the paw and holds it there)
   let hy = 0, hp = 0;
-  if (CAT.st === 'stare' && playerHere) { const a = Math.atan2(P.pos.x - CAT.x, P.pos.z - CAT.z) - CAT.yaw; hy = clamp(Math.atan2(Math.sin(a), Math.cos(a)), -.9, .9); hp = -.25; }
-  else if (CAT.st === 'stop' || CAT.st === 'sit') { hy = Math.sin(time * .7 + 1.3) * .6; hp = Math.sin(time * .5) * .12; }
-  else hy = Math.sin(time * 1.3) * .08;
-  hy = lerp(hy, -.22 - .25 * CAT.wipe, gr); hp = lerp(hp, .42 + .07 * lk - .25 * CAT.wipe, gr);
-  CAT.headYaw = damp(CAT.headYaw, hy, 5, dt); CAT.headPitch = damp(CAT.headPitch, hp, 6, dt);
-  P_.neck.rotation.x = pitch * .9 + .05 * Math.sin(ph * 2) * w - .1 * gr;
-  P_.head.rotation.set(CAT.headPitch, CAT.headYaw, -CAT.headYaw * .15 - .12 * gr);
-  if (gr > .01) { CAT.g.updateMatrixWorld(true); const tgt = new V3().lerpVectors(P_.mouth.getWorldPosition(new V3()), P_.cheek.getWorldPosition(new V3()), CAT.wipe); catReach(P_.RF, tgt, gr); P_.RF.s.rotation.y = .3 * gr; }
-  // the tail: up in a question mark when walking, swaying; curled round the paws when sitting
-  P_.tail.forEach((j, i) => {
-    const k = i / (P_.tail.length - 1);
-    const upX = i === 0 ? 1.05 : .06 + .14 * k + .04 * Math.sin(time * 2.1 - i * .5), upY = .1 * Math.sin(time * 1.6 - i * .4) * (.5 + k);
-    const sitX = i === 0 ? -(Math.PI / 2 - CAT_DIM.sitPitch) : i < 3 ? .68 : 0, sitY = i < 3 ? 0 : .3 + .04 * Math.sin(time * .9 + i) * k;
-    j.rotation.x = lerp(upX, sitX, s); j.rotation.y = lerp(upY, sitY, s);
-  });
+  if (CAT.st === 'stare' && playerHere) { const a = Math.atan2(P.pos.x - CAT.x, P.pos.z - CAT.z) - CAT.yaw; hy = clamp(Math.atan2(Math.sin(a), Math.cos(a)), -1, 1); hp = -.3; }
+  else if (CAT.st === 'stop' || CAT.st === 'sit') { hy = Math.sin(time * .7 + 1.3) * .55; hp = Math.sin(time * .5) * .1; }
+  CAT.headYaw = damp(CAT.headYaw, hy, 5, dt); CAT.headPitch = damp(CAT.headPitch, hp, 5, dt);
+  const lickOn = CAT.st === 'groom' && CAT.t > .8 && (CAT.t % 2.6) < 1.8, lk = lickOn ? .08 + .06 * Math.sin(CAT.t * 18) : 0;
+  const B = CAT.bones; CAT.model.updateMatrixWorld(true); _cSide.set(Math.cos(CAT.yaw), 0, -Math.sin(CAT.yaw));
+  catTurn(B.neck, _cUp, CAT.headYaw * .45); B.neck.updateMatrixWorld(true);
+  catTurn(B.head, _cUp, CAT.headYaw * .55); catTurn(B.head, _cSide, CAT.headPitch + lk);
+  if (lickOn) catTurn(B.paw, _cSide, -.1 * Math.sin(CAT.t * 18));
 }
