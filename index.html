@@ -12,6 +12,16 @@
 <link rel="icon" type="image/png" sizes="32x32" href="images/favicon-32.png">
 <link rel="icon" type="image/png" sizes="192x192" href="images/favicon-192.png">
 <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+<!-- Vercel Web Analytics (page views): Vercel serves the script at /_vercel/insights/ on its own deployments, so it is only
+     loaded there, not on GitHub Pages, a local copy or the claude.ai preview. Web Analytics must be on in the Vercel project. -->
+<script>
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  (function () {
+    var h = location.hostname;
+    if (location.protocol === 'file:' || !h || h === 'localhost' || /^127\./.test(h) || /(^|\.)github\.io$/.test(h) || /claude/.test(h)) return;
+    var s = document.createElement('script'); s.defer = true; s.src = '/_vercel/insights/script.js'; document.head.appendChild(s);
+  })();
+</script>
 <script>
 /* =====================================================================
    PROJECTS: one entry per floor. Add people here and nothing else needs to change.

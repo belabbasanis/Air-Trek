@@ -25,6 +25,10 @@ The entries in the repo are placeholders.
 - `src/ride.js` and `updraft/index.html`: the sailboat ride. Clicking the boat opens Updraft's sea-cliffs course over the building (a page of its own, fetched only when you board); riding through the torii at the end, or Back to the building in its pause panel, brings you back beside the boat.
 - `src/js3.js`: audio, lift logic, controls, intro sequence and the frame loop.
 
+## Analytics
+
+Vercel Web Analytics counts page views on the Vercel deployments: `src/head.html` loads Vercel's `/_vercel/insights/script.js` when the page is served from Vercel (not on GitHub Pages, a local copy or the claude.ai preview). Web Analytics has to be turned on in the Vercel project; visits show under its Analytics tab.
+
 ## Generating 3D assets with Tripo
 
 Claude Code sessions on this repo can generate models with [Tripo](https://developers.tripo3d.ai/en/mcp):
