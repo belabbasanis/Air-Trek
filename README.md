@@ -33,3 +33,5 @@ Claude Code sessions on this repo can generate models with [Tripo](https://devel
 - On your own machine, run `npm i -g tripo-cli` and `tripo login` instead.
 
 Generating uses Tripo API credits.
+
+To slim a model for the web, `python3 tools/slim-glb.py input.glb output.glb` shrinks its textures (1024 px by default, `--max` to change) and re-encodes them, and repairs Tripo rigs whose bone rotations were exported as int16 labelled float. It needs Python 3 with Pillow and numpy (`pip3 install pillow numpy`).
