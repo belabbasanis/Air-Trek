@@ -215,7 +215,7 @@ function addLabel(p, pos, rotY) {
 
 /* ---- 1 · Rapailler la langue (Pascal Huynh): the deck's title slide as a printed panel ---- */
 function pieceRapailler(G, TL) {
-  const p = galPiece('rapailler'), W = 2.3, Hh = W / (2128 / 1180), z = GAL_AT.rapailler, y = 1.6;
+  const p = galPiece('rapailler'), W = 2.3, Hh = W / (2128 / 1180), z = GAL_AT.rapailler, y = 1.95;   // hung high enough for the letterpress below it
   const map = TL.load('images/gallery/rapailler.webp'); map.colorSpace = THREE.SRGBColorSpace; map.anisotropy = Math.min(8, MAX_ANISO);
   const panel = new THREE.Mesh(new THREE.PlaneGeometry(W, Hh), new THREE.MeshStandardMaterial({ map, emissiveMap: map, emissive: 0xffffff, emissiveIntensity: .4, roughness: .55, envMapIntensity: .3 }));
   panel.position.set(G.x1 - .016, y, z); panel.rotation.y = -Math.PI / 2; gallery.add(panel);
@@ -223,7 +223,78 @@ function pieceRapailler(G, TL) {
   panel.userData.act = galAct(p); hot.push(panel);
   pool(gallery, W * 1.45, Hh * 1.7, new V3(G.x1 - .009, y + .08, z), -Math.PI / 2, 0, .42);
   labelRight(p, new V3(G.x1, 0, z), W / 2, new V3(-1, 0, 0));
+  pressDesk(G, p);
   return [z, y];
+}
+/* ---- under the slide: a letterpress cabinet (type cases, a little platen press) with metal type on its top, set by hand into
+   Québécois words: the deck's title RAPAILLER LA LANGUE, then ICITTE PIS ASTHEURE and MOÉ PIS TOÉ; the rest of the font lies loose.
+   The cabinet is models/letterpress.glb (60k triangles, simplified from a 4.7M-triangle scan). ---- */
+const PRESS = { s: 1.5, top: .5, back: .231 };       // its scale; its work top and back, in model units (the press stands lower, on the right)
+const TYPE_FONT = '800 100px "Bricolage Grotesque","Saira Condensed",sans-serif', TYPE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZÉÈÊÀÂÇÔÛÎ\'';
+function normalRect(h, w, hh, strength) {             // a normal map from a height field that does not wrap
+  const [c, x] = cv(w, hh), im = x.createImageData(w, hh), H_ = (i, j) => h[clamp(j, 0, hh - 1) * w + clamp(i, 0, w - 1)];
+  for (let j = 0; j < hh; j++) for (let i = 0; i < w; i++) {
+    const nx = (H_(i - 1, j) - H_(i + 1, j)) * strength, ny = (H_(i, j + 1) - H_(i, j - 1)) * strength, L = Math.hypot(nx, ny, 1), k = (j * w + i) * 4;
+    im.data[k] = (nx / L * .5 + .5) * 255; im.data[k + 1] = (ny / L * .5 + .5) * 255; im.data[k + 2] = (1 / L * .5 + .5) * 255; im.data[k + 3] = 255;
+  }
+  x.putImageData(im, 0, 0); return c;
+}
+// one em-square cell per character: the dark shoulder of the body, the raised face in bright metal; the last cell is a plain side
+function typeAtlas() {
+  const C = 128, cols = 8, rows = 5, W = C * cols, Hh = C * rows, [c, x] = cv(W, Hh), [hc, hx] = cv(W, Hh), r = rng(7301), adv = {};
+  hx.fillStyle = '#000'; hx.fillRect(0, 0, W, Hh);
+  for (const g of [x, hx]) { g.font = TYPE_FONT; g.textAlign = 'center'; g.textBaseline = 'alphabetic'; }
+  [...TYPE_CHARS, ' '].forEach((ch, i) => {
+    const ox = (i % cols) * C, oy = Math.floor(i / cols) * C;
+    const g = x.createLinearGradient(ox, oy, ox + C, oy + C); g.addColorStop(0, '#45464a'); g.addColorStop(1, '#2c2d31'); x.fillStyle = g; x.fillRect(ox, oy, C, C);
+    for (let k = 0; k < 70; k++) { x.fillStyle = `rgba(${r() < .5 ? '255,255,255' : '0,0,0'},${.03 + r() * .06})`; x.fillRect(ox + r() * C, oy + r() * C, 1 + r() * 3, 1 + r() * 2); }
+    if (ch === ' ') return;
+    adv[ch] = x.measureText(ch).width / 100;
+    const bx = ox + C / 2, by = oy + C / 2 + 35;
+    x.fillStyle = '#121316'; x.fillText(ch, bx + 2.5, by + 3);                      // the bevel's shadow side
+    x.fillStyle = '#e4e2dc'; x.fillText(ch, bx, by);                                // the face, polished by printing
+    hx.fillStyle = '#fff'; hx.fillText(ch, bx, by);
+  });
+  const d = hx.getImageData(0, 0, W, Hh).data, h = new Float32Array(W * Hh); for (let i = 0; i < W * Hh; i++) h[i] = d[i * 4] / 255;
+  const hb = new Float32Array(W * Hh); for (let j = 1; j < Hh - 1; j++) for (let i = 1; i < W - 1; i++) { let s_ = 0; for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) s_ += h[(j + b) * W + i + a]; hb[j * W + i] = s_ / 9; }
+  return { map: galTex(c, true, false), normal: galTex(normalRect(hb, W, Hh, 3), false, false), adv, cols, rows, side: TYPE_CHARS.length };
+}
+function pressDesk(G, p) {
+  const act = galAct(p), zc = GAL_AT.rapailler, S = PRESS.s, xc = G.x1 - .012 - PRESS.back * S, top = PRESS.top * S, r = rng(7302);
+  loadGLB('letterpress').then((g) => {
+    const m = g.scene; m.scale.setScalar(S); m.rotation.y = -Math.PI / 2; m.position.set(xc, 0, zc);   // its front (+z) to the room, the press on your right
+    m.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; const mt = o.material; mt.envMapIntensity = .35; if (mt.map) { mt.emissive = new THREE.Color(1, 1, 1); mt.emissiveMap = mt.map; mt.emissiveIntensity = .1; } } });
+    gallery.add(m); GAL_LIVE.press = m;
+  }).catch(e => console.warn('letterpress:', e));
+  const hit = new THREE.Mesh(new THREE.BoxGeometry(.72, 1.2, 1.46), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false }));
+  hit.position.set(xc, .6, zc); hit.userData.act = act; gallery.add(hit); hot.push(hit);
+  GAL_OBST.push([xc - PRESS.back * S - .02, G.x1, zc - .484 * S - .02, zc + .484 * S + .02]);
+  // the type, standing on the work top left of the press: lines read along +z (left to right as you face the wall), letters' tops to the wall
+  const T = typeAtlas(), th = .0233, blocks = [], up = new V3(0, 1, 0);
+  const z0 = zc - .467 * S + .02, z1 = zc - .07 * S - .02, xFront = xc - .181 * S + .03, xBack = xc + .208 * S - .025;
+  const width = (txt, em) => [...txt].reduce((s_, ch) => s_ + (ch === ' ' ? .3 : T.adv[ch]) * em + .0008, 0);
+  const line = (txt, xl, em) => { let z = (z0 + z1) / 2 - width(txt, em) / 2; for (const ch of txt) { const w = (ch === ' ' ? .3 : T.adv[ch]) * em; if (ch !== ' ') blocks.push([ch, xl + (r() - .5) * .003, z + w / 2, em, (r() - .5) * .03]); z += w + .0008; } };
+  let xl = xBack - .028; line('RAPAILLER', xl, .056); xl -= .063; line('LA LANGUE', xl, .056); xl -= .056; line('ICITTE PIS ASTHEURE', xl, .04); xl -= .046; line('MOÉ PIS TOÉ', xl, .04);
+  const loose = 'AÉÇBÀRQÈOUÊKWÂSÔZNEÎTXÛLMGJ', spots = [];
+  for (let i = 0; i < 400 && spots.length < loose.length; i++) {
+    const em = .04 + r() * .016, x = lerp(xFront + .01, xl - .05, r()), z = lerp(z0 + .025, z1 - .025, r());
+    if (spots.some(([a, b, e]) => Math.hypot(a - x, b - z) < (e + em) * .78)) continue;
+    spots.push([x, z, em]); blocks.push([loose[spots.length - 1], x, z, em, r() * Math.PI * 2]);
+  }
+  const geos = [];
+  for (const [ch, x, z, em, yaw] of blocks) {
+    const ci = TYPE_CHARS.indexOf(ch), w = T.adv[ch] * em, g = bb(-w / 2, w / 2, 0, th, -em / 2, em / 2), pa = g.attributes.position, uv = g.attributes.uv;
+    const cc = (i) => [(i % T.cols), Math.floor(i / T.cols)], [col, row] = cc(ci), [sc, sr] = cc(T.side);
+    for (let k = 0; k < pa.count; k++) {
+      if (k >= 8 && k < 12) { const uc = .5 + pa.getX(k) / em, vc = .5 - pa.getZ(k) / em; uv.setXY(k, (col + uc) / T.cols, 1 - (row + 1 - vc) / T.rows); }
+      else uv.setXY(k, (sc + .5) / T.cols, 1 - (sr + .5) / T.rows);
+    }
+    const R = new V3(Math.sin(yaw), 0, Math.cos(yaw)), Z = new V3().crossVectors(R, up);
+    geos.push(g.applyMatrix4(new THREE.Matrix4().makeBasis(R, up, Z).setPosition(x, top, z)));
+  }
+  const typeM = keepSharp(new THREE.MeshStandardMaterial({ map: T.map, normalMap: T.normal, normalScale: new THREE.Vector2(1.2, 1.2), metalness: .55, roughness: .38, envMapIntensity: .7, emissive: 0xffffff, emissiveMap: T.map, emissiveIntensity: .12 }));
+  const type = new THREE.Mesh(mergeGeometries(geos), typeM); type.castShadow = type.receiveShadow = true; gallery.add(type); GAL_LIVE.type = type;
+  pool(gallery, .75, .7, new V3(xc - .02, top + .002, (z0 + z1) / 2), Math.PI / 2, -Math.PI / 2, .3);
 }
 
 /* ---- 2 · STM Surfer: an arcade cabinet in the game's navy, metro-line stripes, the runner on its screen ---- */
@@ -573,6 +644,79 @@ function pieceHands(G, TL) {
   GAL_OBST.push([G.x0, G.x0 + D + .12, z - FW / 2 - .1, z + FW / 2 + .1]);
   pool(gallery, FW * 1.5, FH * 1.9, new V3(G.x0 + .009, y + .05, z), Math.PI / 2, 0, .16);
   labelRight(p, new V3(G.x0, 0, z), FW / 2 + .05, new V3(1, 0, 0));
+  paintBurst(G, z, y, FW + 2 * fr, FH + 2 * fr);
+}
+/* ---- behind it, paint: as if the frame had been slammed onto a bag of the four Everybodywave colours, which burst out from
+   under its edges — yellow out of the left, red over the top, green to the right (clear of the card), blue out of the bottom,
+   running down the wall to a puddle on the floor. One decal on the wall behind the frame, one on the floor. ---- */
+const EBW_PAINT = { yellow: '#fcd002', red: '#e62522', green: '#42b147', blue: '#009cd9' };
+function paintBurst(G, z, y, fw, fh) {
+  const PX = 480, PW = 3.4, PH = 2.62, Wc = Math.round(PW * PX), Hc = Math.round(PH * PX), [c, x] = cv(Wc, Hc), r = rng(9401);
+  const U = (zz) => (z + PW / 2 - zz) * PX, V = (yy) => (PH - yy) * PX;             // wall (z, y) -> canvas; the canvas runs left to right as you face the wall
+  const fu0 = U(z + fw / 2), fu1 = U(z - fw / 2), fv0 = V(y + fh / 2), fv1 = V(y - fh / 2);   // the frame's outline on the canvas
+  const shade = (hex, k) => { const n = parseInt(hex.slice(1), 16), f = (v) => Math.round(clamp(v * k, 0, 255)); return `rgb(${f(n >> 16)},${f(n >> 8 & 255)},${f(n & 255)})`; };
+  const blob = (cx, cy, rad, col, rim = true) => {
+    const n = 18 + Math.floor(r() * 10), ph = r() * 6.3; x.beginPath();
+    for (let i = 0; i <= n; i++) { const a = i / n * Math.PI * 2, k = 1 + .22 * Math.sin(a * 3 + ph) + .14 * Math.sin(a * 5 + ph * 2) + (r() - .5) * .18, px = cx + Math.cos(a) * rad * k, py = cy + Math.sin(a) * rad * k; i ? x.lineTo(px, py) : x.moveTo(px, py); }
+    x.closePath(); x.fillStyle = col; x.fill(); if (rim) { x.strokeStyle = shade(col.startsWith('#') ? col : '#000000', .86); x.lineWidth = 2.5; x.stroke(); }
+  };
+  const drop = (cx, cy, rad, col) => { x.beginPath(); x.arc(cx, cy, rad, 0, Math.PI * 2); x.fillStyle = col; x.fill(); };
+  const drip = (cx, cy, len, w, col) => {                                           // paint running down: a wavering line ending in a bead
+    x.strokeStyle = col; x.lineCap = 'round'; x.lineWidth = w; x.beginPath(); x.moveTo(cx, cy); let px = cx;
+    for (let t = 0; t < len; t += 12) { px += (r() - .5) * 1.6; x.lineTo(px, cy + t); } x.stroke(); drop(px, cy + len, w * .85, col);
+  };
+  const spike = (ox, oy, ang, len, w0, col) => {                                     // a finger of paint squeezed out from under the frame: it necks, then ends in a round bead
+    const dx = Math.cos(ang), dy = Math.sin(ang), nx = -dy, ny = dx, ex = ox + dx * len, ey = oy + dy * len, thin = r() < .3;
+    x.beginPath(); x.moveTo(ox + nx * w0, oy + ny * w0);
+    if (thin) {                                                                        // now and then a thin fast streak instead, tapering to nothing
+      x.quadraticCurveTo(ox + dx * len * .5 + nx * w0 * .3, oy + dy * len * .5 + ny * w0 * .3, ex, ey);
+      x.quadraticCurveTo(ox + dx * len * .5 - nx * w0 * .3, oy + dy * len * .5 - ny * w0 * .3, ox - nx * w0, oy - ny * w0);
+    } else {
+      const bulb = w0 * (.5 + r() * .45), neck = w0 * (.3 + r() * .25), bend = (r() - .5) * w0 * .8;
+      x.quadraticCurveTo(ox + dx * len * .5 + nx * (neck + bend), oy + dy * len * .5 + ny * (neck + bend), ex + nx * bulb, ey + ny * bulb);
+      x.arc(ex, ey, bulb, ang + Math.PI / 2, ang - Math.PI / 2, true);
+      x.quadraticCurveTo(ox + dx * len * .5 - nx * (neck - bend), oy + dy * len * .5 - ny * (neck - bend), ox - nx * w0, oy - ny * w0);
+    }
+    x.closePath(); x.fillStyle = col; x.fill();
+    drop(ex + dx * (10 + r() * 18), ey + dy * (10 + r() * 18), 2.5 + r() * 5, col);
+    if (r() < .5) drop(ex + dx * (34 + r() * 44), ey + dy * (34 + r() * 44), 1.5 + r() * 3, col);
+    return [ex, ey];
+  };
+  // one colour's burst: thick paint pushed out along an edge, streaks fanned over an arc, spatter, and drips hanging off it
+  const burst = (col, along, a0, a1, n, reach, drips) => {
+    const pts = []; for (let i = 0; i < 7; i++) { const [px, py] = along(r()); pts.push([px, py]); blob(px, py, 34 + r() * 52, col); }
+    for (let i = 0; i < n; i++) {
+      const [ox, oy] = along(r()), ang = lerp(a0, a1, r()), len = reach * (.35 + .65 * r() * r() + .25 * r()), [ex, ey] = spike(ox, oy, ang, len, 9 + r() * 20, col);
+      if (Math.sin(ang) > -.3 && r() < drips) drip(lerp(ox, ex, .35 + r() * .5), lerp(oy, ey, .4 + r() * .4), 30 + r() * 140, 3 + r() * 5, col);
+    }
+    for (let i = 0; i < 260; i++) { const [ox, oy] = along(r()), ang = lerp(a0, a1, r()), d = reach * (.25 + Math.pow(r(), .7) * 1.15), rad = .8 + Math.pow(r(), 3) * 6; drop(ox + Math.cos(ang) * d, oy + Math.sin(ang) * d, rad, col); }
+    return pts;
+  };
+  const fwPx = fu1 - fu0, fhPx = fv1 - fv0;
+  // blue first (it runs furthest and lies under the rest), then yellow, green, red on top
+  burst(EBW_PAINT.blue, (t) => [fu0 + fwPx * (.08 + .84 * t), fv1 - 10], Math.PI * .04, Math.PI * .96, 14, 200, .35);
+  for (let i = 0; i < 6; i++) { const u = fu0 + fwPx * (.18 + .64 * r()), w = 5 + r() * 9; drip(u, fv1 + 20 + r() * 40, Hc - fv1 - 60 + r() * 30, w, EBW_PAINT.blue); }   // down to the floor
+  burst(EBW_PAINT.yellow, (t) => t < .6 ? [fu0 + 10, fv0 + fhPx * (.1 + t * 1.3)] : [fu0 + fwPx * (t - .6) * .9, fv0 + 10], Math.PI * .9, Math.PI * 1.42, 18, 300, .6);
+  burst(EBW_PAINT.green, (t) => [fu1 - 10, fv0 + fhPx * (.08 + .42 * t)], -Math.PI * .3, Math.PI * .04, 14, 250, .45);
+  burst(EBW_PAINT.red, (t) => [fu0 + fwPx * (.45 + .45 * t), fv0 + 10], -Math.PI * .78, -Math.PI * .3, 13, 240, .4);
+  // a little mixing where colours met under the frame: thin marbled streaks along the edges
+  for (let i = 0; i < 26; i++) { const cols = Object.values(EBW_PAINT), col = cols[Math.floor(r() * 4)], top = r() < .5, u = lerp(fu0 - 20, fu1 + 20, r()), v = top ? fv0 - 4 - r() * 26 : fv1 + 4 + r() * 26;
+    x.strokeStyle = col; x.lineWidth = 2 + r() * 4; x.lineCap = 'round'; x.beginPath(); x.moveTo(u, v); x.quadraticCurveTo(u + (r() - .5) * 90, v + (r() - .5) * 30, u + (r() - .5) * 160, v + (top ? -1 : 1) * r() * 30); x.stroke(); }
+  // relief: the paint's thickness, blurred, as a normal map (wet paint catches the light at its edges and beads)
+  const sW = Math.round(Wc / 2), sH = Math.round(Hc / 2), [hc, hx] = cv(sW, sH); hx.drawImage(c, 0, 0, sW, sH);
+  const a = hx.getImageData(0, 0, sW, sH).data; let h = new Float32Array(sW * sH); for (let i = 0; i < sW * sH; i++) h[i] = a[i * 4 + 3] / 255;
+  for (let pass = 0; pass < 2; pass++) { const o = new Float32Array(sW * sH); for (let j = 1; j < sH - 1; j++) for (let i = 1; i < sW - 1; i++) { let s_ = 0; for (let b = -1; b <= 1; b++) for (let q = -1; q <= 1; q++) s_ += h[(j + b) * sW + i + q]; o[j * sW + i] = s_ / 9; } h = o; }
+  const wet = { transparent: true, depthWrite: false, roughness: .2, metalness: 0, envMapIntensity: .55, emissive: 0xffffff, emissiveIntensity: .2, polygonOffset: true, polygonOffsetFactor: -1 };
+  const map = galTex(c, true, false), wall = new THREE.Mesh(new THREE.PlaneGeometry(PW, PH), new THREE.MeshStandardMaterial(Object.assign({ map, emissiveMap: map, normalMap: galTex(normalRect(h, sW, sH, 6), false, false) }, wet)));
+  wall.position.set(G.x0 + .004, PH / 2, z); wall.rotation.y = Math.PI / 2; wall.renderOrder = 2; gallery.add(wall);
+  // the puddle at the foot of the wall, where the blue runs end, a little yellow in it
+  const N2 = 512, [pc, px] = cv(N2, N2), F = N2 / 1.0;                                // 1 m square: x from the wall out, z along it
+  const pb = (cx, cy, rad, col) => { const n = 22, ph = r() * 6.3; px.beginPath(); for (let i = 0; i <= n; i++) { const a2 = i / n * Math.PI * 2, k = 1 + .2 * Math.sin(a2 * 3 + ph) + .12 * Math.sin(a2 * 7 + ph) + (r() - .5) * .1, qx = cx + Math.cos(a2) * rad * k, qy = cy + Math.sin(a2) * rad * k; i ? px.lineTo(qx, qy) : px.moveTo(qx, qy); } px.closePath(); px.fillStyle = col; px.fill(); };
+  for (let i = 0; i < 6; i++) pb(N2 * (.3 + r() * .4), F * (.02 + r() * .1), F * (.05 + r() * .07), EBW_PAINT.blue);
+  pb(N2 * (.38 + r() * .2), F * .05, F * .045, EBW_PAINT.yellow);
+  for (let i = 0; i < 60; i++) { px.beginPath(); px.arc(N2 * (.15 + r() * .7), F * (.02 + Math.pow(r(), 1.5) * .45), 1 + Math.pow(r(), 3) * 7, 0, Math.PI * 2); px.fillStyle = r() < .8 ? EBW_PAINT.blue : EBW_PAINT.yellow; px.fill(); }
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 1.0), new THREE.MeshStandardMaterial(Object.assign({ map: galTex(pc, true, false) }, wet, { emissiveMap: null, emissiveIntensity: 0, roughness: .12 })));
+  floor.rotation.x = -Math.PI / 2; floor.rotation.z = Math.PI / 2; floor.position.set(G.x0 + .5, .003, z); floor.renderOrder = 2; gallery.add(floor);
 }
 
 /* ---- 5 · Perpetual Unfinished Projects (Mia Zhou): the map, as a big canvas on the brick ---- */
@@ -1058,7 +1202,7 @@ function buildGallery() {
   // spots on the rails, one or two per piece
   const S = railY - .02;
   const A = GAL_AT;
-  spot(railY, new V3(1.6, S, A.rapailler - .55), new V3(G.x1, 1.7, A.rapailler - .25)); spot(railY, new V3(1.6, S, A.rapailler + .55), new V3(G.x1, 1.6, A.rapailler + .25));
+  spot(railY, new V3(1.6, S, A.rapailler - .55), new V3(G.x1, 2.05, A.rapailler - .25)); spot(railY, new V3(1.6, S, A.rapailler + .3), new V3(G.x1 - .38, .76, A.rapailler - .4));   // the slide; the type on the desk
   spot(railY, new V3(1.6, S, STM_Z - .25), new V3(G.x1 - .4, 1.3, STM_Z));
   spot(railY, new V3(-1.6, S, A.hope - 1.25), new V3(G.x0, 1.35, A.hope - 1.1)); spot(railY, new V3(-1.6, S, A.hope + .55), new V3(G.x0 + .45, 0, A.hope + .15));
   spot(railY, new V3(-1.6, S, A.hands), new V3(G.x0, 1.6, A.hands));

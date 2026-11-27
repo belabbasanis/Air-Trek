@@ -20,7 +20,7 @@ The entries in the repo are placeholders.
 - `src/head.html`: project list, styles and page markup.
 - `src/js1.js`: renderer, post-processing (light shafts, SSAO, bloom, depth of field, grading, FXAA) and the material baker.
 - `src/js2.js`: textures, geometry, ivy and the lobby, shaft, cab and landing.
-- `src/roof.js`: the roof garden. `src/hidden.js`: the hidden lift. `src/gallery.js`: the As Is gallery on floor 2 (Hope Library is the DVD room set into its left wall), and `src/cat.js` its black cat (the rigged, animated model is `models/cat.glb`, loaded with three.js's GLTFLoader when the gallery is built).
+- `src/roof.js`: the roof garden. `src/hidden.js`: the hidden lift. `src/gallery.js`: the As Is gallery on floor 2 (Hope Library is the DVD room set into its left wall; under Pascal's slide, the letterpress cabinet `models/letterpress.glb`, simplified from a 4.7M-triangle model to 60k), and `src/cat.js` its black cat (the rigged, animated model is `models/cat.glb`, loaded with three.js's GLTFLoader when the gallery is built).
 - `src/cliffs.js`: floor 3, the Updraft sea cliffs (tall grass, the river, the sea, gulls, the water that comes into the cab, the sailboat at the edge: `models/sailboat.glb`). Its paintings are in `images/cliffs/`.
 - `src/ride.js` and `updraft/index.html`: the sailboat ride. Clicking the boat opens Updraft's sea-cliffs course over the building (a page of its own, fetched only when you board); riding through the torii at the end, or Back to the building in its pause panel, brings you back beside the boat.
 - `src/js3.js`: audio, lift logic, controls, intro sequence and the frame loop.
