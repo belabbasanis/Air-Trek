@@ -177,7 +177,7 @@ body.letterbox #cap{bottom:calc((100vh - 100vw/2.39)/2 + 2vh)}
 .tog[aria-pressed="true"]{border-color:var(--amber);color:var(--amber)}
 .tog:focus-visible,#closeMenu:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 .maker{margin:0;font-size:12px;letter-spacing:.08em;color:rgba(246,239,227,.62)} .maker a{color:var(--ink);text-underline-offset:3px}
-html,body{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+html,body{-webkit-tap-highlight-color:transparent;touch-action:manipulation;overscroll-behavior:none}
 body{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 #menu{-webkit-user-select:text;user-select:text}
 #flash{position:fixed;inset:0;z-index:9;background:#eef4ff;opacity:0;pointer-events:none}

@@ -177,7 +177,7 @@ body.letterbox #cap{bottom:calc((100vh - 100vw/2.39)/2 + 2vh)}
 .tog[aria-pressed="true"]{border-color:var(--amber);color:var(--amber)}
 .tog:focus-visible,#closeMenu:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 .maker{margin:0;font-size:12px;letter-spacing:.08em;color:rgba(246,239,227,.62)} .maker a{color:var(--ink);text-underline-offset:3px}
-html,body{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+html,body{-webkit-tap-highlight-color:transparent;touch-action:manipulation;overscroll-behavior:none}
 body{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 #menu{-webkit-user-select:text;user-select:text}
 #flash{position:fixed;inset:0;z-index:9;background:#eef4ff;opacity:0;pointer-events:none}
@@ -6100,7 +6100,14 @@ function onTouchUp(e) {
   const t = touches.get(e.pointerId); touches.delete(e.pointerId); if (!t || t.moved || performance.now() - t.t > 450) return;
   P.touchAim = { x: e.clientX, y: e.clientY }; updateHover(); const a = hover ? hover.object.userData.act : null; P.touchAim = null; hover = null; if (a) actOn(a);
 }
+// what a key is, for walking and turning: an arrow by its meaning (numpad arrows, input methods and remapped keyboards
+// report it there too), a letter by its place on the keyboard (WASD stays WASD on AZERTY), its letter when a keyboard sends no place
+const ARROWS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']);
+function keyId(e) { if (ARROWS.has(e.key)) return e.key; if (e.code && e.code !== 'Unidentified') return e.code; const k = String(e.key || '').toLowerCase(); return /^[a-z]$/.test(k) ? 'Key' + k.toUpperCase() : e.key; }
 window.addEventListener('keydown', (e) => {
+  // ⌘ or Ctrl: a shortcut, not a step. On a Mac a key let go while ⌘ is down never sends its keyup, so it would stay
+  // pressed and the view would keep turning: drop every held key instead (the browser still gets its shortcut)
+  if (e.metaKey || e.ctrlKey || e.key === 'Meta' || e.key === 'Control') { keys.clear(); return; }
   if (!cardBox.hidden) { if (e.key === 'Escape') closeCard(); return; }   // a card is open: Esc closes it, nothing else moves
   if (!menu.hidden || RIDE.on) return;
   if (D.state === 'gate' || D.state === 'intro') { if (D.key(e)) e.preventDefault(); return; }
@@ -6114,12 +6121,19 @@ window.addEventListener('keydown', (e) => {
   if (k === 'r' || k === 'R') { if (!e.ctrlKey && !e.metaKey) { selectFloor(ROOF); return; } }
   if (k === 'f' || k === 'F') { if (!e.ctrlKey && !e.metaKey) { openMenu(); e.preventDefault(); return; } }
   if (k === 'Escape') { if (document.pointerLockElement) document.exitPointerLock(); return; }
-  keys.add(e.code);
-  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
+  const id = keyId(e); keys.add(id);
+  if (ARROWS.has(id) || id === 'Space') e.preventDefault();
   // keydown is a user gesture: if this step carries the player out onto a landing, open the project now
   if (pendingExit) { pendingExit = false; triggerVisit('step'); }
 });
-window.addEventListener('keyup', (e) => keys.delete(e.code));
+window.addEventListener('keyup', (e) => { keys.delete(keyId(e)); keys.delete(e.code); if (e.key === 'Meta' || e.key === 'Control') keys.clear(); });
+// two fingers on a trackpad look around (and the sideways swipe no longer means back / forward to the browser)
+canvas.addEventListener('wheel', (e) => {
+  if (D.state !== 'play' || !uiFree() || RIDE.on) return;
+  e.preventDefault(); if (e.ctrlKey) return;                         // a pinch: neither zoom the page nor tilt the view
+  const k = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;     // lines or pages, as pixels
+  look(e.deltaX * k, e.deltaY * k, .0019);
+}, { passive: false });
 function dropTouches() { if (P.joy) { P.joy = null; $('stick').style.display = 'none'; } touches.clear(); }
 window.addEventListener('blur', () => { keys.clear(); dropTouches(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden) { keys.clear(); dropTouches(); } });   // a project opening in a new tab mid-step, the app switcher
@@ -6472,7 +6486,7 @@ function loop(now) {
   camera.position.copy(CAM.s0.p); camera.lookAt(CAM.s0.l); camera.fov = fovFor(CAM.s0.fov); camera.updateProjectionMatrix();
   setLook(heldPeriod() || periodAt(new Date()), true); lookTick(0);
   D.state = 'gate'; D.fade = 0;
-  if (window.__test) window.__dbg = { D, lift, P, camera, landing, dressLanding, setLook, setLamp, gradeMat, A, selectFloor, ROOF, H, surfaceUnder, hot, HID, startHidden, gallery, GAL_LIVE, GALLERY_FLOOR, GAL_OBST, moveTo, renderer, scene, M, cab, world, actOn, scRoom, SC_LIVE, SC, SC_FLOOR, ensureSeaCliffs, seaCliffsHere, CAT, GAL, catTick, WALL_Z, sfxButton, sfxThunder, ROOF_STONES, sfxStep, initAudio, RIDE, startRide, endRide, SC_BOAT, openCard, GAL_PIECES };
+  if (window.__test) window.__dbg = { D, lift, P, camera, landing, dressLanding, setLook, setLamp, gradeMat, A, selectFloor, ROOF, H, surfaceUnder, hot, HID, startHidden, gallery, GAL_LIVE, GALLERY_FLOOR, GAL_OBST, moveTo, renderer, scene, M, cab, world, actOn, scRoom, SC_LIVE, SC, SC_FLOOR, ensureSeaCliffs, seaCliffsHere, CAT, GAL, catTick, WALL_Z, sfxButton, sfxThunder, ROOF_STONES, sfxStep, initAudio, RIDE, startRide, endRide, SC_BOAT, openCard, GAL_PIECES, keys };
   requestAnimationFrame(loop);
   // warm up a few frames (shader compile), then fade in from black
   await nextFrame(); await nextFrame(); await nextFrame();
