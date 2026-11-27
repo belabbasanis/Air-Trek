@@ -34,7 +34,7 @@ function surfaceUnder() {
   const x = P.pos.x, z = P.pos.z;
   if (z < CAB.z1 + .02 && Math.abs(x) < CAB.x1 + .05) return SC_LIVE.level > .5 && SC_LIVE.fill > .35 ? 'water' : 'metal';   // the cab takes on water at floor 3
   if (lift.floor === SC_FLOOR && lift.phase !== 'riding' && z > WALL_Z - .05) return scWaterAt(x, z) ? 'water' : 'grass';
-  if (lift.floor === GALLERY_FLOOR && lift.phase !== 'riding' && z > WALL_Z + .05) return 'stone';   // the gallery's bare concrete
+  if (lift.floor === GALLERY_FLOOR && lift.phase !== 'riding' && z > WALL_Z + .05) return dvdSurface(x, z) || 'stone';   // the gallery's bare concrete (the DVD room's carpet, the grass at its step)
   if (lift.floor === ROOF && lift.phase !== 'riding') {
     if (z < WALL_Z + .1 && Math.abs(x) < DOOR_W / 2 + .1) return 'tile';          // the brass sill
     return ROOF_STONES.some(q => x > q[0] && x < q[1] && z > q[2] && z < q[3]) ? 'stone' : 'grass';
@@ -373,7 +373,7 @@ function rects() {
   else if (lift.doors > .92 && lift.phase === 'open') {
     out.push([-DOOR_W / 2 + .19, DOOR_W / 2 - .19, CAB.z1 - .4, WALL_Z + .6]);
     if (lift.floor === 0) out.push([LOBBY.x0 + r, LOBBY.x1 - r, WALL_Z + r, LOBBY.z1 - r]);
-    else if (lift.floor === GALLERY_FLOOR) out.push([GAL.x0 + r, GAL.x1 - r, WALL_Z + r, GAL.z1 - r]);
+    else if (lift.floor === GALLERY_FLOOR) out.push([GAL.x0 + r, GAL.x1 - r, WALL_Z + r, GAL.z1 - r], ...dvdRects(r));   // and in through the wall to the DVD room
     else if (lift.floor === SC_FLOOR) out.push([SC.x0 + r, SC.x1 - r, WALL_Z + r, SC.z1 + .1], [SC.op0 + r, SC.op1 - r, SC.z1 - .3, SC.z1 + .7], [-8, 8, SC.z1 + .45, 14]);
     else if (lift.floor === ROOF) { const e = .25 + r; out.push([RF.x0 + e, RF.x1 - e, .3 + r, RF.z1 - e], [RF.x0 + e, HH.x0 - .05 - r, RF.z0 + e, 1], [HH.x1 + .3 + r, RF.x1 - e, RF.z0 + e, 1]); }
     else out.push([LAND.x0 + r, LAND.x1 - r, WALL_Z + r, LAND.z1 - r]);

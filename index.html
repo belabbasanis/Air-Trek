@@ -3560,53 +3560,235 @@ function pieceSTM(G) {
   labelRight(p, new V3(G.x1, 0, STM_Z), w / 2 + .022, new V3(-1, 0, 0));
 }
 
-/* ---- 3 · Hope Library: a video-store wall of its 48 titles, coloured by theme, on a panel in the site's colours ---- */
-function hopeAtlas() {
-  const cw = 128, chh = 232, cols = 8, rows = 6, [c, x] = cv(cw * cols, chh * rows);
-  HOPE_ITEMS.forEach(([name, year, kind, th], i) => {
-    const ox = (i % cols) * cw, oy = Math.floor(i / cols) * chh, bg = HOPE_THEME[th] || '#2E5A45', light = lum(bg) > .55, ink = light ? '#1B2921' : '#F2F4EA';
-    x.fillStyle = bg; x.fillRect(ox, oy, cw, chh);
-    x.fillStyle = 'rgba(0,0,0,.16)'; x.fillRect(ox, oy, 7, chh);                            // spine shadow
-    x.fillStyle = light ? 'rgba(27,41,33,.12)' : 'rgba(242,244,234,.12)'; x.fillRect(ox + 12, oy + 12, cw - 22, 2);
-    x.fillStyle = ink; x.font = `500 12px "IBM Plex Mono",monospace`; x.fillText(kind.toUpperCase(), ox + 13, oy + 30);
-    x.font = `800 19px ${FONT_HOPE_D}`; let y = oy + 62; for (const l of wrapText(x, name, cw - 24).slice(0, 6)) { x.fillText(l, ox + 13, y); y += 21; }
-    x.font = `italic 400 15px ${FONT_HOPE_B}`; x.fillText(year, ox + 13, oy + chh - 16);
-  });
-  return ctex(c);
+/* ---- 3 · Hope Library: a DVD room set into the left wall, after the famous little white room of shelves packed with films.
+   An opening in the bay round GAL_AT.hope; behind it a white room lit from its ceiling, shelves floor to ceiling on three
+   walls, the site's own titles face out at eye level on the back wall, the site's mark in green neon over the door, and
+   grass with a few small flowers at the step. The room's light is painted into its vertices: the cellar keeps its one
+   lamp (no light is added, so nothing recompiles), and the room glows white out of the dim gallery. ---- */
+const DVD = { hw: .72, oh: 2.2, d: 1.95, w: 1.2, h: 2.46, sd: .29, top: 2.4 };   // opening half width and height; the room's depth (x), half width (z), height; shelf depth and height
+function dvdBox() { const zc = GAL_AT.hope, X1 = GAL.x0 - .2; return { zc, X1, X0: X1 - DVD.d, Z0: zc - DVD.w, Z1: zc + DVD.w }; }
+// where you can walk: in through the opening, and the floor between the shelves
+function dvdRects(r) {
+  const { zc, X1, X0, Z0, Z1 } = dvdBox();
+  return [[X1 - r - .05, GAL.x0 + r + .05, zc - DVD.hw + r, zc + DVD.hw - r], [X0 + DVD.sd + r, X1 - r, Z0 + DVD.sd + r, Z1 - DVD.sd - r]];
 }
-function hopePanel() {
-  const [c, x] = cv(1024, 1000); x.fillStyle = '#EDEFE4'; x.fillRect(0, 0, 1024, 1000);
-  x.fillStyle = '#2E5A45'; x.font = `800 118px ${FONT_HOPE_D}`; x.fillText('Hope Library', 64, 150);
-  x.fillStyle = '#1B2921'; x.font = `italic 400 50px ${FONT_HOPE_B}`; x.fillText('People are already building the future.', 66, 222);
-  x.font = `500 24px "IBM Plex Mono",monospace`; x.fillStyle = '#5B695E'; x.fillText('48 HOPEFUL DOCUMENTARIES, SERIES AND FILMS · EN / FR', 68, 272);
-  // the theme key along the bottom
-  const keys = [['soil', 'Food & soil'], ['wild', 'Rewilding'], ['forest', 'Forests'], ['vision', 'Imagining futures'], ['land', 'Indigenous land'], ['ocean', 'Oceans'], ['fungi', 'Fungi'], ['community', 'Community']];
-  x.font = `500 20px "IBM Plex Mono",monospace`; keys.forEach(([k, t], i) => { const ox = 68 + (i % 4) * 230, oy = 920 + Math.floor(i / 4) * 34; x.fillStyle = HOPE_THEME[k]; x.fillRect(ox, oy - 15, 18, 18); x.fillStyle = '#2A3830'; x.fillText(t, ox + 28, oy); });
-  return ctex(c);
+// how thick the grass is at (x, z) on the gallery floor: full at the step, thinning out raggedly into the concrete
+function dvdLawnK(x, z) {
+  const u = Math.max(0, x - GAL.x0) / 1.05, v = (z - GAL_AT.hope) / 1.2;
+  const wob = .16 * Math.sin(z * 9.1 + x * 3.7) * Math.sin(x * 6.3 - z * 2.3) + .07 * Math.sin(z * 23 + x * 17);
+  return 1 - sstep(.45, 1, Math.hypot(u, v) + wob);
+}
+function dvdSurface(x, z) {   // underfoot: the room's carpet, the grass at its step
+  if (x < GAL.x0 - .2) return 'carpet';
+  if (x < GAL.x0 + 1.1 && Math.abs(z - GAL_AT.hope) < 1.3 && dvdLawnK(x, z) > .4) return 'grass';
+  return null;
+}
+// the room's ceiling light, worked out per vertex: falls off with distance, stronger where a face turns towards it
+function dvdLight(p, n) {
+  const { zc, X0, X1 } = dvdBox(), dx = (X0 + X1) / 2 - p.x, dy = DVD.h - .05 - p.y, dz = zc - p.z, d = Math.hypot(dx, dy, dz) || 1;
+  const c = Math.max(0, (n.x * dx + n.y * dy + n.z * dz) / d);
+  return .3 + .95 * (.3 + .7 * c) / (1 + (d / 1.5) ** 2);
+}
+function dvdBake(g, f = dvdLight) {
+  const p = g.attributes.position, n = g.attributes.normal, c = new Float32Array(p.count * 3), a = new V3(), b = new V3();
+  for (let i = 0; i < p.count; i++) { a.fromBufferAttribute(p, i); b.fromBufferAttribute(n, i); const v = f(a, b); c[i * 3] = v; c[i * 3 + 1] = v * .985; c[i * 3 + 2] = v * .95; }
+  g.setAttribute('color', new THREE.BufferAttribute(c, 3)); return g;
+}
+// lit by its baked vertex light (the emissive follows the vertex colour too); optionally kept sharp in the painted looks
+function dvdMat(o, sharp = false) {
+  const m = new THREE.MeshStandardMaterial(Object.assign({ vertexColors: true, roughness: .8, metalness: 0, emissive: 0xffffff, emissiveIntensity: .85, envMapIntensity: .25 }, o));
+  if (m.map && !m.emissiveMap) m.emissiveMap = m.map;
+  m.onBeforeCompile = (sh) => {
+    sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n\ttotalEmissiveRadiance *= vColor.rgb;');
+    if (sharp) sh.fragmentShader = sh.fragmentShader.replace('#include <dithering_fragment>', KEEP_CHUNK);
+  };
+  m.customProgramCacheKey = () => 'dvdLit' + (sharp ? 'S' : '') + (m.map ? 'M' : '');
+  m.userData.keepSharp = true;                         // finishSubtree leaves it as it is
+  return m;
+}
+function dvdMesh(list, mat, parent, act) {
+  const m = new THREE.Mesh(mergeGeometries(list), mat); m.castShadow = false; m.receiveShadow = true; parent.add(m);
+  if (act) { m.userData.act = act; hot.push(m); } return m;
+}
+/* the spines, six long strips of them (2.8 m each), drawn like the photos: mostly black cases, then white, yellow, red, blue, grey;
+   a logo block at the top, the title running down the middle, a number at the foot; Blu-rays a little shorter; the shadowed back of
+   the shelf above them */
+const DVD_PX = 720, DVD_STRIP = 170;                 // pixels a metre along a strip; a strip's height (one row's clearance)
+function dvdSpines() {
+  const W = 2048, N = 6, [c, x] = cv(W, DVD_STRIP * N), r = rng(8801);
+  const pal = [['#0e0e10', 30], ['#19191d', 10], ['#2a2a2e', 5], ['#eceae4', 12], ['#e6bd36', 7], ['#b32e28', 6], ['#2d4b8c', 5], ['#7b7d82', 5], ['#d8cfb8', 4], ['#2a6646', 2], ['#d6742c', 2], ['#5a2846', 2]];
+  const tot = pal.reduce((s, p) => s + p[1], 0), pick = () => { let k = r() * tot; for (const [col, w] of pal) if ((k -= w) < 0) return col; return pal[0][0]; };
+  const inkOn = (col) => lum(col) > .5 ? (r() < .7 ? '#141414' : '#9a2a22') : (r() < .65 ? '#ecebe6' : r() < .5 ? '#e6bd36' : '#c8c8c8');
+  for (let s = 0; s < N; s++) {
+    const y0 = s * DVD_STRIP, y1 = y0 + DVD_STRIP;
+    const g = x.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, '#3a3631'); g.addColorStop(.18, '#1a1815'); g.addColorStop(1, '#0d0c0b');
+    x.fillStyle = g; x.fillRect(0, y0, W, DVD_STRIP);
+    let px = 1;
+    while (px < W - 1) {
+      const kind = r(), w = kind < .1 ? 18 + r() * 12 : kind < .22 ? 6 + r() * 1.5 : 9.4 + r() * 1.6;   // box sets, slim cases, the usual 14 mm
+      const hk = kind < .1 ? .88 + r() * .05 : r() < .2 ? .74 + r() * .03 : .8 + r() * .015, top = y1 - DVD_STRIP * hk;
+      const col = pick(), ww = Math.min(w, W - 1 - px) - .7;
+      x.fillStyle = col; x.fillRect(px, top, ww, y1 - top);
+      const sh = x.createLinearGradient(0, top, 0, y1); sh.addColorStop(0, 'rgba(255,255,255,.1)'); sh.addColorStop(.12, 'rgba(255,255,255,0)'); sh.addColorStop(1, 'rgba(0,0,0,.18)');
+      x.fillStyle = sh; x.fillRect(px, top, ww, y1 - top);
+      const ink = inkOn(col), hh = y1 - top;
+      if (r() < .55) { x.fillStyle = r() < .5 ? ink : (lum(col) > .5 ? '#151515' : '#ecebe6'); x.fillRect(px + 1, top + hh * .04, ww - 2, hh * (.07 + r() * .06)); }   // the label's logo block
+      x.fillStyle = ink;                                                                                                  // the title, letter by letter down the spine
+      const tw = Math.max(1.2, ww * (.26 + r() * .2)), tx = px + (ww - tw) / 2; let ty = top + hh * (.2 + r() * .06); const tEnd = top + hh * (.62 + r() * .2);
+      while (ty < tEnd) { const lh = 1.6 + r() * 3.4; x.fillRect(tx, ty, tw, lh); ty += lh + .9 + (r() < .12 ? 3 + r() * 4 : 0); }
+      if (r() < .5) { x.fillStyle = ink; x.fillRect(px + ww * .25, y1 - hh * .09, ww * .5, hh * .035); }               // the spine number
+      x.fillStyle = 'rgba(255,255,255,.13)'; x.fillRect(px, top, .8, y1 - top); x.fillStyle = 'rgba(0,0,0,.45)'; x.fillRect(px + ww - .6, top, .6, y1 - top);
+      px += w + (r() < .03 ? 2 + r() * 3 : 0);
+    }
+    x.fillStyle = '#0b0a09'; x.fillRect(0, y1 - 1, W, 1);
+  }
+  return galTex(c, true, false);
+}
+// the 48 titles as DVD covers in the site's theme colours, each with the site's sun on the horizon
+function dvdCovers() {
+  const cw = 128, chh = 180, [c, x] = cv(cw * 8, chh * 6);
+  HOPE_ITEMS.forEach(([name, year, kind, th], i) => {
+    const ox = (i % 8) * cw, oy = Math.floor(i / 8) * chh, bg = HOPE_THEME[th] || '#2E5A45', light = lum(bg) > .55, ink = light ? '#1B2921' : '#F2F4EA';
+    x.fillStyle = bg; x.fillRect(ox, oy, cw, chh);
+    const hy = oy + chh - 40; x.fillStyle = light ? 'rgba(27,41,33,.16)' : 'rgba(242,244,234,.16)'; x.beginPath(); x.arc(ox + cw - 34, hy, 20, Math.PI, 0); x.fill(); x.fillRect(ox + 10, hy, cw - 20, 2);
+    x.fillStyle = ink; x.font = `500 10px "IBM Plex Mono",monospace`; x.fillText(kind.toUpperCase(), ox + 10, oy + 19);
+    x.font = `800 17px ${FONT_HOPE_D}`; let y = oy + 42; for (const l of wrapText(x, name, cw - 20).slice(0, 5)) { x.fillText(l, ox + 10, y); y += 18; }
+    x.font = `italic 400 13px ${FONT_HOPE_B}`; x.fillText(year, ox + 10, oy + chh - 12);
+    const sl = x.createLinearGradient(ox, 0, ox + cw, 0); sl.addColorStop(0, 'rgba(255,255,255,.16)'); sl.addColorStop(.1, 'rgba(255,255,255,0)'); sl.addColorStop(.9, 'rgba(0,0,0,0)'); sl.addColorStop(1, 'rgba(0,0,0,.18)');
+    x.fillStyle = sl; x.fillRect(ox, oy, cw, chh);
+  });
+  return galTex(c, true, false);
+}
+function dvdCarpet() {                                 // short-pile green carpet, 0.5 m a repeat
+  const n = 256, [c, x] = cv(n, n), im = x.createImageData(n, n), f = fbm(n, 8901, [[8, .5], [32, .3], [128, .2]]), r = rng(8902);
+  for (let i = 0; i < n * n; i++) { const v = .78 + f[i] * .3 + (r() - .5) * .16; im.data[i * 4] = 46 * v; im.data[i * 4 + 1] = 74 * v; im.data[i * 4 + 2] = 44 * v; im.data[i * 4 + 3] = 255; }
+  x.putImageData(im, 0, 0); return galTex(c);
+}
+// the neon: the site's mark (a sun on the horizon, a shorter line beneath) and the name, in green tube with a white-hot core
+function dvdNeon() {
+  const W = 1024, Hc = 320, [c, x] = cv(W, Hc), F = `600 190px "Caveat","Permanent Marker",cursive`, word = 'Hopium', by = 238;
+  x.font = F; const tw = x.measureText(word).width, mw = 210, gap = 46, ox = (W - (mw + gap + tw)) / 2, cx = ox + mw / 2, cy = 214, tx = ox + mw + gap;
+  const mark = (lw) => {
+    x.lineWidth = lw; x.lineCap = x.lineJoin = 'round';
+    x.beginPath(); x.arc(cx, cy, 74, Math.PI, 0); x.stroke();
+    x.beginPath(); x.moveTo(cx - mw / 2, cy); x.lineTo(cx + mw / 2, cy); x.stroke();
+    x.beginPath(); x.moveTo(cx - 66, cy + 40); x.lineTo(cx + 66, cy + 40); x.stroke();
+  };
+  const glow = (col, blur, lwMark, lwText) => { x.save(); x.shadowColor = col; x.shadowBlur = blur; x.strokeStyle = x.fillStyle = col; mark(lwMark); x.font = F; x.lineWidth = lwText; x.lineJoin = 'round'; x.strokeText(word, tx, by); x.fillText(word, tx, by); x.restore(); };
+  glow('rgba(40,255,110,.34)', 60, 18, 10); glow('rgba(40,255,110,.34)', 60, 18, 10); glow('rgba(110,255,150,.8)', 20, 13, 4);
+  x.save(); x.strokeStyle = x.fillStyle = '#6dff9c'; mark(11); x.font = F; x.fillText(word, tx, by); x.restore();            // the tube
+  x.save(); x.strokeStyle = x.fillStyle = '#f0fff4'; mark(4.5); x.font = F; x.fillText(word, tx, by);                     // its white-hot core,
+  x.strokeStyle = '#6dff9c'; x.lineWidth = 9; x.lineJoin = 'round'; x.strokeText(word, tx, by); x.restore();               // green again at the letters' edges
+  return galTex(c, true, false);
+}
+// low grass and a few small flowers at the step, on the concrete in front of the opening; lit by the room's light spilling out
+function dvdLawn(parent) {
+  const { zc, X1 } = dvdBox(), G = GAL, r = rng(9101), pos = [], nrm = [], col = [], idx = [];
+  const spill = (p) => .55 + 1.15 / (1 + ((p.x - G.x0) / .8) ** 2 + ((p.z - zc) / 1.05) ** 2) * (1 - p.y * 1.2);
+  const tri = (a, b, c_, ca, cb, cc) => {                                              // both faces, normals up (lit like the ground it grows from)
+    const base = pos.length / 3; for (const [p, q] of [[a, ca], [b, cb], [c_, cc]]) { const s = spill(p); pos.push(p.x, p.y, p.z); nrm.push(0, 1, 0); col.push(q[0] * s, q[1] * s, q[2] * s); }
+    idx.push(base, base + 1, base + 2, base, base + 2, base + 1);
+  };
+  const N = isTouch ? 2200 : 4200; let n = 0;
+  for (let i = 0; i < N * 5 && n < N; i++) {
+    const x = lerp(X1 + .02, G.x0 + 1.12, r()), z = lerp(zc - 1.3, zc + 1.3, r());
+    let k = dvdLawnK(x, z); if (x < G.x0) k *= .4 * (x - X1) / .2;
+    if (r() > k) continue; n++;
+    const h = (.045 + .095 * r() * r()) * (.45 + .55 * k), w = .003 + r() * .0028, yaw = r() * Math.PI, la = r() * 6.283, lean = (.15 + r() * .35) * h;
+    const lx = Math.cos(yaw) * w, lz = Math.sin(yaw) * w, t = r();
+    const cb = [.06 + t * .03, .13 + t * .04, .035], ct = [.26 + t * .14, .44 + t * .12, .1 + t * .05];
+    tri(new V3(x - lx, .001, z - lz), new V3(x + lx, .001, z + lz), new V3(x + Math.cos(la) * lean, h, z + Math.sin(la) * lean), cb, cb, ct);
+  }
+  // flowers, here and there where the grass is thick: daisies mostly, a few buttercups and violets
+  const kinds = [[[.95, .93, .86], [.93, .72, .2], 6], [[.95, .93, .86], [.93, .72, .2], 6], [[.95, .78, .16], [.8, .55, .08], 5], [[.56, .46, .84], [.95, .9, .6], 5], [[.92, .62, .72], [.95, .85, .5], 5]];
+  const placed = [];
+  for (let i = 0; i < 500 && placed.length < 30; i++) {
+    const x = lerp(G.x0 + .04, G.x0 + .95, r()), z = lerp(zc - 1.15, zc + 1.15, r());
+    if (dvdLawnK(x, z) < .5 || placed.some(([a, b]) => Math.hypot(a - x, b - z) < .12)) continue;
+    placed.push([x, z]);
+    const [pc, cc, np] = kinds[Math.floor(r() * (r() < .55 ? 2 : kinds.length))], hs = .06 + r() * .07, rp = .012 + r() * .008, tilt = (r() - .5) * .5, a0 = r() * 6.283;
+    const top = new V3(x + Math.cos(a0) * tilt * .03, hs, z + Math.sin(a0) * tilt * .03), sc = [.08, .16, .05];
+    tri(new V3(x - .0015, .001, z), new V3(x + .0015, .001, z), top, sc, sc, sc);
+    for (let j = 0; j < np; j++) {
+      const a = a0 + j / np * 6.283, s = .32;
+      tri(top.clone().add(new V3(0, .001, 0)), top.clone().add(new V3(Math.cos(a - s) * rp, .003, Math.sin(a - s) * rp)), top.clone().add(new V3(Math.cos(a + s) * rp, .003, Math.sin(a + s) * rp)), pc, pc, pc);
+      tri(top.clone().add(new V3(Math.cos(a - s) * rp, .003, Math.sin(a - s) * rp)), top.clone().add(new V3(Math.cos(a) * rp * 1.25, .005, Math.sin(a) * rp * 1.25)), top.clone().add(new V3(Math.cos(a + s) * rp, .003, Math.sin(a + s) * rp)), pc, pc, pc);
+    }
+    for (let j = 0; j < 6; j++) { const a = j / 6 * 6.283, b = (j + 1) / 6 * 6.283, rc = rp * .36; tri(top.clone().add(new V3(0, .006, 0)), top.clone().add(new V3(Math.cos(a) * rc, .005, Math.sin(a) * rc)), top.clone().add(new V3(Math.cos(b) * rc, .005, Math.sin(b) * rc)), cc, cc, cc); }
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx);
+  const m = new THREE.Mesh(g, dvdMat({ roughness: .75, emissiveIntensity: .42 })); m.castShadow = false; parent.add(m);
+  // the soil it grows from: a dark mossy stain on the concrete, ragged like the grass
+  const n2 = 256, [c, x] = cv(n2, n2), im = x.createImageData(n2, n2), nz = fbm(n2, 9102, [[6, .5], [24, .3], [96, .2]]), x0 = X1, x1 = G.x0 + 1.2, z0 = zc - 1.35, z1 = zc + 1.35;
+  for (let j = 0; j < n2; j++) for (let i = 0; i < n2; i++) {
+    const wx = lerp(x0, x1, (i + .5) / n2), wz = lerp(z0, z1, (j + .5) / n2), k = clamp(dvdLawnK(wx, wz) * 1.25 + (nz[j * n2 + i] - .5) * .5, 0, 1), q = (j * n2 + i) * 4, v = .7 + nz[j * n2 + i] * .5;
+    im.data[q] = 50 * v; im.data[q + 1] = 64 * v; im.data[q + 2] = 30 * v; im.data[q + 3] = 210 * k;
+  }
+  x.putImageData(im, 0, 0);
+  const soil = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, z1 - z0), new THREE.MeshStandardMaterial({ map: galTex(c, true, false), transparent: true, depthWrite: false, roughness: 1, polygonOffset: true, polygonOffsetFactor: -3 }));
+  soil.rotation.x = -Math.PI / 2; soil.position.set((x0 + x1) / 2, .0015, zc); soil.renderOrder = 1; parent.add(soil);
 }
 function pieceHope(G) {
-  const p = galPiece('hope'), z = GAL_AT.hope, W = 2.15, Hh = 2.1, y0 = .42;
-  const panel = new THREE.Mesh(new THREE.PlaneGeometry(W, Hh), new THREE.MeshStandardMaterial({ map: hopePanel(), roughness: .85, emissive: 0xffffff, emissiveIntensity: .06 }));
-  panel.material.emissiveMap = panel.material.map; panel.position.set(G.x0 + .006, y0 + Hh / 2, z); panel.rotation.y = Math.PI / 2; gallery.add(panel);
-  // 12 x 4 cases face-out on four oak ledges
-  const atlas = hopeAtlas(), cols = 12, cw = .11, chh = .198, gx = .136, gy = .25, gw = cols * gx, top = y0 + Hh - .72;
-  const pos = [], uv = [], idx = []; const caseB = new Bucket(), ledge = new Bucket();
-  const oak = new THREE.MeshStandardMaterial({ color: 0x9a7448, roughness: .7 });
-  HOPE_ITEMS.forEach((it, i) => {
-    const col = i % cols, row = Math.floor(i / cols), zc = z + gw / 2 - gx / 2 - col * gx, yc = top - row * gy - chh / 2, xf = G.x0 + .032;
-    const a = i % 8, bR = Math.floor(i / 8), u0 = a / 8, u1 = (a + 1) / 8, v1 = 1 - bR / 6, v0 = 1 - (bR + 1) / 6, base = pos.length / 3;
-    // the fronts face +x, so to someone looking at them the right hand side is -z
-    pos.push(xf, yc - chh / 2, zc + cw / 2, xf, yc - chh / 2, zc - cw / 2, xf, yc + chh / 2, zc - cw / 2, xf, yc + chh / 2, zc + cw / 2);
-    uv.push(u0, v0, u1, v0, u1, v1, u0, v1); idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
-    caseB.add(GAL_LIVE.blackM, bb(G.x0 + .007, xf - .001, yc - chh / 2, yc + chh / 2, zc - cw / 2, zc + cw / 2));
-  });
-  for (let r = 0; r < 4; r++) ledge.add(oak, wuv(bb(G.x0 + .006, G.x0 + .07, top - r * gy - chh - .02, top - r * gy - chh, z - gw / 2 - .04, z + gw / 2 + .04), .5, .5));
-  const fg = new THREE.BufferGeometry(); fg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); fg.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); fg.setIndex(idx); fg.computeVertexNormals();
-  const fronts = new THREE.Mesh(fg, new THREE.MeshStandardMaterial({ map: atlas, roughness: .35, emissive: 0xffffff, emissiveMap: atlas, emissiveIntensity: .14 })); gallery.add(fronts);
-  caseB.build(gallery); ledge.build(gallery);
-  for (const o of [panel, fronts]) { o.userData.act = galAct(p); hot.push(o); }
-  pool(gallery, W * 1.3, Hh * 1.25, new V3(G.x0 + .012, y0 + Hh / 2 + .1, z), Math.PI / 2, 0, .36);
-  labelRight(p, new V3(G.x0, 0, z), W / 2, new V3(1, 0, 0));
+  const p = galPiece('hope'), act = galAct(p), { zc, X0, X1, Z0, Z1 } = dvdBox(), { hw, oh, d, h, sd, top } = DVD;
+  const room = new THREE.Group(); gallery.add(room);
+  const paint = dvdMat({ color: 0xf1efe8, emissive: 0xf1efe8, roughness: .9, emissiveIntensity: .74 }), unitM = dvdMat({ color: 0xf4f2ec, emissive: 0xf4f2ec, roughness: .5, emissiveIntensity: .76 });
+  const spines = dvdSpines(), spineM = dvdMat({ map: spines, roughness: .32, envMapIntensity: .5 }, true), coverM = dvdMat({ map: dvdCovers(), roughness: .3, envMapIntensity: .5 }, true);
+  const caseM = dvdMat({ color: 0x111111, emissive: 0x111111, roughness: .35 }), carpet = dvdCarpet(); carpet.repeat.set(d / .5, DVD.w * 2 / .5);
+  const carpetM = dvdMat({ map: carpet, roughness: 1, emissiveIntensity: .6 });
+  // the room: white walls and ceiling, green carpet; the inside face of the gallery wall round the opening is white too
+  const walls = [], plane = (w_, h_, sx, sy) => new THREE.PlaneGeometry(w_, h_, sx, sy);
+  walls.push(plane(Z1 - Z0, h, 8, 8).rotateY(Math.PI / 2).translate(X0, h / 2, zc));
+  walls.push(plane(d, h, 8, 8).translate((X0 + X1) / 2, h / 2, Z0), plane(d, h, 8, 8).rotateY(Math.PI).translate((X0 + X1) / 2, h / 2, Z1));
+  walls.push(plane(zc - hw - Z0, h, 3, 8).rotateY(-Math.PI / 2).translate(X1 - .003, h / 2, (Z0 + zc - hw) / 2), plane(Z1 - zc - hw, h, 3, 8).rotateY(-Math.PI / 2).translate(X1 - .003, h / 2, (Z1 + zc + hw) / 2));
+  walls.push(plane(hw * 2, h - oh, 4, 1).rotateY(-Math.PI / 2).translate(X1 - .003, (h + oh) / 2, zc));
+  walls.push(plane(d, Z1 - Z0, 8, 8).rotateX(Math.PI / 2).translate((X0 + X1) / 2, h, zc));
+  dvdMesh(walls.map(g => dvdBake(g)), paint, room);
+  dvdMesh([dvdBake(plane(d, Z1 - Z0, 10, 10).rotateX(-Math.PI / 2).translate((X0 + X1) / 2, .006, zc))], carpetM, room);
+  // the ceiling light: two flush panels
+  const lamp = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.3, 2.2, 2.0) });
+  for (const k of [-1, 1]) { const m = new THREE.Mesh(new THREE.PlaneGeometry(.95, .2), lamp); m.rotation.x = Math.PI / 2; m.position.set((X0 + X1) / 2, h - .004, zc + k * .22); room.add(m); }
+  // the shelves: white units on the back wall (two) and down each side (two each), nine rows of cases on each
+  const boards = [], rows = [], covers = [], cases = [], rngU = rng(8803), up = new V3(0, 1, 0), pitch = (top - .024 - .105 + .02) / 9, clear = pitch - .02; let title = 0;
+  const unit = (o, n, W, faceOut) => {                 // o: the unit's left end on the wall as you face it; n: into the room
+    const R = up.clone().cross(n), M4 = new THREE.Matrix4().makeBasis(R, up, n).setPosition(o), put = (g) => boards.push(dvdBake(g.applyMatrix4(M4)));
+    put(bb(0, .018, 0, top, 0, sd)); put(bb(W - .018, W, 0, top, 0, sd)); put(bb(0, W, top - .024, top, 0, sd));
+    put(bb(.018, W - .018, 0, .085, 0, sd - .015)); put(bb(.018, W - .018, .085, .105, 0, sd)); put(bb(.018, W - .018, 0, top, 0, .008));
+    for (let i = 0; i < 9; i++) {
+      const s = .105 + i * pitch; if (i) put(bb(.018, W - .018, s - .02, s, 0, sd));
+      if (i === faceOut) {                             // the site's titles, face out, leaning back a little
+        const k = Math.floor((W - .06) / .165), stepU = (W - .036) / k;
+        for (let j = 0; j < k && title < HOPE_ITEMS.length; j++) {
+          const it = title++, cu = .018 + stepU * (j + .5), CM = M4.clone().multiply(new THREE.Matrix4().makeTranslation(cu, s + .002, sd - .055)).multiply(new THREE.Matrix4().makeRotationX(-.12));
+          const g = new THREE.PlaneGeometry(.135, .19).translate(0, .095, .0008), uv = g.attributes.uv, a = it % 8, b = Math.floor(it / 8);
+          for (let q = 0; q < uv.count; q++) uv.setXY(q, (a + uv.getX(q)) / 8, 1 - (b + 1 - uv.getY(q)) / 6);
+          covers.push(dvdBake(g.applyMatrix4(CM))); cases.push(dvdBake(bb(-.0675, .0675, 0, .19, -.014, 0).applyMatrix4(CM)));
+        }
+        continue;
+      }
+      const L = W - .036, du = L * DVD_PX / 2048, u0 = rngU() * (1 - du), strip = Math.floor(rngU() * 6), v0 = 1 - (strip + 1) / 6, v1 = 1 - strip / 6;
+      const g = new THREE.PlaneGeometry(L, clear).translate(W / 2, s + clear / 2, sd - .018), uv = g.attributes.uv;
+      for (let q = 0; q < uv.count; q++) uv.setXY(q, u0 + uv.getX(q) * du, v0 + uv.getY(q) * (v1 - v0));
+      rows.push(dvdBake(g.applyMatrix4(M4)));
+    }
+  };
+  
+  unit(new V3(X0, 0, Z1), new V3(1, 0, 0), DVD.w, 5); unit(new V3(X0, 0, zc), new V3(1, 0, 0), DVD.w, 5);   // the back wall: facing it, its left end is at +z
+  const side = (X1 - X0 - sd) / 2;
+  for (let k = 0; k < 2; k++) { unit(new V3(X0 + sd + k * side, 0, Z0), new V3(0, 0, 1), side, -1); unit(new V3(X1 - k * side, 0, Z1), new V3(0, 0, -1), side, -1); }
+  dvdMesh(boards, unitM, room, act); dvdMesh(rows, spineM, room, act); dvdMesh(covers, coverM, room, act); dvdMesh(cases, caseM, room);
+  // the gallery side: a white casing round the opening, the reveal lined in white, the neon over it
+  const trim = new THREE.MeshStandardMaterial({ color: 0xeeebe3, roughness: .6 }), tb = new Bucket(), cw = .07;
+  tb.add(trim, bb(G.x0, G.x0 + .022, 0, oh + cw, zc - hw - cw, zc - hw)); tb.add(trim, bb(G.x0, G.x0 + .022, 0, oh + cw, zc + hw, zc + hw + cw)); tb.add(trim, bb(G.x0, G.x0 + .022, oh, oh + cw, zc - hw - cw, zc + hw + cw));
+  tb.add(trim, bb(X1 - .002, G.x0 + .002, 0, oh, zc - hw, zc - hw + .012)); tb.add(trim, bb(X1 - .002, G.x0 + .002, 0, oh, zc + hw - .012, zc + hw)); tb.add(trim, bb(X1 - .002, G.x0 + .002, oh - .012, oh, zc - hw, zc + hw));
+  tb.build(room, false);
+  const NW = 1.5, NH = NW * 320 / 1024, neon = new THREE.Mesh(new THREE.PlaneGeometry(NW, NH), new THREE.MeshBasicMaterial({ map: dvdNeon(), color: new THREE.Color(1.7, 1.7, 1.7), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  neon.position.set(G.x0 + .03, oh + cw + .03 + NH / 2, zc); neon.rotation.y = Math.PI / 2; neon.renderOrder = 6; gallery.add(neon); neon.userData.act = act; hot.push(neon);
+  GAL_LIVE.neon = neon;
+  pool(gallery, 2.4, 1.2, new V3(G.x0 + .009, neon.position.y - .05, zc), Math.PI / 2, 0, .45, [.3, 1, .5]);                     // the neon's green on the wall
+  pool(gallery, 1.8, 1.5, new V3(G.x0 + .6, .004, zc), Math.PI / 2, -Math.PI / 2, .34, [1, .95, .86]);                  // the room's light spilling out over the step
+  pool(gallery, 1.4, .8, new V3(G.x0 + .35, .005, zc), Math.PI / 2, -Math.PI / 2, .08, [.3, 1, .5]);
+  dvdLawn(gallery);
+  labelRight(p, new V3(G.x0, 0, zc), hw + cw, new V3(1, 0, 0));
 }
 
 /* ---- 4 · Untitled (hands): the recursive drawing as a lightbox, each level of the recursion a layer deeper ---- */
@@ -4095,7 +4277,7 @@ function buildGallery() {
   const b = new Bucket();
   // floor and walls
   b.add(floorM, wuv(bb(G.x0 - .2, G.x1 + .2, -.08, 0, WALL_Z, G.z1 + .2), 3, 3));
-  for (const g of holedWall('x', G.x0 - .2, G.x0, WALL_Z, G.z1, 0, G.yb, [])) b.add(plaster, wuv(g, 2.5, 2.5));
+  for (const g of holedWall('x', G.x0 - .2, G.x0, WALL_Z, G.z1, 0, G.yb, [[GAL_AT.hope - DVD.hw, GAL_AT.hope + DVD.hw, -1, DVD.oh]])) b.add(plaster, wuv(g, 2.5, 2.5));   // the DVD room's opening
   for (const g of holedWall('x', G.x1, G.x1 + .2, WALL_Z, G.z1, 0, G.yb, [])) b.add(plaster, wuv(g, 2.5, 2.5));
   for (const g of holedWall('z', G.z1, G.z1 + .2, G.x0 - .2, G.x1 + .2, 0, G.yb, [])) b.add(brick, wuv(g, 1, 1));
   // the lift wall: a plaster skin over the shaft's own slab, with the doorway, and solid wall beyond the shaft
@@ -4126,7 +4308,7 @@ function buildGallery() {
   const A = GAL_AT;
   spot(railY, new V3(1.6, S, A.rapailler - .55), new V3(G.x1, 1.7, A.rapailler - .25)); spot(railY, new V3(1.6, S, A.rapailler + .55), new V3(G.x1, 1.6, A.rapailler + .25));
   spot(railY, new V3(1.6, S, STM_Z - .25), new V3(G.x1 - .4, 1.3, STM_Z));
-  spot(railY, new V3(-1.6, S, A.hope - .6), new V3(G.x0, 1.6, A.hope - .4)); spot(railY, new V3(-1.6, S, A.hope + .6), new V3(G.x0, 1.6, A.hope + .4));
+  spot(railY, new V3(-1.6, S, A.hope - 1.25), new V3(G.x0, 1.35, A.hope - 1.1)); spot(railY, new V3(-1.6, S, A.hope + .55), new V3(G.x0 + .45, 0, A.hope + .15));
   spot(railY, new V3(-1.6, S, A.hands), new V3(G.x0, 1.6, A.hands));
   spot(railY, new V3(-1.6, S, G.z1 - .8), new V3(-.4, 1.6, G.z1)); spot(railY, new V3(1.6, S, G.z1 - .8), new V3(.4, 1.6, G.z1));
   spot(railY, new V3(-1.6, S, A.gorilla - .65), new V3(0, 1.4, A.gorilla)); spot(railY, new V3(1.6, S, A.gorilla + .65), new V3(0, 1.6, A.gorilla));
@@ -5129,7 +5311,7 @@ function surfaceUnder() {
   const x = P.pos.x, z = P.pos.z;
   if (z < CAB.z1 + .02 && Math.abs(x) < CAB.x1 + .05) return SC_LIVE.level > .5 && SC_LIVE.fill > .35 ? 'water' : 'metal';   // the cab takes on water at floor 3
   if (lift.floor === SC_FLOOR && lift.phase !== 'riding' && z > WALL_Z - .05) return scWaterAt(x, z) ? 'water' : 'grass';
-  if (lift.floor === GALLERY_FLOOR && lift.phase !== 'riding' && z > WALL_Z + .05) return 'stone';   // the gallery's bare concrete
+  if (lift.floor === GALLERY_FLOOR && lift.phase !== 'riding' && z > WALL_Z + .05) return dvdSurface(x, z) || 'stone';   // the gallery's bare concrete (the DVD room's carpet, the grass at its step)
   if (lift.floor === ROOF && lift.phase !== 'riding') {
     if (z < WALL_Z + .1 && Math.abs(x) < DOOR_W / 2 + .1) return 'tile';          // the brass sill
     return ROOF_STONES.some(q => x > q[0] && x < q[1] && z > q[2] && z < q[3]) ? 'stone' : 'grass';
@@ -5468,7 +5650,7 @@ function rects() {
   else if (lift.doors > .92 && lift.phase === 'open') {
     out.push([-DOOR_W / 2 + .19, DOOR_W / 2 - .19, CAB.z1 - .4, WALL_Z + .6]);
     if (lift.floor === 0) out.push([LOBBY.x0 + r, LOBBY.x1 - r, WALL_Z + r, LOBBY.z1 - r]);
-    else if (lift.floor === GALLERY_FLOOR) out.push([GAL.x0 + r, GAL.x1 - r, WALL_Z + r, GAL.z1 - r]);
+    else if (lift.floor === GALLERY_FLOOR) out.push([GAL.x0 + r, GAL.x1 - r, WALL_Z + r, GAL.z1 - r], ...dvdRects(r));   // and in through the wall to the DVD room
     else if (lift.floor === SC_FLOOR) out.push([SC.x0 + r, SC.x1 - r, WALL_Z + r, SC.z1 + .1], [SC.op0 + r, SC.op1 - r, SC.z1 - .3, SC.z1 + .7], [-8, 8, SC.z1 + .45, 14]);
     else if (lift.floor === ROOF) { const e = .25 + r; out.push([RF.x0 + e, RF.x1 - e, .3 + r, RF.z1 - e], [RF.x0 + e, HH.x0 - .05 - r, RF.z0 + e, 1], [HH.x1 + .3 + r, RF.x1 - e, RF.z0 + e, 1]); }
     else out.push([LAND.x0 + r, LAND.x1 - r, WALL_Z + r, LAND.z1 - r]);
