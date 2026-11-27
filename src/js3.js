@@ -346,7 +346,14 @@ function openSocial(a) {
 }
 const menu = $('menu');
 function openMenu() { menu.hidden = false; if (document.pointerLockElement) document.exitPointerLock(); keys.clear(); setTimeout(() => menu.querySelector('a')?.focus(), 30); }
-function closeMenu() { menu.hidden = true; canvas.focus({ preventScroll: true }); }
+// some browser extensions (Vimium and its kin) take plain letters for their own commands (D: scroll down) unless something
+// editable has the focus: while you play, an invisible editable spot holds it, so W A S D all reach the game (not on
+// touch screens, where focusing it would open the keyboard)
+const keyTrap = $('keytrap');
+keyTrap.addEventListener('input', () => { keyTrap.textContent = ''; });          // nothing typed ever stays in it
+function focusGame() { try { if (!isTouch) keyTrap.focus({ preventScroll: true }); else canvas.focus({ preventScroll: true }); } catch (e) { } }
+canvas.addEventListener('focus', () => { if (!isTouch) focusGame(); });          // a click in the view hands the focus on to it
+function closeMenu() { menu.hidden = true; focusGame(); }
 // a wall label, opened: the white card at a size you can read, with the project's link and its makers' profiles (GALLERY in head.html)
 const cardBox = $('cardBox');
 const uiFree = () => menu.hidden && cardBox.hidden;                // nothing open over the view
@@ -366,7 +373,7 @@ function openCard(p) {
   paint($('cardGlyphs'), (x, w, h) => { const W = w / .92; cardStamps(x, p, 0, 0, w, h, W); });
   setTimeout(() => cardBox.querySelector('.cards').focus({ preventScroll: true }), 30);   // into the dialog, nothing picked yet
 }
-function closeCard() { cardBox.hidden = true; canvas.focus({ preventScroll: true }); }
+function closeCard() { cardBox.hidden = true; focusGame(); }
 $('cardClose').addEventListener('click', closeCard);
 cardBox.addEventListener('click', (e) => { if (e.target === cardBox) closeCard(); });
 cardBox.addEventListener('keydown', (e) => {
@@ -521,6 +528,7 @@ window.addEventListener('keydown', (e) => {
   // ⌘ or Ctrl: a shortcut, not a step. On a Mac a key let go while ⌘ is down never sends its keyup, so it would stay
   // pressed and the view would keep turning: drop every held key instead (the browser still gets its shortcut)
   if (e.metaKey || e.ctrlKey || e.key === 'Meta' || e.key === 'Control') { keys.clear(); return; }
+  if (e.target === keyTrap && e.key && e.key.length === 1) e.preventDefault();   // a letter for the game, not text in the spot
   if (!cardBox.hidden) { if (e.key === 'Escape') closeCard(); return; }   // a card is open: Esc closes it, nothing else moves
   if (!menu.hidden || RIDE.on) return;
   if (D.state === 'gate' || D.state === 'intro') { if (D.key(e)) e.preventDefault(); return; }
@@ -636,7 +644,7 @@ const D = {
     if (t > SHOT.ctrl) this.handOver(s);
   },
   handOver(s) {
-    this.state = 'play'; document.body.classList.remove('letterbox');
+    this.state = 'play'; document.body.classList.remove('letterbox'); focusGame();
     P.pos.set(CAM.fp.p.x, 0, CAM.fp.p.z); P.yaw = 0; P.pitch = Math.atan2(CAM.fp.l.y - CAM.fp.p.y, CAM.fp.p.z - CAM.fp.l.z);
     lift.phase = 'open'; lift.floor = 0;
     setTimeout(() => { if (this.hintShown) return; this.hintShown = true;

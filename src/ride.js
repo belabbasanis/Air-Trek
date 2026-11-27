@@ -38,7 +38,7 @@ function endRide() {
     // back at the breach, the boat broadside in front of you and the sea beyond it
     const B = SC_BOAT; P.pos.set(B.x - .8, 0, B.z - 3.3); P.yaw = Math.atan2(-(B.x - P.pos.x), -(B.z - P.pos.z)); P.pitch = .02;
     if (A.ctx && A.ctx.state === 'suspended' && SET.sound) A.ctx.resume();
-    try { window.focus(); canvas.focus({ preventScroll: true }); } catch (e) { }
+    try { window.focus(); } catch (e) { } focusGame();
     setTimeout(() => { v.classList.remove('on'); RIDE.on = false; RIDE.leaving = false; }, 350);   // a beat of black, then the room
   }, 750);
 }

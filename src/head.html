@@ -184,6 +184,7 @@ body{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 /* a wall label, opened: the business card, both sides, on a grey ground: the title drawn by hand on the front;
    on the back, the words in mono caps in the top corners and the project's ink stamps along the bottom */
 #cardBox{position:fixed;inset:0;z-index:31;display:flex;align-items:center;justify-content:center;background:rgba(152,152,146,.96);padding:max(52px,env(safe-area-inset-top,0px)) 16px 24px;overflow:auto;-webkit-user-select:text;user-select:text}
+#keytrap{position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;overflow:hidden;white-space:nowrap;pointer-events:none;caret-color:transparent;outline:none;z-index:-1}
 #cardBox .cards:focus{outline:none}
 #cardBox .cards{display:flex;flex-direction:column;align-items:center;gap:clamp(14px,3vh,28px);margin:auto}
 #cardBox .bcard{position:relative;flex:none;width:min(600px,calc(100vw - 32px),calc((100vh - 120px) / 2 * 1.545));aspect-ratio:1.545;background:#f4f3ee;color:#191715;box-shadow:0 1px 2px rgba(0,0,0,.14),0 12px 34px rgba(0,0,0,.18);container-type:inline-size;overflow:hidden;animation:cardIn .3s ease-out both}
@@ -251,6 +252,7 @@ body.rm .cine,body.rm #lb i{transition-duration:.01s}
     <button id="closeMenu" type="button">Close</button>
   </div>
 </div>
+<div id="keytrap" contenteditable="true" spellcheck="false" autocapitalize="off" autocorrect="off" data-gramm="false" data-gramm_editor="false" data-enable-grammarly="false" tabindex="-1" role="application" aria-label="As Is: W A S D to walk, the mouse to look"></div>
 <div id="cardBox" role="dialog" aria-modal="true" aria-labelledby="cardTitle" hidden>
   <button id="cardClose" type="button">Close ×</button>
   <div class="cards" tabindex="-1">
